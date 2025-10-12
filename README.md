@@ -2,12 +2,16 @@
 
 Model Context Protocol (MCP) server for Australian legal research. Searches AustLII for case law and legislation, retrieves full-text judgements with paragraph numbers preserved, and supports OCR for scanned PDFs.
 
-**Status**: ✅ Working MVP | 🚧 [Improving search relevance](https://github.com/russellbrenner/auslaw-mcp/issues/2)
+**Status**: ✅ Working MVP with intelligent search relevance
 
 ## Features
 
 ### Current Capabilities
 - ✅ **Case law search**: Natural language queries (e.g., "negligence duty of care")
+- ✅ **Intelligent search relevance**: Auto-detects case name queries vs topic searches and applies appropriate sorting
+  - Case name queries (e.g., "Donoghue v Stevenson") use relevance sorting to find the specific case
+  - Topic queries (e.g., "negligence duty of care") use date sorting for recent cases
+  - Manual override available via `sortBy` parameter
 - ✅ **Legislation search**: Find Australian Commonwealth and State legislation
 - ✅ **Primary sources only**: Filters out journal articles and commentary
 - ✅ **Citation extraction**: Extracts neutral citations like `[2025] HCA 26`
@@ -16,8 +20,7 @@ Model Context Protocol (MCP) server for Australian legal research. Searches Aust
 - ✅ **Document retrieval**: Full text from HTML and PDF sources
 - ✅ **OCR support**: Tesseract OCR fallback for scanned PDFs
 
-### Limitations & Roadmap
-- 🚧 **Search relevance**: Currently sorts by date; case name searches need relevance sorting ([#2](https://github.com/russellbrenner/auslaw-mcp/issues/2))
+### Roadmap
 - 🔜 **Multi-source**: Will add removed.invalid for reported judgements
 - 🔜 **Page numbers**: Will extract page numbers from reported versions
 - 🔜 **Authority ranking**: Will prioritise reported over unreported judgements
@@ -87,20 +90,40 @@ Search Australian case law using natural language queries.
 - `jurisdiction` (optional): Filter by jurisdiction: "cth", "vic", "federal", "other"
 - `limit` (optional): Maximum number of results (1-50, default 10)
 - `format` (optional): Output format: "json", "text", "markdown", "html" (default "json")
+- `sortBy` (optional): Sorting mode: "auto", "relevance", or "date" (default "auto")
+  - `"auto"` (recommended): Intelligently detects case name queries (e.g., "X v Y", "Re X", citations) and uses relevance sorting to find the specific case; uses date sorting for topic searches
+  - `"relevance"`: Sort by relevance to query (best for finding specific cases by name)
+  - `"date"`: Sort by date, most recent first (best for finding recent cases on a topic)
 
-**Example:**
+**Examples:**
+
+Finding a specific case by name (auto mode):
+```json
+{
+  "query": "Donoghue v Stevenson",
+  "limit": 5
+}
+```
+
+Finding recent cases on a topic:
 ```json
 {
   "query": "negligence duty of care",
   "jurisdiction": "cth",
-  "limit": 5
+  "limit": 5,
+  "sortBy": "date"
 }
 ```
 
 ### search_legislation
 Search Australian legislation.
 
-**Parameters:** Same as `search_cases`
+**Parameters:**
+- `query` (required): Search query in natural language
+- `jurisdiction` (optional): Filter by jurisdiction: "cth", "vic", "federal", "other"
+- `limit` (optional): Maximum number of results (1-50, default 10)
+- `format` (optional): Output format: "json", "text", "markdown", "html" (default "json")
+- `sortBy` (optional): Sorting mode: "auto", "relevance", or "date" (default "auto")
 
 **Example:**
 ```json
@@ -161,7 +184,7 @@ src/
 See [docs/ROADMAP.md](docs/ROADMAP.md) and [Issue #2](https://github.com/russellbrenner/auslaw-mcp/issues/2) for detailed development plans.
 
 **Next priorities**:
-1. Fix search relevance for case name queries
+1. ✅ ~~Fix search relevance for case name queries~~ (Completed)
 2. Add removed.invalid integration for reported judgements
 3. Extract page numbers for pinpoint citations
 4. Implement authority-based result ranking

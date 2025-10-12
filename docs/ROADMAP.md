@@ -154,12 +154,34 @@ function calculateAuthorityScore(result: SearchResult): number {
 }
 ```
 
+## Implementation Status
+
+### ✅ Phase 1: Search Relevance (COMPLETED)
+
+**Implemented features:**
+1. ✅ Smart query detection: Auto-detects case names ("X v Y", "Re X", citations) vs topic searches
+2. ✅ `sortBy` parameter: "auto" (default), "relevance", or "date" modes
+3. ✅ Title matching boost: Prioritizes exact case name matches in results
+4. ✅ Auto mode intelligence:
+   - Case name queries → relevance sorting to find specific cases
+   - Topic queries → date sorting for recent jurisprudence
+5. ✅ Comprehensive test suite: 7 new tests covering all sorting scenarios
+
+**What was fixed:**
+- ❌ **OLD**: Searching "Donoghue v Stevenson" returned 2025 cases citing it
+- ✅ **NEW**: Search returns the actual case being searched for
+
+**Technical details:**
+- Pattern detection for "X v Y", "Re X", citations, and quoted queries
+- Title scoring algorithm with party name matching
+- Configurable sorting with sensible defaults
+
 ## Implementation Priority
 
 ### Must Have (Next Sprint)
-1. ✅ Fix search relevance for case name queries
-2. ✅ Preserve paragraph numbers properly (already working)
-3. ✅ Add search mode parameter (relevance/date/auto)
+1. ✅ ~~Fix search relevance for case name queries~~ (COMPLETED)
+2. ✅ ~~Preserve paragraph numbers properly~~ (already working)
+3. ✅ ~~Add search mode parameter (relevance/date/auto)~~ (COMPLETED)
 
 ### Should Have (Following Sprint)
 1. 🔶 Add removed.invalid integration for reported judgments

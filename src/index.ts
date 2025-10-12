@@ -11,6 +11,7 @@ import { searchAustLii } from "./services/austlii.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
 const jurisdictionEnum = z.enum(["cth", "vic", "federal", "other"]);
+const sortByEnum = z.enum(["relevance", "date", "auto"]).default("auto");
 
 async function main() {
   const server = new McpServer({
@@ -25,6 +26,7 @@ async function main() {
     jurisdiction: jurisdictionEnum.optional(),
     limit: z.number().int().min(1).max(50).optional(),
     format: formatEnum.optional(),
+    sortBy: sortByEnum.optional(),
   };
   const searchLegislationParser = z.object(searchLegislationShape);
 
@@ -37,12 +39,13 @@ async function main() {
       inputSchema: searchLegislationShape,
     },
     async (rawInput) => {
-      const { query, jurisdiction, limit, format } =
+      const { query, jurisdiction, limit, format, sortBy } =
         searchLegislationParser.parse(rawInput);
       const results = await searchAustLii(query, {
         type: "legislation",
         jurisdiction,
         limit,
+        sortBy,
       });
       return formatSearchResults(results, format ?? "json");
     },
@@ -53,6 +56,7 @@ async function main() {
     jurisdiction: jurisdictionEnum.optional(),
     limit: z.number().int().min(1).max(50).optional(),
     format: formatEnum.optional(),
+    sortBy: sortByEnum.optional(),
   };
   const searchCasesParser = z.object(searchCasesShape);
 
@@ -61,16 +65,17 @@ async function main() {
     {
       title: "Search Cases",
       description:
-        "Search Australian case law with neutral citation fallbacks.",
+        "Search Australian case law with neutral citation fallbacks. Supports 'auto' (default), 'relevance', or 'date' sorting. Auto mode intelligently detects case name queries (e.g., 'X v Y') and uses relevance sorting to find the specific case, while using date sorting for topic searches.",
       inputSchema: searchCasesShape,
     },
     async (rawInput) => {
-      const { query, jurisdiction, limit, format } =
+      const { query, jurisdiction, limit, format, sortBy } =
         searchCasesParser.parse(rawInput);
       const results = await searchAustLii(query, {
         type: "case",
         jurisdiction,
         limit,
+        sortBy,
       });
       return formatSearchResults(results, format ?? "json");
     },

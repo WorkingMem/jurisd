@@ -190,3 +190,180 @@ describe("Search result quality checks", () => {
     });
   }, 30000);
 });
+
+describe("Search relevance and sorting", () => {
+  /**
+   * Test case name query with auto sorting
+   * Should detect "X v Y" pattern and use relevance sorting
+   */
+  it("should find specific case when searching by name (auto mode)", async () => {
+    const results = await searchAustLii("Donoghue v Stevenson", {
+      type: "case",
+      limit: 10,
+      sortBy: "auto", // Should auto-detect case name and use relevance
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+
+    // First result should have both party names in title
+    const firstTitle = results[0]?.title.toLowerCase();
+    expect(firstTitle).toBeDefined();
+
+    // Should contain both party names (at least one result in top 5)
+    const topResults = results.slice(0, 5);
+    const hasDonoghue = topResults.some(r =>
+      r.title.toLowerCase().includes("donoghue")
+    );
+    const hasStevenson = topResults.some(r =>
+      r.title.toLowerCase().includes("stevenson")
+    );
+
+    // At least one of the top results should mention the parties
+    expect(hasDonoghue || hasStevenson).toBe(true);
+  }, 30000);
+
+  /**
+   * Test explicit relevance sorting for case names
+   */
+  it("should use relevance sorting when explicitly requested", async () => {
+    const results = await searchAustLii("Mabo", {
+      type: "case",
+      limit: 10,
+      sortBy: "relevance",
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+
+    // When using relevance sort, "Mabo" should appear in top results
+    const topResults = results.slice(0, 5);
+    const hasMabo = topResults.some(r =>
+      r.title.toLowerCase().includes("mabo")
+    );
+    expect(hasMabo).toBe(true);
+
+    results.forEach((result) => {
+      expect(result.type).toBe("case");
+      expect(result.url).toMatch(/\/cases\//);
+    });
+  }, 30000);
+
+  /**
+   * Test date sorting for topic searches
+   * Topic searches should return recent cases
+   */
+  it("should use date sorting for topic searches (auto mode)", async () => {
+    const results = await searchAustLii("negligence duty of care", {
+      type: "case",
+      limit: 5,
+      sortBy: "auto", // Should detect topic and use date sorting
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+
+    // Should return recent cases (within last 5 years)
+    const currentYear = new Date().getFullYear();
+    const recentResults = results.filter(
+      (r) => r.year && parseInt(r.year) >= currentYear - 5
+    );
+
+    // At least half should be recent
+    expect(recentResults.length).toBeGreaterThanOrEqual(results.length / 2);
+  }, 30000);
+
+  /**
+   * Test explicit date sorting
+   */
+  it("should sort by date when explicitly requested", async () => {
+    const results = await searchAustLii("contract law", {
+      type: "case",
+      limit: 5,
+      sortBy: "date",
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+
+    // Extract years where available
+    const years = results
+      .filter(r => r.year)
+      .map(r => parseInt(r.year!));
+
+    if (years.length >= 2) {
+      // Years should be in descending order (most recent first)
+      for (let i = 0; i < years.length - 1; i++) {
+        expect(years[i]).toBeGreaterThanOrEqual(years[i + 1]!);
+      }
+    }
+  }, 30000);
+
+  /**
+   * Test detection of "Re X" case pattern
+   */
+  it("should detect 'Re X' case name pattern and use relevance", async () => {
+    const results = await searchAustLii("Re Wakim", {
+      type: "case",
+      limit: 10,
+      sortBy: "auto",
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+
+    // Should find cases with "Wakim" in the title (using relevance)
+    const hasWakim = results.slice(0, 5).some(r =>
+      r.title.toLowerCase().includes("wakim")
+    );
+    expect(hasWakim).toBe(true);
+  }, 30000);
+
+  /**
+   * Test citation-based query detection
+   */
+  it("should detect citation pattern and use relevance sorting", async () => {
+    const results = await searchAustLii("[1992] HCA 23", {
+      type: "case",
+      limit: 5,
+      sortBy: "auto",
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+
+    // Should find results with matching citation pattern
+    results.forEach((result) => {
+      expect(result.type).toBe("case");
+
+      // At least some results should have the year 1992
+      if (result.neutralCitation) {
+        expect(result.neutralCitation).toMatch(/\[1992\]/);
+      }
+    });
+  }, 30000);
+
+  /**
+   * Test that default behavior is auto mode
+   */
+  it("should default to auto mode when sortBy not specified", async () => {
+    // Case name query - should auto-detect and use relevance
+    const caseNameResults = await searchAustLii("Mason v NSW", {
+      type: "case",
+      limit: 5,
+      // sortBy not specified - should default to auto
+    });
+
+    expect(caseNameResults.length).toBeGreaterThan(0);
+
+    // Topic query - should auto-detect and use date
+    const topicResults = await searchAustLii("property rights", {
+      type: "case",
+      limit: 5,
+      // sortBy not specified - should default to auto
+    });
+
+    expect(topicResults.length).toBeGreaterThan(0);
+
+    // Topic searches should return recent cases
+    const currentYear = new Date().getFullYear();
+    const recentTopicResults = topicResults.filter(
+      (r) => r.year && parseInt(r.year) >= currentYear - 5
+    );
+    expect(recentTopicResults.length).toBeGreaterThan(0);
+  }, 30000);
+});

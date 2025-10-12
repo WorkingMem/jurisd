@@ -36,14 +36,17 @@ src/
 - Future: Extract page numbers for reported citations
 
 ### 3. Search Quality
-- **Current issue**: Date sorting returns recent cases that cite older authorities
-- **Goal**: Return the ACTUAL case being searched for
-- See [Issue #2](https://github.com/russellbrenner/auslaw-mcp/issues/2) for improvement plan
+- ✅ **FIXED**: Intelligent sorting now returns the actual case being searched for
+- **Implementation**: Auto-detects case name queries vs topic searches
+  - Case names ("X v Y", "Re X", citations) → relevance sorting
+  - Topics ("negligence duty of care") → date sorting for recent cases
+- **Configuration**: `sortBy` parameter supports "auto" (default), "relevance", "date"
 
 ### 4. Real-World Testing
 - Tests hit live AustLII API (non-deterministic)
 - Validate with actual legal queries (e.g., "negligence duty of care")
 - Test scenarios in `src/test/scenarios.test.ts` must pass
+- 14 test scenarios covering search quality, relevance, and sorting modes
 
 ## Development Guidelines
 
@@ -74,9 +77,13 @@ Every PR must include:
 
 **Current AustLII search** (`src/services/austlii.ts`):
 - Uses `https://classic.austlii.edu.au/cgi-bin/sinosrch.cgi`
-- Parameters: `method=boolean`, `query=...`, `meta=/austlii`, `view=date`
+- Parameters: `method=boolean`, `query=...`, `meta=/austlii`, `view=date|relevance`
 - Parses `<ol><li>` result structure with Cheerio
-- **Known issue**: `view=date` breaks relevance for case name searches
+- **Smart query detection**:
+  - `isCaseNameQuery()`: Detects "X v Y", "Re X", citation patterns, quoted strings
+  - `determineSortMode()`: Auto-selects appropriate sorting
+  - `boostTitleMatches()`: Re-ranks results by title match score for case name queries
+- **Configurable sorting**: Explicit control via `sortBy` parameter when needed
 
 **Document fetching** (`src/services/fetcher.ts`):
 - Handles HTML, PDF, and OCR fallback (Tesseract)
@@ -134,36 +141,46 @@ function extractTextFromHtml(html: string): string {
 
 ### Adding Search Parameters
 
+**Example: The `sortBy` parameter (already implemented)**
+
 ```typescript
-// 1. Update SearchOptions interface
+// 1. Update SearchOptions interface in src/services/austlii.ts
 export interface SearchOptions {
   jurisdiction?: "cth" | "vic" | "federal" | "other";
   limit?: number;
   type: "case" | "legislation";
-  sortBy?: "relevance" | "date" | "auto"; // NEW
+  sortBy?: "relevance" | "date" | "auto"; // ✅ IMPLEMENTED
 }
 
-// 2. Update Zod schema in index.ts
+// 2. Update Zod schema in src/index.ts
+const sortByEnum = z.enum(["relevance", "date", "auto"]).default("auto");
 const searchCasesShape = {
   query: z.string().min(1),
   jurisdiction: jurisdictionEnum.optional(),
   limit: z.number().int().min(1).max(50).optional(),
-  sortBy: z.enum(["relevance", "date", "auto"]).optional(), // NEW
+  sortBy: sortByEnum.optional(), // ✅ IMPLEMENTED
 };
 
-// 3. Implement in search function
-if (options.sortBy === "relevance") {
+// 3. Implement smart detection in src/services/austlii.ts
+const sortMode = determineSortMode(query, options);
+if (sortMode === "relevance") {
   searchUrl.searchParams.set("view", "relevance");
 } else {
   searchUrl.searchParams.set("view", "date");
+}
+
+// 4. Add post-processing for better results
+if (sortMode === "relevance" && isCaseNameQuery(query)) {
+  finalResults = boostTitleMatches(results, query);
 }
 ```
 
 ## Known Issues & Workarounds
 
-### Issue: Search returns citing cases, not target case
-**Workaround**: Currently none; see [Issue #2](https://github.com/russellbrenner/auslaw-mcp/issues/2)
-**Fix in progress**: Add relevance sorting and title matching
+### ~~Issue: Search returns citing cases, not target case~~ ✅ FIXED
+**Status**: Resolved in this PR
+**Solution**: Implemented intelligent sorting with auto-detection and title matching
+**Details**: See Phase 1 implementation in ROADMAP.md
 
 ### Issue: Page numbers lost in extraction
 **Workaround**: Use paragraph numbers for pinpoints

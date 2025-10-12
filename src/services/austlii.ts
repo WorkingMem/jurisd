@@ -17,6 +17,7 @@ export interface SearchOptions {
   jurisdiction?: "cth" | "vic" | "federal" | "other";
   limit?: number;
   type: "case" | "legislation";
+  sortBy?: "relevance" | "date" | "auto";
 }
 
 const AUSTLII_SEARCH_BASE = "https://classic.austlii.edu.au/cgi-bin/sinosrch.cgi";
@@ -25,6 +26,59 @@ interface SearchParams {
   query: string;
   meta: string;
   mask_path?: string;
+}
+
+/**
+ * Detects if a query looks like a case name (e.g., "X v Y", "Re X")
+ * These queries benefit from relevance sorting to find the specific case
+ */
+function isCaseNameQuery(query: string): boolean {
+  // Pattern 1: "X v Y" or "X v. Y" (party vs party)
+  if (/\b\w+\s+v\.?\s+\w+/i.test(query)) {
+    return true;
+  }
+
+  // Pattern 2: "Re X" or "In re X" (matter of X)
+  if (/\b(re|in\s+re)\s+\w+/i.test(query)) {
+    return true;
+  }
+
+  // Pattern 3: Contains citation pattern like [2024] HCA 26
+  if (/\[\d{4}\]\s*[A-Z]+\s*\d+/i.test(query)) {
+    return true;
+  }
+
+  // Pattern 4: Quote marks suggest looking for exact case name
+  if (query.includes('"')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Determines the appropriate sort mode based on query and options
+ */
+function determineSortMode(query: string, options: SearchOptions): "relevance" | "date" {
+  // If explicitly set, use that
+  if (options.sortBy === "relevance") {
+    return "relevance";
+  }
+  if (options.sortBy === "date") {
+    return "date";
+  }
+
+  // Auto mode: detect based on query pattern
+  if (options.sortBy === "auto" || !options.sortBy) {
+    // For case name queries, use relevance to find the specific case
+    if (options.type === "case" && isCaseNameQuery(query)) {
+      return "relevance";
+    }
+    // For topic searches, use date to get recent cases
+    return "date";
+  }
+
+  return "date";
 }
 
 function buildSearchParams(query: string, options: SearchOptions): SearchParams {
@@ -47,13 +101,21 @@ export async function searchAustLii(
     const searchParams = buildSearchParams(query, options);
     const limit = options.limit ?? 10;
 
+    // Determine sort mode (auto-detect or use explicit setting)
+    const sortMode = determineSortMode(query, options);
+
     const searchUrl = new URL(AUSTLII_SEARCH_BASE);
     searchUrl.searchParams.set("method", "boolean");
     searchUrl.searchParams.set("query", searchParams.query);
     searchUrl.searchParams.set("meta", searchParams.meta);
     searchUrl.searchParams.set("results", String(limit));
-    // Sort by date (reverse chronological) to get recent results
-    searchUrl.searchParams.set("view", "date");
+
+    // Set sort order based on mode
+    if (sortMode === "relevance") {
+      searchUrl.searchParams.set("view", "relevance");
+    } else {
+      searchUrl.searchParams.set("view", "date");
+    }
 
     const response = await axios.get(searchUrl.toString(), {
       headers: {
@@ -121,11 +183,74 @@ export async function searchAustLii(
       }
     });
 
-    return results.slice(0, limit);
+    // Apply title matching boost when using relevance sorting
+    let finalResults = results;
+    if (sortMode === "relevance" && isCaseNameQuery(query)) {
+      finalResults = boostTitleMatches(results, query);
+    }
+
+    return finalResults.slice(0, limit);
   } catch (error) {
     if (axios.isAxiosError(error)) {
       throw new Error(`AustLII search failed: ${error.message}`);
     }
     throw error;
   }
+}
+
+/**
+ * Boosts results where the title closely matches the query
+ * This helps prioritize the actual case being searched for
+ */
+function boostTitleMatches(results: SearchResult[], query: string): SearchResult[] {
+  // Extract case name patterns from query
+  const normalizedQuery = query.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
+  const queryWords = new Set(normalizedQuery.split(/\s+/).filter(w => w.length > 2));
+
+  // Score each result based on title match
+  const scored = results.map(result => {
+    const normalizedTitle = result.title.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
+    const titleWords = normalizedTitle.split(/\s+/);
+
+    let score = 0;
+
+    // Count matching words
+    const matchingWords = titleWords.filter(word =>
+      word.length > 2 && queryWords.has(word)
+    ).length;
+
+    score += matchingWords * 10;
+
+    // Bonus for exact substring match (case insensitive)
+    if (normalizedTitle.includes(normalizedQuery)) {
+      score += 50;
+    }
+
+    // Bonus if title starts with similar text
+    const queryStart = normalizedQuery.split(/\s+/).slice(0, 3).join(' ');
+    if (normalizedTitle.startsWith(queryStart) && queryStart.length > 5) {
+      score += 30;
+    }
+
+    // Extract parties from "X v Y" pattern
+    const vMatch = query.match(/(\w+)\s+v\.?\s+(\w+)/i);
+    if (vMatch) {
+      const [, party1, party2] = vMatch;
+      const party1Lower = party1.toLowerCase();
+      const party2Lower = party2.toLowerCase();
+
+      // Check if both parties appear in title
+      if (normalizedTitle.includes(party1Lower) && normalizedTitle.includes(party2Lower)) {
+        score += 100; // Strong boost for matching both parties
+      } else if (normalizedTitle.includes(party1Lower) || normalizedTitle.includes(party2Lower)) {
+        score += 20; // Smaller boost for one party
+      }
+    }
+
+    return { result, score };
+  });
+
+  // Sort by score (descending) and return results
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map(s => s.result);
 }
