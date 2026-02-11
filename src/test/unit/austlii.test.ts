@@ -75,7 +75,8 @@ describe("determineSortMode", () => {
     expect(determineSortMode("negligence", caseOptions)).toBe("date");
   });
 
-  it("should use relevance for case name when sortBy is undefined", () => {
+  it("should default to auto mode (relevance for case names) when sortBy is omitted", () => {
+    // sortBy is omitted entirely (not even set to "auto")
     expect(determineSortMode("Smith v Jones", caseOptions)).toBe("relevance");
   });
 });
