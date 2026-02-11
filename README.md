@@ -2,6 +2,10 @@
 
 Model Context Protocol (MCP) server for Australian and New Zealand legal research. Searches AustLII for case law and legislation, retrieves full-text judgements with paragraph numbers preserved, and supports OCR for scanned PDFs.
 
+<a href="https://glama.ai/mcp/servers/@russellbrenner/auslaw-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@russellbrenner/auslaw-mcp/badge" alt="AusLaw MCP server" />
+</a>
+
 **Status**: ✅ Working MVP with intelligent search relevance
 
 ## Features
