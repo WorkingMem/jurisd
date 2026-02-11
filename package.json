@@ -30,7 +30,7 @@
     "cheerio": "^1.1.2",
     "file-type": "^21.3.0",
     "node-tesseract-ocr": "^2.2.1",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.4",
     "tmp": "^0.2.5",
     "zod": "^3.25.76"
   },

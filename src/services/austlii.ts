@@ -241,7 +241,7 @@ export async function searchAustLii(
     }
 
     const response = await axios.get(searchUrl.toString(), {
-      headers: getAustLiiHeaders(),
+      headers: AUSTLII_HEADERS,
       timeout: config.austlii.timeout,
     });
 
