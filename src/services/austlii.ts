@@ -69,12 +69,13 @@ interface SearchParams {
  * Matches patterns like: (2024) 350 ALR 123, (2024) 98 ALJR 456, etc.
  */
 function extractReportedCitation(text: string): string | undefined {
-  // Common law report patterns:
+  // Common law report patterns (AU and NZ):
   // (YYYY) Volume REPORTER Page
   // Examples: (2024) 350 ALR 123, (2024) 98 ALJR 456, (1992) 175 CLR 1
+  // NZ examples: [2024] 1 NZLR 456, (2023) 3 NZLR 789
   const patterns = [
-    /\((\d{4})\)\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/, // (2024) 350 ALR 123
-    /\[(\d{4})\]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/, // [2024] 350 ALR 123
+    /\((\d{4})\)\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/,  // (2024) 350 ALR 123
+    /\[(\d{4})\]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/,  // [2024] 1 NZLR 456
   ];
 
   for (const pattern of patterns) {
@@ -157,7 +158,7 @@ function buildSearchParams(query: string, options: SearchOptions): SearchParams 
     tas: "tas",
     nt: "nt",
     act: "act",
-    federal: "cth", // Federal courts are under cth
+    federal: "cth", // Federal courts (HCA, FCA, FCAFC, etc.) are under au/cases/cth/
   };
 
   // Handle New Zealand - use /austlii meta with nz mask_path
@@ -257,8 +258,22 @@ export async function searchAustLii(
 
       // Make URL absolute if relative
       if (url && !url.startsWith("http")) {
-        // Remove query string parameters from the URL for cleaner links
-        const cleanUrl = url.split("?")[0];
+        // Strip AustLII search-decoration params (stem, synonyms, etc.) but keep the base path
+        const [basePath, queryString] = url.split("?");
+        let cleanUrl = basePath!;
+        if (queryString) {
+          const preservedParams = new URLSearchParams();
+          const searchDecorations = new Set(["stem", "synonyms", "num", "mask_path", "meta", "query", "method"]);
+          for (const [key, val] of new URLSearchParams(queryString)) {
+            if (!searchDecorations.has(key)) {
+              preservedParams.set(key, val);
+            }
+          }
+          const remaining = preservedParams.toString();
+          if (remaining) {
+            cleanUrl = `${basePath}?${remaining}`;
+          }
+        }
         url = `https://www.austlii.edu.au${cleanUrl}`;
       }
 

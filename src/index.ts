@@ -22,6 +22,8 @@ const jurisdictionEnum = z.enum([
   "other",
 ]);
 const sortByEnum = z.enum(["relevance", "date", "auto"]).default("auto");
+const caseMethodEnum = z.enum(["auto", "title", "phrase", "all", "any", "near", "boolean"]).default("auto");
+const legislationMethodEnum = z.enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"]).default("auto");
 const methodEnum = z
   .enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"])
   .default("auto");
@@ -39,8 +41,8 @@ async function main() {
     limit: z.number().int().min(1).max(50).optional(),
     format: formatEnum.optional(),
     sortBy: sortByEnum.optional(),
-    method: methodEnum.optional(),
-    offset: z.number().int().min(0).optional(),
+    method: legislationMethodEnum.optional(),
+    offset: z.number().int().min(0).max(500).optional(),
   };
   const searchLegislationParser = z.object(searchLegislationShape);
 
@@ -73,8 +75,8 @@ async function main() {
     limit: z.number().int().min(1).max(50).optional(),
     format: formatEnum.optional(),
     sortBy: sortByEnum.optional(),
-    method: methodEnum.optional(),
-    offset: z.number().int().min(0).optional(),
+    method: caseMethodEnum.optional(),
+    offset: z.number().int().min(0).max(500).optional(),
   };
   const searchCasesParser = z.object(searchCasesShape);
 
@@ -83,7 +85,7 @@ async function main() {
     {
       title: "Search Cases",
       description:
-        "Search Australian and New Zealand case law. Jurisdictions: cth, vic, nsw, qld, sa, wa, tas, nt, act, federal, nz, other (all). Methods: auto, title (case names only), phrase (exact match), all (all words), any (any word), near (proximity). Sorting: auto (smart detection), relevance, date. Use offset for pagination (e.g., offset=50 for page 2).",
+        "Search Australian and New Zealand case law. Jurisdictions: cth, vic, nsw, qld, sa, wa, tas, nt, act, federal, nz, other (all). Methods: auto, title (case names only), phrase (exact match), all (all words), any (any word), near (proximity), boolean. Sorting: auto (smart detection), relevance, date. Use offset for pagination (e.g., offset=50 for page 2).",
       inputSchema: searchCasesShape,
     },
     async (rawInput) => {
