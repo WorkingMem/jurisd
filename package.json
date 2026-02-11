@@ -27,7 +27,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.19.1",
     "axios": "^1.12.2",
-    "cheerio": "^1.1.2",
+    "cheerio": "^1.2.0",
     "file-type": "^21.0.0",
     "node-tesseract-ocr": "^2.2.1",
     "pdf-parse": "^2.2.2",
@@ -35,8 +35,8 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/cheerio": "^0.22.35",
-    "@types/node": "^24.10.13",
+    "@types/cheerio": "^1.0.0",
+    "@types/node": "^24.7.0",
     "@types/pdf-parse": "^1.1.5",
     "@types/tmp": "^0.2.6",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
