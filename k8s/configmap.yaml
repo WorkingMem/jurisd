@@ -11,7 +11,7 @@ data:
   AUSTLII_SEARCH_BASE: "https://www.austlii.edu.au/cgi-bin/sinosrch.cgi"
   AUSTLII_REFERER: "https://www.austlii.edu.au/forms/search1.html"
   AUSTLII_USER_AGENT: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-  AUSTLII_TIMEOUT: "30000"
+  AUSTLII_TIMEOUT: "60000"
   
   # OCR Configuration
   OCR_LANGUAGE: "eng"

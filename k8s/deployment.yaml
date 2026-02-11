@@ -59,25 +59,25 @@ spec:
             memory: "512Mi"
             cpu: "500m"
         
-        # Liveness probe - check if container is running
+        # Liveness probe - check if Node.js process and dependencies are available
         livenessProbe:
           exec:
             command:
-            - node
-            - -e
-            - console.log('alive')
+            - /bin/sh
+            - -c
+            - node -e "require('./dist/config.js'); process.exit(0);"
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 5
           failureThreshold: 3
         
-        # Readiness probe - check if container is ready to serve
+        # Readiness probe - verify application can load successfully
         readinessProbe:
           exec:
             command:
-            - node
-            - -e
-            - console.log('ready')
+            - /bin/sh
+            - -c
+            - node -e "require('./dist/config.js'); process.exit(0);"
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5

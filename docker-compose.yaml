@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   auslaw-mcp:
     build:
@@ -15,7 +13,7 @@ services:
       AUSTLII_SEARCH_BASE: ${AUSTLII_SEARCH_BASE:-https://www.austlii.edu.au/cgi-bin/sinosrch.cgi}
       AUSTLII_REFERER: ${AUSTLII_REFERER:-https://www.austlii.edu.au/forms/search1.html}
       AUSTLII_USER_AGENT: ${AUSTLII_USER_AGENT:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36}
-      AUSTLII_TIMEOUT: ${AUSTLII_TIMEOUT:-30000}
+      AUSTLII_TIMEOUT: ${AUSTLII_TIMEOUT:-60000}
       OCR_LANGUAGE: ${OCR_LANGUAGE:-eng}
       OCR_OEM: ${OCR_OEM:-1}
       OCR_PSM: ${OCR_PSM:-3}

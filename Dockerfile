@@ -48,7 +48,8 @@ USER nodejs
 # Set environment variables with defaults
 ENV NODE_ENV=production \
     AUSTLII_SEARCH_BASE=https://www.austlii.edu.au/cgi-bin/sinosrch.cgi \
-    AUSTLII_REFERER=https://www.austlii.edu.au/forms/search1.html
+    AUSTLII_REFERER=https://www.austlii.edu.au/forms/search1.html \
+    AUSTLII_TIMEOUT=60000
 
 # Start the MCP server
 CMD ["node", "dist/index.js"]

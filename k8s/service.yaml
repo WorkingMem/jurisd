@@ -10,10 +10,11 @@ spec:
   type: ClusterIP
   selector:
     app: auslaw-mcp
+  # Note: MCP servers use stdio and don't expose HTTP ports
+  # This service is a placeholder for potential future features
+  # or for internal cluster DNS resolution
   ports:
-  # MCP servers use stdio and don't typically expose ports
-  # This is a placeholder for potential future HTTP/REST API
-  - name: stdio
+  - name: placeholder
     port: 3000
     targetPort: 3000
     protocol: TCP
