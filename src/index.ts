@@ -5,6 +5,14 @@ import { z } from "zod";
 import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii } from "./services/austlii.js";
+import {
+  resolveArticle,
+  resolveArticleFromUrl,
+  articleToSearchResult,
+  enrichWithSourceLinks,
+  isSourceUrl,
+  buildCitationLookupUrl,
+} from "./services/source.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
 const jurisdictionEnum = z.enum([
@@ -114,13 +122,71 @@ async function main() {
     {
       title: "Fetch Document Text",
       description:
-        "Fetch full text for a legislation or case URL, with OCR fallback for scanned PDFs.",
+        "Fetch full text for a legislation or case URL (AustLII or removed.invalid), with OCR fallback for scanned PDFs.",
       inputSchema: fetchDocumentShape,
     },
     async (rawInput) => {
       const { url, format } = fetchDocumentParser.parse(rawInput);
       const response = await fetchDocumentText(url);
       return formatFetchResponse(response, format ?? "json");
+    },
+  );
+
+  const resolveSourceArticleShape = {
+    articleId: z.number().int().min(1, "Article ID must be a positive integer."),
+  };
+  const resolveSourceArticleParser = z.object(resolveSourceArticleShape);
+
+  server.registerTool(
+    "resolve_source_article",
+    {
+      title: "Resolve removed.invalid Article",
+      description:
+        "Resolve metadata for a removed.invalid article by its numeric ID. Returns case name, neutral citation, jurisdiction, and year. Useful for looking up specific articles on removed.invalid (Upstream Source).",
+      inputSchema: resolveSourceArticleShape,
+    },
+    async (rawInput) => {
+      const { articleId } = resolveSourceArticleParser.parse(rawInput);
+      const article = await resolveArticle(articleId);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(article, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  const sourceLookupShape = {
+    citation: z.string().min(1, "Citation cannot be empty."),
+  };
+  const sourceLookupParser = z.object(sourceLookupShape);
+
+  server.registerTool(
+    "source_citation_lookup",
+    {
+      title: "Look up Citation on removed.invalid",
+      description:
+        "Generate a removed.invalid lookup URL for a given neutral citation (e.g. '[2008] NSWSC 323'). Returns a URL that opens removed.invalid with the citation search. removed.invalid does not expose a public search API, so this provides a direct link for the user.",
+      inputSchema: sourceLookupShape,
+    },
+    async (rawInput) => {
+      const { citation } = sourceLookupParser.parse(rawInput);
+      const lookupUrl = buildCitationLookupUrl(citation);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              { citation, sourceUrl: lookupUrl },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
     },
   );
 

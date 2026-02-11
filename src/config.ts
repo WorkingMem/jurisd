@@ -10,6 +10,11 @@ export interface Config {
     userAgent: string;
     timeout: number;
   };
+  source: {
+    baseUrl: string;
+    userAgent: string;
+    timeout: number;
+  };
   ocr: {
     language: string;
     oem: number;
@@ -36,6 +41,11 @@ export function loadConfig(): Config {
       userAgent: process.env.AUSTLII_USER_AGENT || 
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       timeout: parseInt(process.env.AUSTLII_TIMEOUT || "60000", 10), // AustLII can be slow
+    },
+    source: {
+      baseUrl: process.env.SOURCE_BASE_URL || "https://removed.invalid",
+      userAgent: process.env.SOURCE_USER_AGENT || "auslaw-mcp/0.1.0 (legal research tool)",
+      timeout: parseInt(process.env.SOURCE_TIMEOUT || "15000", 10),
     },
     ocr: {
       language: process.env.OCR_LANGUAGE || "eng",
