@@ -10,8 +10,9 @@ import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii } from "./services/austlii.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
-const jurisdictionEnum = z.enum(["cth", "vic", "federal", "other"]);
+const jurisdictionEnum = z.enum(["cth", "vic", "nsw", "qld", "sa", "wa", "tas", "nt", "act", "federal", "nz", "other"]);
 const sortByEnum = z.enum(["relevance", "date", "auto"]).default("auto");
+const methodEnum = z.enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"]).default("auto");
 
 async function main() {
   const server = new McpServer({
@@ -27,6 +28,8 @@ async function main() {
     limit: z.number().int().min(1).max(50).optional(),
     format: formatEnum.optional(),
     sortBy: sortByEnum.optional(),
+    method: methodEnum.optional(),
+    offset: z.number().int().min(0).optional(),
   };
   const searchLegislationParser = z.object(searchLegislationShape);
 
@@ -35,17 +38,19 @@ async function main() {
     {
       title: "Search Legislation",
       description:
-        "Search Australian legislation (Commonwealth and Victorian focus) and return structured matches.",
+        "Search Australian and New Zealand legislation. Jurisdictions: cth, vic, nsw, qld, sa, wa, tas, nt, act, federal, nz, other (all). Methods: auto, title (titles only), phrase (exact match), all (all words), any (any word), near (proximity), legis (legislation names). Use offset for pagination.",
       inputSchema: searchLegislationShape,
     },
     async (rawInput) => {
-      const { query, jurisdiction, limit, format, sortBy } =
+      const { query, jurisdiction, limit, format, sortBy, method, offset } =
         searchLegislationParser.parse(rawInput);
       const results = await searchAustLii(query, {
         type: "legislation",
         jurisdiction,
         limit,
         sortBy,
+        method,
+        offset,
       });
       return formatSearchResults(results, format ?? "json");
     },
@@ -57,6 +62,8 @@ async function main() {
     limit: z.number().int().min(1).max(50).optional(),
     format: formatEnum.optional(),
     sortBy: sortByEnum.optional(),
+    method: methodEnum.optional(),
+    offset: z.number().int().min(0).optional(),
   };
   const searchCasesParser = z.object(searchCasesShape);
 
@@ -65,17 +72,19 @@ async function main() {
     {
       title: "Search Cases",
       description:
-        "Search Australian case law with neutral citation fallbacks. Supports 'auto' (default), 'relevance', or 'date' sorting. Auto mode intelligently detects case name queries (e.g., 'X v Y') and uses relevance sorting to find the specific case, while using date sorting for topic searches.",
+        "Search Australian and New Zealand case law. Jurisdictions: cth, vic, nsw, qld, sa, wa, tas, nt, act, federal, nz, other (all). Methods: auto, title (case names only), phrase (exact match), all (all words), any (any word), near (proximity). Sorting: auto (smart detection), relevance, date. Use offset for pagination (e.g., offset=50 for page 2).",
       inputSchema: searchCasesShape,
     },
     async (rawInput) => {
-      const { query, jurisdiction, limit, format, sortBy } =
+      const { query, jurisdiction, limit, format, sortBy, method, offset } =
         searchCasesParser.parse(rawInput);
       const results = await searchAustLii(query, {
         type: "case",
         jurisdiction,
         limit,
         sortBy,
+        method,
+        offset,
       });
       return formatSearchResults(results, format ?? "json");
     },
