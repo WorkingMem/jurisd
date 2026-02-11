@@ -1,0 +1,54 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auslaw-mcp-config
+  namespace: auslaw-mcp
+  labels:
+    app: auslaw-mcp
+data:
+  # AustLII Configuration
+  AUSTLII_SEARCH_BASE: "https://www.austlii.edu.au/cgi-bin/sinosrch.cgi"
+  AUSTLII_REFERER: "https://www.austlii.edu.au/forms/search1.html"
+  AUSTLII_USER_AGENT: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  AUSTLII_TIMEOUT: "60000"
+  
+  # OCR Configuration
+  OCR_LANGUAGE: "eng"
+  OCR_OEM: "1"
+  OCR_PSM: "3"
+  
+  # Default Settings
+  DEFAULT_SEARCH_LIMIT: "10"
+  MAX_SEARCH_LIMIT: "50"
+  DEFAULT_OUTPUT_FORMAT: "json"
+  DEFAULT_SORT_BY: "auto"
+  
+  # Node Environment
+  NODE_ENV: "production"
+  
+  # config.yaml content
+  config.yaml: |
+    ---
+    # AusLaw MCP Configuration
+    server:
+      name: auslaw-mcp
+      version: 0.1.0
+      description: Australian legislation and case law searcher with OCR-aware document retrieval.
+    
+    austlii:
+      searchBase: ${AUSTLII_SEARCH_BASE:-https://www.austlii.edu.au/cgi-bin/sinosrch.cgi}
+      referer: ${AUSTLII_REFERER:-https://www.austlii.edu.au/forms/search1.html}
+      userAgent: ${AUSTLII_USER_AGENT:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36}
+      timeout: ${AUSTLII_TIMEOUT:-60000}
+    
+    ocr:
+      language: ${OCR_LANGUAGE:-eng}
+      oem: ${OCR_OEM:-1}
+      psm: ${OCR_PSM:-3}
+    
+    defaults:
+      searchLimit: ${DEFAULT_SEARCH_LIMIT:-10}
+      maxSearchLimit: ${MAX_SEARCH_LIMIT:-50}
+      outputFormat: ${DEFAULT_OUTPUT_FORMAT:-json}
+      sortBy: ${DEFAULT_SORT_BY:-auto}

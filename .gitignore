@@ -3,3 +3,21 @@ dist
 .DS_Store
 *.log
 tmp
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Coverage
+coverage
+.nyc_output
+
+# IDE
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db

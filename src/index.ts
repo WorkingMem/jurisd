@@ -2,25 +2,37 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import {
-  formatFetchResponse,
-  formatSearchResults,
-} from "./utils/formatter.js";
+import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii } from "./services/austlii.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
-const jurisdictionEnum = z.enum(["cth", "vic", "nsw", "qld", "sa", "wa", "tas", "nt", "act", "federal", "nz", "other"]);
+const jurisdictionEnum = z.enum([
+  "cth",
+  "vic",
+  "nsw",
+  "qld",
+  "sa",
+  "wa",
+  "tas",
+  "nt",
+  "act",
+  "federal",
+  "nz",
+  "other",
+]);
 const sortByEnum = z.enum(["relevance", "date", "auto"]).default("auto");
 const caseMethodEnum = z.enum(["auto", "title", "phrase", "all", "any", "near", "boolean"]).default("auto");
 const legislationMethodEnum = z.enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"]).default("auto");
+const methodEnum = z
+  .enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"])
+  .default("auto");
 
 async function main() {
   const server = new McpServer({
     name: "auslaw-mcp",
     version: "0.1.0",
-    description:
-      "Australian legislation and case law searcher with OCR-aware document retrieval.",
+    description: "Australian legislation and case law searcher with OCR-aware document retrieval.",
   });
 
   const searchLegislationShape = {

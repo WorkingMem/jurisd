@@ -1,0 +1,44 @@
+---
+# AusLaw MCP Configuration
+# This file contains default configuration values that can be overridden via environment variables
+
+server:
+  name: auslaw-mcp
+  version: 0.1.0
+  description: Australian legislation and case law searcher with OCR-aware document retrieval.
+
+austlii:
+  # Base URL for AustLII search
+  searchBase: ${AUSTLII_SEARCH_BASE:-https://www.austlii.edu.au/cgi-bin/sinosrch.cgi}
+  
+  # Referer header for AustLII requests
+  referer: ${AUSTLII_REFERER:-https://www.austlii.edu.au/forms/search1.html}
+  
+  # User agent for requests
+  userAgent: ${AUSTLII_USER_AGENT:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36}
+  
+  # Request timeout in milliseconds (AustLII can be slow)
+  timeout: ${AUSTLII_TIMEOUT:-60000}
+
+ocr:
+  # OCR language (default: English)
+  language: ${OCR_LANGUAGE:-eng}
+  
+  # OCR Engine Mode (0-3, default 1 for LSTM neural network)
+  oem: ${OCR_OEM:-1}
+  
+  # Page Segmentation Mode (default 3 for automatic)
+  psm: ${OCR_PSM:-3}
+
+defaults:
+  # Default number of search results
+  searchLimit: ${DEFAULT_SEARCH_LIMIT:-10}
+  
+  # Maximum search results allowed
+  maxSearchLimit: ${MAX_SEARCH_LIMIT:-50}
+  
+  # Default output format (json, text, markdown, html)
+  outputFormat: ${DEFAULT_OUTPUT_FORMAT:-json}
+  
+  # Default sort order (auto, relevance, date)
+  sortBy: ${DEFAULT_SORT_BY:-auto}

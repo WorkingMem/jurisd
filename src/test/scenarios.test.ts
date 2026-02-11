@@ -44,9 +44,7 @@ describe("Real-world legal search scenarios", () => {
 
     // At least one recent result (within last 3 years)
     const currentYear = new Date().getFullYear();
-    const recentResults = results.filter(
-      (r) => r.year && parseInt(r.year) >= currentYear - 3
-    );
+    const recentResults = results.filter((r) => r.year && parseInt(r.year) >= currentYear - 3);
     expect(recentResults.length).toBeGreaterThan(0);
   }, 30000);
 
@@ -211,12 +209,8 @@ describe("Search relevance and sorting", () => {
 
     // Should contain both party names (at least one result in top 5)
     const topResults = results.slice(0, 5);
-    const hasDonoghue = topResults.some(r =>
-      r.title.toLowerCase().includes("donoghue")
-    );
-    const hasStevenson = topResults.some(r =>
-      r.title.toLowerCase().includes("stevenson")
-    );
+    const hasDonoghue = topResults.some((r) => r.title.toLowerCase().includes("donoghue"));
+    const hasStevenson = topResults.some((r) => r.title.toLowerCase().includes("stevenson"));
 
     // At least one of the top results should mention the parties
     expect(hasDonoghue || hasStevenson).toBe(true);
@@ -236,9 +230,7 @@ describe("Search relevance and sorting", () => {
 
     // When using relevance sort, "Mabo" should appear in top results
     const topResults = results.slice(0, 5);
-    const hasMabo = topResults.some(r =>
-      r.title.toLowerCase().includes("mabo")
-    );
+    const hasMabo = topResults.some((r) => r.title.toLowerCase().includes("mabo"));
     expect(hasMabo).toBe(true);
 
     results.forEach((result) => {
@@ -262,9 +254,7 @@ describe("Search relevance and sorting", () => {
 
     // Should return recent cases (within last 5 years)
     const currentYear = new Date().getFullYear();
-    const recentResults = results.filter(
-      (r) => r.year && parseInt(r.year) >= currentYear - 5
-    );
+    const recentResults = results.filter((r) => r.year && parseInt(r.year) >= currentYear - 5);
 
     // At least half should be recent
     expect(recentResults.length).toBeGreaterThanOrEqual(results.length / 2);
@@ -283,9 +273,7 @@ describe("Search relevance and sorting", () => {
     expect(results.length).toBeGreaterThan(0);
 
     // Extract years where available
-    const years = results
-      .filter(r => r.year)
-      .map(r => parseInt(r.year!));
+    const years = results.filter((r) => r.year).map((r) => parseInt(r.year!));
 
     if (years.length >= 2) {
       // Years should be in descending order (most recent first)
@@ -308,9 +296,7 @@ describe("Search relevance and sorting", () => {
     expect(results.length).toBeGreaterThan(0);
 
     // Should find cases with "Wakim" in the title (using relevance)
-    const hasWakim = results.slice(0, 5).some(r =>
-      r.title.toLowerCase().includes("wakim")
-    );
+    const hasWakim = results.slice(0, 5).some((r) => r.title.toLowerCase().includes("wakim"));
     expect(hasWakim).toBe(true);
   }, 30000);
 
@@ -362,7 +348,7 @@ describe("Search relevance and sorting", () => {
     // Topic searches should return recent cases
     const currentYear = new Date().getFullYear();
     const recentTopicResults = topicResults.filter(
-      (r) => r.year && parseInt(r.year) >= currentYear - 5
+      (r) => r.year && parseInt(r.year) >= currentYear - 5,
     );
     expect(recentTopicResults.length).toBeGreaterThan(0);
   }, 30000);
@@ -383,14 +369,12 @@ describe("Reported citations and removed.invalid support", () => {
     expect(results.length).toBeGreaterThan(0);
 
     // At least some results should have citations (neutral or reported)
-    const resultsWithCitations = results.filter(
-      r => r.neutralCitation || r.reportedCitation
-    );
+    const resultsWithCitations = results.filter((r) => r.neutralCitation || r.reportedCitation);
     expect(resultsWithCitations.length).toBeGreaterThan(0);
 
     // If any have reported citations, verify format
-    const resultsWithReported = results.filter(r => r.reportedCitation);
-    resultsWithReported.forEach(result => {
+    const resultsWithReported = results.filter((r) => r.reportedCitation);
+    resultsWithReported.forEach((result) => {
       // Should match pattern like: (2024) 350 ALR 123 or [2024] 350 ALR 123
       expect(result.reportedCitation).toMatch(/[\(\[](\d{4})[\)\]]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/);
     });
@@ -409,12 +393,12 @@ describe("Reported citations and removed.invalid support", () => {
     expect(results.length).toBeGreaterThan(0);
 
     // High Court cases often have CLR or ALJR citations
-    results.forEach(result => {
+    results.forEach((result) => {
       if (result.reportedCitation) {
         // Should be properly formatted
         expect(typeof result.reportedCitation).toBe("string");
         expect(result.reportedCitation.length).toBeGreaterThan(0);
-        
+
         // Common reporters: CLR, ALJR, ALR, HCA
         expect(result.reportedCitation).toMatch(/[A-Z]{2,6}/);
       }
@@ -428,12 +412,12 @@ describe("Reported citations and removed.invalid support", () => {
   it("should handle removed.invalid URLs in fetch_document_text", async () => {
     // This is a conceptual test - removed.invalid URLs require authentication
     // so we just verify the code handles the URL pattern correctly
-    
+
     const sourceUrl = "https://removed.invalid/article/example";
-    
+
     // Verify our code recognizes removed.invalid URLs
     expect(sourceUrl).toMatch(/source\.io/);
-    
+
     // The actual fetching would require valid removed.invalid access
     // In practice, users would provide URLs they have access to
   }, 5000);
@@ -449,10 +433,10 @@ describe("Reported citations and removed.invalid support", () => {
 
     expect(results.length).toBeGreaterThan(0);
 
-    results.forEach(result => {
+    results.forEach((result) => {
       // All current results should be from austlii
       expect(result.source).toBe("austlii");
-      
+
       // Verify source is a valid type
       expect(["austlii", "source"]).toContain(result.source);
     });
