@@ -376,7 +376,7 @@ describe("Reported citations and removed.invalid support", () => {
     const resultsWithReported = results.filter((r) => r.reportedCitation);
     resultsWithReported.forEach((result) => {
       // Should match pattern like: (2024) 350 ALR 123 or [2024] 350 ALR 123
-      expect(result.reportedCitation).toMatch(/[\(\[](\d{4})[\)\]]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/);
+      expect(result.reportedCitation).toMatch(/[([[](\d{4})[)\]]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/);
     });
   }, 30000);
 

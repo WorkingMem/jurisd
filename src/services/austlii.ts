@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { config } from "../config.js";
+import { AustLiiError } from "../errors.js";
 
 export interface SearchResult {
   title: string;
@@ -68,7 +69,7 @@ interface SearchParams {
  * Extracts reported citation from text
  * Matches patterns like: (2024) 350 ALR 123, (2024) 98 ALJR 456, etc.
  */
-function extractReportedCitation(text: string): string | undefined {
+export function extractReportedCitation(text: string): string | undefined {
   // Common law report patterns (AU and NZ):
   // (YYYY) Volume REPORTER Page
   // Examples: (2024) 350 ALR 123, (2024) 98 ALJR 456, (1992) 175 CLR 1
@@ -92,7 +93,7 @@ function extractReportedCitation(text: string): string | undefined {
  * Detects if a query looks like a case name (e.g., "X v Y", "Re X")
  * These queries benefit from relevance sorting to find the specific case
  */
-function isCaseNameQuery(query: string): boolean {
+export function isCaseNameQuery(query: string): boolean {
   // Pattern 1: "X v Y" or "X v. Y" (party vs party)
   if (/\b\w+\s+v\.?\s+\w+/i.test(query)) {
     return true;
@@ -119,7 +120,7 @@ function isCaseNameQuery(query: string): boolean {
 /**
  * Determines the appropriate sort mode based on query and options
  */
-function determineSortMode(query: string, options: SearchOptions): "relevance" | "date" {
+export function determineSortMode(query: string, options: SearchOptions): "relevance" | "date" {
   // If explicitly set, use that
   if (options.sortBy === "relevance") {
     return "relevance";
@@ -358,7 +359,11 @@ export async function searchAustLii(
     return finalResults.slice(0, limit);
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      throw new Error(`AustLII search failed: ${error.message}`);
+      throw new AustLiiError(
+        `AustLII search failed: ${error.message}`,
+        error.response?.status,
+        error,
+      );
     }
     throw error;
   }
@@ -368,7 +373,7 @@ export async function searchAustLii(
  * Boosts results where the title closely matches the query
  * This helps prioritize the actual case being searched for
  */
-function boostTitleMatches(results: SearchResult[], query: string): SearchResult[] {
+export function boostTitleMatches(results: SearchResult[], query: string): SearchResult[] {
   // Extract case name patterns from query
   const normalizedQuery = query
     .toLowerCase()

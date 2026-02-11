@@ -6,6 +6,9 @@ import tesseract from "node-tesseract-ocr";
 import * as tmp from "tmp";
 import * as fs from "fs/promises";
 import { config } from "../config.js";
+import { NetworkError, OcrError, ParseError } from "../errors.js";
+import { logger } from "../utils/logger.js";
+import { OCR_MIN_TEXT_LENGTH, MAX_CONTENT_LENGTH } from "../constants.js";
 
 export interface FetchResponse {
   text: string;
@@ -27,15 +30,15 @@ async function extractTextFromPdf(
     const extractedText = textResult.text.trim();
 
     // If we got substantial text, return it
-    if (extractedText.length > 100) {
+    if (extractedText.length > OCR_MIN_TEXT_LENGTH) {
       return { text: extractedText, ocrUsed: false };
     }
 
     // Otherwise, fall back to OCR
-    console.warn(`PDF at ${url} has minimal text, attempting OCR...`);
+    logger.warn(`PDF at ${url} has minimal text, attempting OCR...`);
     return await performOcr(buffer);
   } catch (error) {
-    console.warn(`PDF parsing failed for ${url}, attempting OCR:`, error);
+    logger.warn(`PDF parsing failed for ${url}, attempting OCR`, { error: String(error) });
     return await performOcr(buffer);
   }
 }
@@ -55,7 +58,11 @@ async function performOcr(buffer: Buffer): Promise<{ text: string; ocrUsed: bool
     const text = await tesseract.recognize(tmpFile.name, ocrConfig);
     return { text: text.trim(), ocrUsed: true };
   } catch (error) {
-    throw new Error(`OCR failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new OcrError(
+      `OCR failed: ${error instanceof Error ? error.message : String(error)}`,
+      tmpFile.name,
+      error instanceof Error ? error : undefined,
+    );
   } finally {
     tmpFile.removeCallback();
   }
@@ -154,10 +161,10 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     const response = await axios.get(url, {
       responseType: "arraybuffer",
       headers: {
-        "User-Agent": "auslaw-mcp/0.1.0 (legal research tool)",
+        "User-Agent": config.source.userAgent,
       },
-      timeout: 30000,
-      maxContentLength: 50 * 1024 * 1024, // 50MB limit
+      timeout: config.austlii.timeout,
+      maxContentLength: MAX_CONTENT_LENGTH,
     });
 
     const buffer = Buffer.from(response.data);
@@ -186,7 +193,7 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     }
     // Unsupported format
     else {
-      throw new Error(
+      throw new ParseError(
         `Unsupported content type: ${contentType}${detectedType ? ` (detected: ${detectedType.mime})` : ""}`,
       );
     }
@@ -206,7 +213,11 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     };
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      throw new Error(`Failed to fetch document from ${url}: ${error.message}`);
+      throw new NetworkError(
+        `Failed to fetch document from ${url}: ${error.message}`,
+        url,
+        error,
+      );
     }
     throw error;
   }
