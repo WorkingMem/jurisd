@@ -1,7 +1,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { fileTypeFromBuffer } from "file-type";
-import { pdf } from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import tesseract from "node-tesseract-ocr";
 import * as tmp from "tmp";
 import * as fs from "fs/promises";
@@ -20,9 +20,11 @@ async function extractTextFromPdf(
   url: string,
 ): Promise<{ text: string; ocrUsed: boolean }> {
   try {
-    // First try to extract text from PDF directly
-    const pdfData = await pdf(buffer);
-    const extractedText = pdfData.text.trim();
+    // First try to extract text from PDF directly using pdf-parse v2 API
+    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    const textResult = await parser.getText();
+    await parser.destroy();
+    const extractedText = textResult.text.trim();
 
     // If we got substantial text, return it
     if (extractedText.length > 100) {
