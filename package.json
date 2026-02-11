@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.35",
-    "@types/node": "^24.7.0",
+    "@types/node": "^24.10.13",
     "@types/pdf-parse": "^1.1.5",
     "@types/tmp": "^0.2.6",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
@@ -46,7 +46,7 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
-    "tsx": "^4.20.6",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^2.1.3"
   }
