@@ -30,14 +30,13 @@
     "cheerio": "^1.1.2",
     "file-type": "^21.3.0",
     "node-tesseract-ocr": "^2.2.1",
-    "pdf-parse": "^1.1.4",
+    "pdf-parse": "^2.4.5",
     "tmp": "^0.2.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cheerio": "^1.0.0",
     "@types/node": "^24.7.0",
-    "@types/pdf-parse": "^1.1.5",
     "@types/tmp": "^0.2.6",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
