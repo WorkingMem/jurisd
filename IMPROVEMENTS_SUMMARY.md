@@ -14,7 +14,7 @@
 8. **constants.ts** - Shared constants for citations, jurisdictions, timeouts
 9. **errors.ts** - Custom error classes (AustLiiError, NetworkError, ParseError, OcrError)
 10. **logger.ts** - Structured logging with LOG_LEVEL support
-11. **Unit tests** - 27 tests for formatter, errors, constants, logger
+11. **Unit tests** - 54 tests for formatter, errors, constants, logger, config, austlii
 12. **JSDoc comments** - All exported functions documented
 13. **Data source attribution** - README includes AustLII and removed.invalid attribution
 14. **CI/CD** - Consolidated workflow with lint, test, and security audit jobs
@@ -24,6 +24,10 @@
 18. **Dependabot** - Automated npm and GitHub Actions dependency updates
 19. **Docker** - Multi-stage Dockerfile and docker-compose.yaml
 20. **Vitest coverage** - Coverage reporting configured
+21. **ESLint v9 migration** - Migrated from `.eslintrc.json` to `eslint.config.mjs`
+22. **Custom error usage** - Services use AustLiiError, NetworkError, ParseError, OcrError
+23. **Structured logging** - Services use logger instead of console.warn/error
+24. **Config/constants usage** - Services use config and constants instead of hardcoded values
 
 ## 🟡 Remaining (Future Work)
 
@@ -40,7 +44,7 @@
 ## 📊 Project Statistics
 
 - **Lines of Code:** ~1,400 (TypeScript)
-- **Test Scenarios:** 18 integration + 27 unit tests
+- **Test Scenarios:** 18 integration + 54 unit tests
 - **Documentation Files:** 9 (README, AGENTS, ROADMAP, architecture, CONTRIBUTING, SECURITY, CHANGELOG, LICENSE-THIRD-PARTY, PROJECT_IMPROVEMENTS)
 - **License:** MIT (all dependencies compatible)
 

@@ -15,10 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive project improvement documentation
 - Linting and formatting scripts in package.json
 - Test coverage support configuration
+- Unit tests for AustLII search internals (isCaseNameQuery, determineSortMode, boostTitleMatches, extractReportedCitation)
+- Unit tests for configuration module
 
 ### Changed
 - Updated dependencies to address security vulnerabilities
 - Enhanced documentation structure
+- Migrated ESLint configuration from `.eslintrc.json` to `eslint.config.mjs` for ESLint v9 compatibility
+- Services now use custom error classes (AustLiiError, NetworkError, ParseError, OcrError) instead of generic Error
+- Document fetcher now uses structured logger instead of console.warn/error
+- Document fetcher now uses config and constants modules instead of hardcoded values
+- Exported internal AustLII functions for testability
 
 ### Security
 - Fixed 3 HIGH severity vulnerabilities in dependencies
