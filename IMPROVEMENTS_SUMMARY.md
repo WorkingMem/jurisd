@@ -48,7 +48,7 @@
 
 - **Lines of Code:** ~1,400 (TypeScript)
 - **Test Scenarios:** 18 integration + 43 source + 70 unit tests
-- **Documentation Files:** 9 (README, AGENTS, ROADMAP, architecture, CONTRIBUTING, SECURITY, CHANGELOG, LICENSE-THIRD-PARTY, PROJECT_IMPROVEMENTS)
+- **Documentation Files:** 13 (README, AGENTS, ROADMAP, architecture, CONTRIBUTING, SECURITY, CHANGELOG, LICENSE-THIRD-PARTY, PROJECT_IMPROVEMENTS, IMPROVEMENTS_SUMMARY, DEPLOYMENT_CHECKLIST, DOCKER, k8s/README)
 - **License:** MIT (all dependencies compatible)
 
 ## ✅ Strengths

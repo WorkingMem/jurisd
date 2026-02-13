@@ -94,19 +94,23 @@ All configuration is managed through the ConfigMap (`k8s/configmap.yaml`). To mo
 
 ### Available Configuration Options
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AUSTLII_SEARCH_BASE` | `https://www.austlii.edu.au/cgi-bin/sinosrch.cgi` | AustLII search API endpoint |
-| `AUSTLII_REFERER` | `https://www.austlii.edu.au/forms/search1.html` | Referer header for AustLII |
-| `AUSTLII_USER_AGENT` | Mozilla/5.0... | User agent string |
-| `AUSTLII_TIMEOUT` | `60000` | Request timeout (ms) |
-| `OCR_LANGUAGE` | `eng` | Tesseract OCR language |
-| `OCR_OEM` | `1` | OCR Engine Mode |
-| `OCR_PSM` | `3` | Page Segmentation Mode |
-| `DEFAULT_SEARCH_LIMIT` | `10` | Default search results |
-| `MAX_SEARCH_LIMIT` | `50` | Maximum search results |
-| `DEFAULT_OUTPUT_FORMAT` | `json` | Default output format |
-| `DEFAULT_SORT_BY` | `auto` | Default sort order |
+| Variable                | Default                                           | Description                  |
+| ----------------------- | ------------------------------------------------- | ---------------------------- |
+| `AUSTLII_SEARCH_BASE`   | `https://www.austlii.edu.au/cgi-bin/sinosrch.cgi` | AustLII search API endpoint  |
+| `AUSTLII_REFERER`       | `https://www.austlii.edu.au/forms/search1.html`   | Referer header for AustLII   |
+| `AUSTLII_USER_AGENT`    | Mozilla/5.0...                                    | User agent string            |
+| `AUSTLII_TIMEOUT`       | `60000`                                           | Request timeout (ms)         |
+| `SOURCE_BASE_URL`         | `https://removed.invalid`                                 | removed.invalid base URL             |
+| `SOURCE_USER_AGENT`       | `auslaw-mcp/0.1.0 (legal research tool)`          | removed.invalid user agent           |
+| `SOURCE_TIMEOUT`          | `15000`                                           | removed.invalid request timeout (ms) |
+| `OCR_LANGUAGE`          | `eng`                                             | Tesseract OCR language       |
+| `OCR_OEM`               | `1`                                               | OCR Engine Mode              |
+| `OCR_PSM`               | `3`                                               | Page Segmentation Mode       |
+| `DEFAULT_SEARCH_LIMIT`  | `10`                                              | Default search results       |
+| `MAX_SEARCH_LIMIT`      | `50`                                              | Maximum search results       |
+| `DEFAULT_OUTPUT_FORMAT` | `json`                                            | Default output format        |
+| `DEFAULT_SORT_BY`       | `auto`                                            | Default sort order           |
+| `LOG_LEVEL`             | `1`                                               | Logging level (0-3)          |
 
 ## Scaling
 
@@ -123,6 +127,7 @@ kubectl scale deployment auslaw-mcp -n auslaw-mcp --replicas=1
 ### Resource Allocation
 
 The deployment is configured with:
+
 - **Requests**: 256Mi memory, 100m CPU
 - **Limits**: 512Mi memory, 500m CPU
 
@@ -257,12 +262,12 @@ spec:
   template:
     spec:
       containers:
-      - name: query
-        image: auslaw-mcp:latest
-        command: ["node", "dist/index.js"]
-        envFrom:
-        - configMapRef:
-            name: auslaw-mcp-config
+        - name: query
+          image: auslaw-mcp:latest
+          command: ["node", "dist/index.js"]
+          envFrom:
+            - configMapRef:
+                name: auslaw-mcp-config
       restartPolicy: Never
 ```
 
@@ -339,18 +344,18 @@ spec:
     matchLabels:
       app: auslaw-mcp
   policyTypes:
-  - Ingress
-  - Egress
+    - Ingress
+    - Egress
   egress:
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: TCP
-      port: 53
-    - protocol: UDP
-      port: 53
-  - to:
-    - podSelector: {}
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+    - to:
+        - podSelector: {}
 ```
 
 ## Production Recommendations

@@ -54,22 +54,25 @@ Deliver an MCP server that can:
 - Produces `FetchResponse` with metadata (`ocrUsed`, content type, detected citations inside the document).
 - TODO: Cache downloaded files (tmpdir) and cleanup.
 
-### Citation Normaliser (`src/services/citation.ts`) – planned
+### Citation Normaliser – planned
 
-- Recognises neutral citation patterns (e.g. `[2021] HCA 12`).
-- Forms fallback URLs (AustLII, SOURCE, Upstream LawCite) when original download fails.
-- Produces machine-readable structure for LLM prompts.
+- Will recognise neutral citation patterns (e.g. `[2021] HCA 12`) and form fallback URLs.
+- Currently, neutral citation extraction is handled inline in `austlii.ts` and `source.ts` using the `NEUTRAL_CITATION_PATTERN` constant from `src/constants.ts`.
+- Reported citation extraction is handled by `extractReportedCitation()` in `austlii.ts`.
 
 ## Deployment
 
-- Node.js 20+ runtime with system-level Tesseract (`tesseract-ocr` package on Debian/Ubuntu).
-- Docker image based on `node:20-bookworm-slim`, installing Tesseract + dependencies.
+- Node.js 18+ runtime with system-level Tesseract (`tesseract-ocr` package on Debian/Ubuntu).
+- Docker image based on `node:20-alpine`, installing Tesseract + dependencies.
 - CI workflow (GitHub Actions) to lint, test, build, and publish container image.
 
 ## Testing Strategy
 
 - Unit tests with Vitest using recorded fixtures for AustLII HTML responses.
-- Integration tests behind `npm run test:e2e` hitting live endpoints (skipped in CI without opt-in).
+- Unit tests for configuration, constants, errors, logger, and formatter modules.
+- Mocked tests for austlii and fetcher services (network-isolated).
+- Integration tests hitting live AustLII and removed.invalid endpoints.
+- Performance benchmark tests for search latency and concurrent requests.
 - OCR path tests using sample scanned PDF (placed in `test/fixtures`).
 
 ## Open Questions
