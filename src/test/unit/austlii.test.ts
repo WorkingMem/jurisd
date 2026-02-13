@@ -4,6 +4,7 @@ import {
   determineSortMode,
   boostTitleMatches,
   extractReportedCitation,
+  shouldUseCaseNameFallback,
 } from "../../services/austlii.js";
 import type { SearchResult, SearchOptions } from "../../services/austlii.js";
 
@@ -50,7 +51,9 @@ describe("determineSortMode", () => {
   const legisOptions: SearchOptions = { type: "legislation" };
 
   it("should return 'relevance' when explicitly set", () => {
-    expect(determineSortMode("anything", { ...caseOptions, sortBy: "relevance" })).toBe("relevance");
+    expect(determineSortMode("anything", { ...caseOptions, sortBy: "relevance" })).toBe(
+      "relevance",
+    );
   });
 
   it("should return 'date' when explicitly set", () => {
@@ -58,12 +61,16 @@ describe("determineSortMode", () => {
   });
 
   it("should auto-detect case name queries as relevance", () => {
-    expect(determineSortMode("Smith v Jones", { ...caseOptions, sortBy: "auto" })).toBe("relevance");
+    expect(determineSortMode("Smith v Jones", { ...caseOptions, sortBy: "auto" })).toBe(
+      "relevance",
+    );
     expect(determineSortMode("Re Wakim", { ...caseOptions, sortBy: "auto" })).toBe("relevance");
   });
 
   it("should auto-detect topic queries as date", () => {
-    expect(determineSortMode("negligence duty of care", { ...caseOptions, sortBy: "auto" })).toBe("date");
+    expect(determineSortMode("negligence duty of care", { ...caseOptions, sortBy: "auto" })).toBe(
+      "date",
+    );
     expect(determineSortMode("contract breach", { ...caseOptions, sortBy: "auto" })).toBe("date");
   });
 
@@ -153,13 +160,36 @@ describe("boostTitleMatches", () => {
   });
 
   it("should handle queries without party names", () => {
-    const results = [
-      makeResult("Case A [2024] HCA 1"),
-      makeResult("Case B [2024] FCA 2"),
-    ];
+    const results = [makeResult("Case A [2024] HCA 1"), makeResult("Case B [2024] FCA 2")];
 
     // Should not throw even without "v" pattern
     const boosted = boostTitleMatches(results, "negligence duty of care");
     expect(boosted).toHaveLength(2);
+  });
+});
+
+describe("shouldUseCaseNameFallback", () => {
+  it("should fallback for case-name queries when auto method returns no results", () => {
+    expect(shouldUseCaseNameFallback("Donoghue v Stevenson", { type: "case" }, "auto", 0)).toBe(
+      true,
+    );
+  });
+
+  it("should not fallback when results are already present", () => {
+    expect(shouldUseCaseNameFallback("Donoghue v Stevenson", { type: "case" }, "auto", 1)).toBe(
+      false,
+    );
+  });
+
+  it("should not fallback for non-case-name queries or non-auto methods", () => {
+    expect(shouldUseCaseNameFallback("negligence duty of care", { type: "case" }, "auto", 0)).toBe(
+      false,
+    );
+    expect(shouldUseCaseNameFallback("Donoghue v Stevenson", { type: "case" }, "boolean", 0)).toBe(
+      false,
+    );
+    expect(
+      shouldUseCaseNameFallback("Donoghue v Stevenson", { type: "legislation" }, "auto", 0),
+    ).toBe(false);
   });
 });

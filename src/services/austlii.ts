@@ -61,10 +61,16 @@ interface SearchParams {
   query: string;
   meta: string;
   mask_path?: string;
-  method: string;
+  method: SearchMethod;
   offset?: number;
 }
 
+const RETRYABLE_AXIOS_ERROR_CODES = new Set([
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "ECONNABORTED",
+  "EAI_AGAIN",
+]);
 /**
  * Extracts reported citation from text
  * Matches patterns like: (2024) 350 ALR 123, (2024) 98 ALJR 456, etc.
@@ -75,8 +81,8 @@ export function extractReportedCitation(text: string): string | undefined {
   // Examples: (2024) 350 ALR 123, (2024) 98 ALJR 456, (1992) 175 CLR 1
   // NZ examples: [2024] 1 NZLR 456, (2023) 3 NZLR 789
   const patterns = [
-    /\((\d{4})\)\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/,  // (2024) 350 ALR 123
-    /\[(\d{4})\]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/,  // [2024] 1 NZLR 456
+    /\((\d{4})\)\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/, // (2024) 350 ALR 123
+    /\[(\d{4})\]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/, // [2024] 1 NZLR 456
   ];
 
   for (const pattern of patterns) {
@@ -207,6 +213,140 @@ function buildSearchParams(query: string, options: SearchOptions): SearchParams 
   };
 }
 
+function parseSearchResults(html: string, options: SearchOptions): SearchResult[] {
+  const $ = cheerio.load(html);
+  const results: SearchResult[] = [];
+
+  // Parse search results - AustLII returns results in <li data-count="X." class="multi"> elements
+  $("li[data-count].multi").each((_, element) => {
+    const $li = $(element);
+    const $link = $li.find("a").first();
+    const title = $link.text().trim();
+    let url = $link.attr("href") || "";
+
+    // Make URL absolute if relative
+    if (url && !url.startsWith("http")) {
+      // Strip AustLII search-decoration params (stem, synonyms, etc.) but keep the base path
+      const [basePath, queryString] = url.split("?");
+      if (!basePath) {
+        return;
+      }
+      let cleanUrl = basePath;
+      if (queryString) {
+        const preservedParams = new URLSearchParams();
+        const searchDecorations = new Set([
+          "stem",
+          "synonyms",
+          "num",
+          "mask_path",
+          "meta",
+          "query",
+          "method",
+        ]);
+        for (const [key, val] of new URLSearchParams(queryString)) {
+          if (!searchDecorations.has(key)) {
+            preservedParams.set(key, val);
+          }
+        }
+        const remaining = preservedParams.toString();
+        if (remaining) {
+          cleanUrl = `${basePath}?${remaining}`;
+        }
+      }
+      url = `https://www.austlii.edu.au${cleanUrl}`;
+    }
+
+    if (title && url) {
+      // Always skip journal articles - we only want primary sources
+      if (url.includes("/journals/")) {
+        return; // Skip journal articles
+      }
+
+      // For cases, only include actual case databases
+      if (options.type === "case" && !url.includes("/cases/")) {
+        return; // Skip non-case results
+      }
+
+      // For legislation, only include legislation databases
+      if (options.type === "legislation" && !url.includes("/legis/")) {
+        return; // Skip non-legislation results
+      }
+
+      // Try to extract neutral citation from title
+      const citationMatch = title.match(/\[(\d{4})\]\s*([A-Z]+)\s*(\d+)/);
+      const neutralCitation = citationMatch ? citationMatch[0] : undefined;
+      const year = citationMatch ? citationMatch[1] : undefined;
+
+      // Extract jurisdiction from URL (Australian and New Zealand)
+      const auJurisdictionMatch = url.match(/\/au\/cases\/(cth|vic|nsw|qld|sa|wa|tas|nt|act)\//i);
+      const nzJurisdictionMatch = url.match(/\/nz\/cases\//i);
+      const jurisdiction =
+        auJurisdictionMatch?.[1]?.toLowerCase() || (nzJurisdictionMatch ? "nz" : undefined);
+
+      // Extract date from the meta section
+      const $meta = $li.find("p.meta");
+      const metaText = $meta.text();
+      const dateMatch = metaText.match(/(\d{1,2}\s+\w+\s+\d{4})/);
+      const dateStr = dateMatch ? dateMatch[1] : undefined;
+
+      // Extract court/database info from meta
+      const $courtLink = $meta.find("a").first();
+      const court = $courtLink.length > 0 ? $courtLink.text().trim() : undefined;
+
+      // Try to extract reported citation from title
+      const reportedCitation = extractReportedCitation(title);
+
+      results.push({
+        title,
+        citation: undefined,
+        neutralCitation,
+        reportedCitation,
+        url,
+        source: "austlii",
+        summary: court ? `${court}${dateStr ? ` - ${dateStr}` : ""}` : dateStr,
+        jurisdiction,
+        year,
+        type: options.type,
+      });
+    }
+  });
+
+  return results;
+}
+
+function isRetryableAustLiiError(error: unknown): boolean {
+  return axios.isAxiosError(error) && !!error.code && RETRYABLE_AXIOS_ERROR_CODES.has(error.code);
+}
+
+async function fetchSearchHtml(url: string): Promise<string> {
+  let attempt = 0;
+  while (true) {
+    try {
+      const response = await axios.get(url, {
+        headers: AUSTLII_HEADERS,
+        timeout: config.austlii.timeout,
+      });
+      return response.data as string;
+    } catch (error) {
+      if (attempt === 1 || !isRetryableAustLiiError(error)) {
+        throw error;
+      }
+      attempt += 1;
+    }
+  }
+}
+
+export function shouldUseCaseNameFallback(
+  query: string,
+  options: SearchOptions,
+  method: SearchMethod,
+  resultCount: number,
+): boolean {
+  return (
+    method === "auto" && options.type === "case" && resultCount === 0 && isCaseNameQuery(query)
+  );
+}
+
 /**
  * Searches AustLII for Australian and New Zealand case law or legislation.
  *
@@ -258,97 +398,12 @@ export async function searchAustLii(
       searchUrl.searchParams.set("view", "date-latest");
     }
 
-    const response = await axios.get(searchUrl.toString(), {
-      headers: AUSTLII_HEADERS,
-      timeout: config.austlii.timeout,
-    });
+    let results = parseSearchResults(await fetchSearchHtml(searchUrl.toString()), options);
 
-    const html = response.data;
-    const $ = cheerio.load(html);
-    const results: SearchResult[] = [];
-
-    // Parse search results - AustLII returns results in <li data-count="X." class="multi"> elements
-    $("li[data-count].multi").each((_, element) => {
-      const $li = $(element);
-      const $link = $li.find("a").first();
-      const title = $link.text().trim();
-      let url = $link.attr("href") || "";
-
-      // Make URL absolute if relative
-      if (url && !url.startsWith("http")) {
-        // Strip AustLII search-decoration params (stem, synonyms, etc.) but keep the base path
-        const [basePath, queryString] = url.split("?");
-        let cleanUrl = basePath!;
-        if (queryString) {
-          const preservedParams = new URLSearchParams();
-          const searchDecorations = new Set(["stem", "synonyms", "num", "mask_path", "meta", "query", "method"]);
-          for (const [key, val] of new URLSearchParams(queryString)) {
-            if (!searchDecorations.has(key)) {
-              preservedParams.set(key, val);
-            }
-          }
-          const remaining = preservedParams.toString();
-          if (remaining) {
-            cleanUrl = `${basePath}?${remaining}`;
-          }
-        }
-        url = `https://www.austlii.edu.au${cleanUrl}`;
-      }
-
-      if (title && url) {
-        // Always skip journal articles - we only want primary sources
-        if (url.includes("/journals/")) {
-          return; // Skip journal articles
-        }
-
-        // For cases, only include actual case databases
-        if (options.type === "case" && !url.includes("/cases/")) {
-          return; // Skip non-case results
-        }
-
-        // For legislation, only include legislation databases
-        if (options.type === "legislation" && !url.includes("/legis/")) {
-          return; // Skip non-legislation results
-        }
-
-        // Try to extract neutral citation from title
-        const citationMatch = title.match(/\[(\d{4})\]\s*([A-Z]+)\s*(\d+)/);
-        const neutralCitation = citationMatch ? citationMatch[0] : undefined;
-        const year = citationMatch ? citationMatch[1] : undefined;
-
-        // Extract jurisdiction from URL (Australian and New Zealand)
-        const auJurisdictionMatch = url.match(/\/au\/cases\/(cth|vic|nsw|qld|sa|wa|tas|nt|act)\//i);
-        const nzJurisdictionMatch = url.match(/\/nz\/cases\//i);
-        const jurisdiction =
-          auJurisdictionMatch?.[1]?.toLowerCase() || (nzJurisdictionMatch ? "nz" : undefined);
-
-        // Extract date from the meta section
-        const $meta = $li.find("p.meta");
-        const metaText = $meta.text();
-        const dateMatch = metaText.match(/(\d{1,2}\s+\w+\s+\d{4})/);
-        const dateStr = dateMatch ? dateMatch[1] : undefined;
-
-        // Extract court/database info from meta
-        const $courtLink = $meta.find("a").first();
-        const court = $courtLink.length > 0 ? $courtLink.text().trim() : undefined;
-
-        // Try to extract reported citation from title
-        const reportedCitation = extractReportedCitation(title);
-
-        results.push({
-          title,
-          citation: undefined,
-          neutralCitation,
-          reportedCitation,
-          url,
-          source: "austlii",
-          summary: court ? `${court}${dateStr ? ` - ${dateStr}` : ""}` : dateStr,
-          jurisdiction,
-          year,
-          type: options.type,
-        });
-      }
-    });
+    if (shouldUseCaseNameFallback(query, options, searchParams.method, results.length)) {
+      searchUrl.searchParams.set("method", "boolean");
+      results = parseSearchResults(await fetchSearchHtml(searchUrl.toString()), options);
+    }
 
     // Apply title matching boost when using relevance sorting
     let finalResults = results;

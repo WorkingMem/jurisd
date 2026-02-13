@@ -191,10 +191,10 @@ describe("Search result quality checks", () => {
 
 describe("Search relevance and sorting", () => {
   /**
-   * Test case name query with auto sorting
+   * Test case name query with auto sorting - Donoghue v Stevenson
    * Should detect "X v Y" pattern and use relevance sorting
    */
-  it("should find specific case when searching by name (auto mode)", async () => {
+  it("should find specific case when searching by name (Donoghue v Stevenson)", async () => {
     const results = await searchAustLii("Donoghue v Stevenson", {
       type: "case",
       limit: 10,
@@ -214,6 +214,32 @@ describe("Search relevance and sorting", () => {
 
     // At least one of the top results should mention the parties
     expect(hasDonoghue || hasStevenson).toBe(true);
+  }, 30000);
+
+  /**
+   * Test case name query with auto sorting - Mabo v Queensland
+   * Should detect "X v Y" pattern and use relevance sorting
+   */
+  it("should find specific case when searching by name (Mabo v Queensland)", async () => {
+    const results = await searchAustLii("Mabo v Queensland", {
+      type: "case",
+      limit: 10,
+      sortBy: "auto", // Should auto-detect case name and use relevance
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+
+    // First result should have both party names in title
+    const firstTitle = results[0]?.title.toLowerCase();
+    expect(firstTitle).toBeDefined();
+
+    // Should contain both party names (at least one result in top 5)
+    const topResults = results.slice(0, 5);
+    const hasMabo = topResults.some((r) => r.title.toLowerCase().includes("mabo"));
+    const hasQueensland = topResults.some((r) => r.title.toLowerCase().includes("queensland"));
+
+    // At least one of the top results should mention the parties
+    expect(hasMabo || hasQueensland).toBe(true);
   }, 30000);
 
   /**
