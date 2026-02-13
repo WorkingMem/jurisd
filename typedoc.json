@@ -1,0 +1,21 @@
+{
+  "entryPoints": [
+    "src/index.ts",
+    "src/services/austlii.ts",
+    "src/services/fetcher.ts",
+    "src/services/source.ts",
+    "src/utils/formatter.ts",
+    "src/utils/logger.ts",
+    "src/config.ts",
+    "src/constants.ts",
+    "src/errors.ts"
+  ],
+  "out": "docs/api",
+  "exclude": ["**/*.test.ts", "src/test/**", "node_modules"],
+  "excludePrivate": true,
+  "includeVersion": true,
+  "readme": "README.md",
+  "name": "AusLaw MCP API Documentation",
+  "plugin": [],
+  "tsconfig": "tsconfig.json"
+}
