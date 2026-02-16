@@ -191,11 +191,11 @@ describe("Search result quality checks", () => {
 
 describe("Search relevance and sorting", () => {
   /**
-   * Test case name query with auto sorting - Donoghue v Stevenson
+   * Test case name query with auto sorting - Cole v Whitfield
    * Should detect "X v Y" pattern and use relevance sorting
    */
-  it("should find specific case when searching by name (Donoghue v Stevenson)", async () => {
-    const results = await searchAustLii("Donoghue v Stevenson", {
+  it("should find specific case when searching by name (Cole v Whitfield)", async () => {
+    const results = await searchAustLii("Cole v Whitfield", {
       type: "case",
       limit: 10,
       sortBy: "auto", // Should auto-detect case name and use relevance
@@ -209,11 +209,11 @@ describe("Search relevance and sorting", () => {
 
     // Should contain both party names (at least one result in top 5)
     const topResults = results.slice(0, 5);
-    const hasDonoghue = topResults.some((r) => r.title.toLowerCase().includes("donoghue"));
-    const hasStevenson = topResults.some((r) => r.title.toLowerCase().includes("stevenson"));
+    const hasCole = topResults.some((r) => r.title.toLowerCase().includes("cole"));
+    const hasWhitfield = topResults.some((r) => r.title.toLowerCase().includes("whitfield"));
 
     // At least one of the top results should mention the parties
-    expect(hasDonoghue || hasStevenson).toBe(true);
+    expect(hasCole || hasWhitfield).toBe(true);
   }, 30000);
 
   /**
