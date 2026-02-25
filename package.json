@@ -27,6 +27,9 @@
   "author": "Russell Brenner",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=20.18.1"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.19.1",
     "axios": "^1.12.2",
