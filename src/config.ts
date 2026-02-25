@@ -36,11 +36,11 @@ export interface Config {
 export function loadConfig(): Config {
   return {
     austlii: {
-      searchBase: process.env.AUSTLII_SEARCH_BASE || 
-        "https://www.austlii.edu.au/cgi-bin/sinosrch.cgi",
-      referer: process.env.AUSTLII_REFERER || 
-        "https://www.austlii.edu.au/forms/search1.html",
-      userAgent: process.env.AUSTLII_USER_AGENT || 
+      searchBase:
+        process.env.AUSTLII_SEARCH_BASE || "https://www.austlii.edu.au/cgi-bin/sinosrch.cgi",
+      referer: process.env.AUSTLII_REFERER || "https://www.austlii.edu.au/forms/search1.html",
+      userAgent:
+        process.env.AUSTLII_USER_AGENT ||
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       timeout: parseInt(process.env.AUSTLII_TIMEOUT || "60000", 10), // AustLII can be slow
     },
