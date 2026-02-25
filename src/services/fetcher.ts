@@ -213,11 +213,7 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     };
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      throw new NetworkError(
-        `Failed to fetch document from ${url}: ${error.message}`,
-        url,
-        error,
-      );
+      throw new NetworkError(`Failed to fetch document from ${url}: ${error.message}`, url, error);
     }
     throw error;
   }
