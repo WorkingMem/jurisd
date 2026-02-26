@@ -6,6 +6,9 @@ on:
     - cron: '0 3 * * *'
   workflow_dispatch:
 
+# Required permissions for creating pull requests
+# IMPORTANT: Repository must have "Allow GitHub Actions to create and approve pull requests" enabled
+# This setting is found in: Settings > Actions > General > Workflow permissions
 permissions:
   contents: write
   pull-requests: write
@@ -46,6 +49,10 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
+          # Use PAT if available (for triggering workflows), otherwise use default GITHUB_TOKEN
+          # Note: GITHUB_TOKEN requires "Allow GitHub Actions to create and approve pull requests"
+          # to be enabled in repository settings (Settings > Actions > General > Workflow permissions)
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: 'docs: auto-sync documentation with repository state'
           title: 'docs: nightly documentation sync'
           body: |
