@@ -11,9 +11,13 @@ import { fetchDocumentText } from "../services/fetcher.js";
  * 3. Results are filtered correctly (only primary sources)
  * 4. Results are recent (when sorted by date)
  * 5. Document fetching works for returned URLs
+ *
+ * Skipped in CI because they depend on external service availability.
  */
 
-describe("Real-world legal search scenarios", () => {
+const describeLive = process.env.CI ? describe.skip : describe;
+
+describeLive("Real-world legal search scenarios", () => {
   /**
    * Scenario 1: Negligence and duty of care
    * Common personal injury law search
@@ -148,7 +152,7 @@ describe("Real-world legal search scenarios", () => {
   }, 60000); // Longer timeout for fetch
 });
 
-describe("Search result quality checks", () => {
+describeLive("Search result quality checks", () => {
   it("should return properly structured results", async () => {
     const results = await searchAustLii("contract breach", {
       type: "case",
@@ -189,7 +193,7 @@ describe("Search result quality checks", () => {
   }, 30000);
 });
 
-describe("Search relevance and sorting", () => {
+describeLive("Search relevance and sorting", () => {
   /**
    * Test case name query with auto sorting - Cole v Whitfield
    * Should detect "X v Y" pattern and use relevance sorting
@@ -380,7 +384,7 @@ describe("Search relevance and sorting", () => {
   }, 30000);
 });
 
-describe("Reported citations and removed.invalid support", () => {
+describeLive("Reported citations and removed.invalid support", () => {
   /**
    * Test that reported citations are extracted when available
    */

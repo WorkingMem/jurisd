@@ -323,6 +323,26 @@ src/
 - **Security**: Email russell@lawquarter.com
 - **General**: Comment on relevant issues
 
+## GitHub Actions Workflows
+
+### Automated Documentation Sync
+
+This repository includes a nightly workflow (`.github/workflows/docs-sync.yml`) that automatically syncs documentation with the repository state.
+
+**Repository Setup Required:**
+
+For this workflow to function properly, the repository must have the following setting enabled:
+
+1. Go to **Settings** > **Actions** > **General** > **Workflow permissions**
+2. Enable **"Allow GitHub Actions to create and approve pull requests"**
+
+Alternatively, you can create a Personal Access Token (PAT) with `repo` and `workflow` scopes and add it as a repository secret named `PAT_TOKEN`.
+
+Without this configuration, the workflow will fail with:
+```
+GitHub Actions is not permitted to create or approve pull requests.
+```
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
