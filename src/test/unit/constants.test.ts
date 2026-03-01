@@ -21,6 +21,14 @@ describe("Constants", () => {
     it("should not match plain text", () => {
       expect("negligence duty of care").not.toMatch(NEUTRAL_CITATION_PATTERN);
     });
+
+    it("matches FedCFamC2F neutral citation", () => {
+      expect("[2022] FedCFamC2F 786".match(NEUTRAL_CITATION_PATTERN)).toBeTruthy();
+    });
+
+    it("matches FedCFamC1F neutral citation", () => {
+      expect("[2023] FedCFamC1F 100".match(NEUTRAL_CITATION_PATTERN)).toBeTruthy();
+    });
   });
 
   describe("REPORTED_CITATION_PATTERNS", () => {
