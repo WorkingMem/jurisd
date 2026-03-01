@@ -65,6 +65,34 @@ interface SearchParams {
   offset?: number;
 }
 
+const URL_AUTHORITY_SCORES: Array<[RegExp, number]> = [
+  [/\/HCA\//, 100],
+  [/\/FCAFC\//, 80],
+  [/\/FedCFamC1F\//, 70],
+  [/\/FCA\//, 60],
+  [/\/FedCFamC2F\//, 50],
+  [/\/NSWCA\/|\/VSCA\/|\/QCA\/|\/SASCFC\/|\/WASCA\/|\/TASFC\//, 50],
+  [/\/NSWSC\/|\/VSC\/|\/QSC\/|\/SASC\/|\/WASC\/|\/TASSC\/|\/NTSC\/|\/ACTSC\//, 30],
+  [/\/NSWDC\/|\/VCC\/|\/QDC\/|\/SADC\/|\/WADC\//, 15],
+  [/\/NZHC\//, 40],
+  [/\/NZCA\//, 55],
+  [/\/NZSC\//, 70],
+];
+
+export function calculateAuthorityScore(result: SearchResult): number {
+  let score = 0;
+  for (const [pattern, points] of URL_AUTHORITY_SCORES) {
+    if (pattern.test(result.url)) {
+      score += points;
+      break;
+    }
+  }
+  if (result.reportedCitation) {
+    score += 10;
+  }
+  return score;
+}
+
 /**
  * Extracts reported citation from text.
  * Uses REPORTED_CITATION_PATTERNS from constants.
@@ -344,6 +372,18 @@ export async function searchAustLii(
     let finalResults = results;
     if (sortMode === "relevance" && isCaseNameQuery(query)) {
       finalResults = boostTitleMatches(results, query);
+    }
+
+    // Secondary sort by authority score for case name queries
+    if (options.type === "case" && isCaseNameQuery(query)) {
+      // Stable sort: preserve primary order but break ties with authority score
+      const withScores = finalResults.map((r, i) => ({ r, i, score: calculateAuthorityScore(r) }));
+      // Only reorder within same score groups (stable tie-breaking)
+      withScores.sort((a, b) => {
+        if (a.score !== b.score) return b.score - a.score;
+        return a.i - b.i; // preserve original order for equal scores
+      });
+      finalResults = withScores.map((x) => x.r);
     }
 
     return finalResults.slice(0, limit);
