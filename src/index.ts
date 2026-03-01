@@ -32,9 +32,6 @@ const jurisdictionEnum = z.enum([
 const sortByEnum = z.enum(["relevance", "date", "auto"]).default("auto");
 const caseMethodEnum = z.enum(["auto", "title", "phrase", "all", "any", "near", "boolean"]).default("auto");
 const legislationMethodEnum = z.enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"]).default("auto");
-const methodEnum = z
-  .enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"])
-  .default("auto");
 
 async function main() {
   const server = new McpServer({

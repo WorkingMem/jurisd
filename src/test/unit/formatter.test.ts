@@ -96,6 +96,50 @@ describe("formatSearchResults", () => {
   });
 });
 
+  it("text format includes reportedCitation when present", () => {
+    const results: SearchResult[] = [
+      {
+        title: "Mabo v Queensland (No 2)",
+        url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html",
+        source: "austlii",
+        type: "case",
+        neutralCitation: "[1992] HCA 23",
+        reportedCitation: "(1992) 175 CLR 1",
+      },
+    ];
+    const output = formatSearchResults(results, "text");
+    expect(getText(output.content)).toContain("(1992) 175 CLR 1");
+  });
+
+  it("markdown format includes reportedCitation when present", () => {
+    const results: SearchResult[] = [
+      {
+        title: "Mabo v Queensland (No 2)",
+        url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html",
+        source: "austlii",
+        type: "case",
+        neutralCitation: "[1992] HCA 23",
+        reportedCitation: "(1992) 175 CLR 1",
+      },
+    ];
+    const output = formatSearchResults(results, "markdown");
+    expect(getText(output.content)).toContain("(1992) 175 CLR 1");
+  });
+
+  it("markdown format uses hyphen not em dash for summary", () => {
+    const results: SearchResult[] = [
+      {
+        title: "Test Case",
+        url: "https://www.austlii.edu.au/test",
+        source: "austlii",
+        type: "case",
+        summary: "High Court of Australia - 1 Jan 2024",
+      },
+    ];
+    const output = formatSearchResults(results, "markdown");
+    expect(getText(output.content)).not.toContain("\u2014"); // em dash
+  });
+
 describe("formatFetchResponse", () => {
   it("should format fetch response as JSON", () => {
     const result = formatFetchResponse(sampleFetch, "json");

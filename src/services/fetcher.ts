@@ -6,6 +6,7 @@ import tesseract from "node-tesseract-ocr";
 import * as tmp from "tmp";
 import * as fs from "fs/promises";
 import { config } from "../config.js";
+import { MAX_CONTENT_LENGTH } from "../constants.js";
 
 export interface FetchResponse {
   text: string;
@@ -154,10 +155,10 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     const response = await axios.get(url, {
       responseType: "arraybuffer",
       headers: {
-        "User-Agent": "auslaw-mcp/0.1.0 (legal research tool)",
+        "User-Agent": config.source.userAgent,
       },
-      timeout: 30000,
-      maxContentLength: 50 * 1024 * 1024, // 50MB limit
+      timeout: config.source.timeout,
+      maxContentLength: MAX_CONTENT_LENGTH,
     });
 
     const buffer = Buffer.from(response.data);

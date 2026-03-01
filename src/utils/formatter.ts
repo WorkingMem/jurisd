@@ -40,10 +40,12 @@ export function formatSearchResults(
       const rows = results
         .map((result) => {
           const citation = result.citation ?? result.neutralCitation ?? "";
+          const reported = result.reportedCitation && result.reportedCitation !== citation
+            ? ` <span class="reported-citation">${escapeHtml(result.reportedCitation)}</span>` : "";
           const summary = result.summary ? `<p>${escapeHtml(result.summary)}</p>` : "";
           return `<li><a href="${escapeHtml(result.url)}">${escapeHtml(result.title)}</a>${
             citation ? ` (${escapeHtml(citation)})` : ""
-          }${summary}</li>`;
+          }${reported}${summary}</li>`;
         })
         .join("\n");
       return {
@@ -53,8 +55,10 @@ export function formatSearchResults(
     case "markdown": {
       const lines = results.map((result) => {
         const citation = result.citation ?? result.neutralCitation ?? "";
-        const summary = result.summary ? ` — ${result.summary}` : "";
-        return `- [${result.title}](${result.url})${citation ? ` (${citation})` : ""}${summary}`;
+        const reported = result.reportedCitation && result.reportedCitation !== citation
+          ? ` ${result.reportedCitation}` : "";
+        const summary = result.summary ? ` - ${result.summary}` : "";
+        return `- [${result.title}](${result.url})${citation ? ` (${citation})` : ""}${reported}${summary}`;
       });
       return {
         content: ensureContent(lines.join("\n")),
@@ -64,8 +68,10 @@ export function formatSearchResults(
     default: {
       const lines = results.map((result, idx) => {
         const citation = result.citation ?? result.neutralCitation ?? "";
+        const reported = result.reportedCitation && result.reportedCitation !== citation
+          ? ` ${result.reportedCitation}` : "";
         const summary = result.summary ? `\n  ${result.summary}` : "";
-        return `${idx + 1}. ${result.title}${citation ? ` (${citation})` : ""}\n   ${result.url}${summary}`;
+        return `${idx + 1}. ${result.title}${citation ? ` (${citation})` : ""}${reported}\n   ${result.url}${summary}`;
       });
       return {
         content: ensureContent(lines.join("\n")),

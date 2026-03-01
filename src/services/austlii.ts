@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { config } from "../config.js";
+import { REPORTED_CITATION_PATTERNS } from "../constants.js";
 
 export interface SearchResult {
   title: string;
@@ -65,26 +66,16 @@ interface SearchParams {
 }
 
 /**
- * Extracts reported citation from text
- * Matches patterns like: (2024) 350 ALR 123, (2024) 98 ALJR 456, etc.
+ * Extracts reported citation from text.
+ * Uses REPORTED_CITATION_PATTERNS from constants.
  */
 function extractReportedCitation(text: string): string | undefined {
-  // Common law report patterns (AU and NZ):
-  // (YYYY) Volume REPORTER Page
-  // Examples: (2024) 350 ALR 123, (2024) 98 ALJR 456, (1992) 175 CLR 1
-  // NZ examples: [2024] 1 NZLR 456, (2023) 3 NZLR 789
-  const patterns = [
-    /\((\d{4})\)\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/,  // (2024) 350 ALR 123
-    /\[(\d{4})\]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/,  // [2024] 1 NZLR 456
-  ];
-
-  for (const pattern of patterns) {
+  for (const pattern of REPORTED_CITATION_PATTERNS) {
     const match = text.match(pattern);
     if (match) {
       return match[0];
     }
   }
-
   return undefined;
 }
 
