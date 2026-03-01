@@ -14,6 +14,7 @@ export interface Config {
     baseUrl: string;
     userAgent: string;
     timeout: number;
+    sessionCookie?: string;
   };
   ocr: {
     language: string;
@@ -48,6 +49,7 @@ export function loadConfig(): Config {
       baseUrl: process.env.SOURCE_BASE_URL || "https://removed.invalid",
       userAgent: process.env.SOURCE_USER_AGENT || "auslaw-mcp/0.1.0 (legal research tool)",
       timeout: parseInt(process.env.SOURCE_TIMEOUT || "15000", 10),
+      sessionCookie: process.env.SESSION_COOKIE || undefined,
     },
     ocr: {
       language: process.env.OCR_LANGUAGE || "eng",
