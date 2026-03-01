@@ -2,6 +2,7 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import { config } from "../config.js";
 import { REPORTED_CITATION_PATTERNS } from "../constants.js";
+import { austliiRateLimiter } from "../utils/rate-limiter.js";
 
 export interface SearchResult {
   title: string;
@@ -276,6 +277,7 @@ export async function searchAustLii(
       searchUrl.searchParams.set("view", "date-latest");
     }
 
+    await austliiRateLimiter.throttle();
     const response = await axios.get(searchUrl.toString(), {
       headers: AUSTLII_HEADERS,
       timeout: config.austlii.timeout,

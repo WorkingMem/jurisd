@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
-import { searchAustLii } from "./services/austlii.js";
+import { searchAustLii, type SearchResult } from "./services/austlii.js";
 import {
   resolveArticle,
   resolveArticleFromUrl,
@@ -13,6 +13,12 @@ import {
   isSourceUrl,
   buildCitationLookupUrl,
 } from "./services/source.js";
+import {
+  formatAGLC4,
+  validateCitation,
+  parseCitation,
+  generatePinpoint,
+} from "./services/citation.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
 const jurisdictionEnum = z.enum([
@@ -184,6 +190,162 @@ async function main() {
           },
         ],
       };
+    },
+  );
+
+  // ── format_citation ──────────────────────────────────────────────────────
+  const formatCitationShape = {
+    title: z.string().min(1).describe("Case name, e.g. 'Mabo v Queensland (No 2)'"),
+    neutralCitation: z.string().optional().describe("Neutral citation, e.g. '[1992] HCA 23'"),
+    reportedCitation: z.string().optional().describe("Reported citation, e.g. '(1992) 175 CLR 1'"),
+    pinpoint: z.string().optional().describe("Pinpoint reference, e.g. '[20]'"),
+    style: z.enum(["neutral", "reported", "combined"]).default("combined").describe(
+      "Citation style: neutral (neutral only), reported (reported only), combined (both)"
+    ),
+  };
+  const formatCitationParser = z.object(formatCitationShape);
+
+  server.registerTool(
+    "format_citation",
+    {
+      title: "Format AGLC4 Citation",
+      description:
+        "Format an Australian case citation according to AGLC4 rules. Combines case name, neutral citation, reported citation, and optional pinpoint into the correct format.",
+      inputSchema: formatCitationShape,
+    },
+    async (rawInput) => {
+      const { title, neutralCitation, reportedCitation, pinpoint, style } =
+        formatCitationParser.parse(rawInput);
+
+      const info = {
+        title,
+        neutralCitation: style !== "reported" ? neutralCitation : undefined,
+        reportedCitation: style !== "neutral" ? reportedCitation : undefined,
+        pinpoint,
+      };
+      const formatted = formatAGLC4(info);
+      return { content: [{ type: "text" as const, text: formatted }] };
+    },
+  );
+
+  // ── validate_citation ─────────────────────────────────────────────────────
+  const validateCitationShape = {
+    citation: z.string().min(1).describe("Neutral citation to validate, e.g. '[1992] HCA 23'"),
+  };
+  const validateCitationParser = z.object(validateCitationShape);
+
+  server.registerTool(
+    "validate_citation",
+    {
+      title: "Validate Citation Against AustLII",
+      description:
+        "Validate a neutral citation by checking it exists on AustLII. Returns the canonical URL if valid.",
+      inputSchema: validateCitationShape,
+    },
+    async (rawInput) => {
+      const { citation } = validateCitationParser.parse(rawInput);
+      const result = await validateCitation(citation);
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  // ── generate_pinpoint ─────────────────────────────────────────────────────
+  const generatePinpointShape = {
+    url: z.string().url().describe("AustLII document URL to fetch and search"),
+    paragraphNumber: z.number().int().positive().optional().describe("Paragraph number to locate"),
+    phrase: z.string().min(1).optional().describe("Phrase to search for within paragraphs"),
+    caseCitation: z.string().optional().describe(
+      "Case citation to prepend to the pinpoint, e.g. '[2022] FedCFamC2F 786'"
+    ),
+  };
+  const generatePinpointParser = z.object(generatePinpointShape).refine(
+    (d) => d.paragraphNumber !== undefined || d.phrase !== undefined,
+    "Provide at least one of paragraphNumber or phrase",
+  );
+
+  server.registerTool(
+    "generate_pinpoint",
+    {
+      title: "Generate Pinpoint Citation",
+      description:
+        "Fetch a judgment from AustLII and generate a pinpoint citation to a specific paragraph (by number or by searching for a phrase).",
+      inputSchema: generatePinpointShape,
+    },
+    async (rawInput) => {
+      const { url, paragraphNumber, phrase, caseCitation } =
+        generatePinpointParser.parse(rawInput);
+      const doc = await fetchDocumentText(url);
+      if (!doc.paragraphs || doc.paragraphs.length === 0) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({ error: "No paragraph blocks found in document" }),
+          }],
+        };
+      }
+      const pinpoint = generatePinpoint(doc.paragraphs, { paragraphNumber, phrase });
+      if (!pinpoint) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({ error: "Paragraph not found" }),
+          }],
+        };
+      }
+      const fullCitation = caseCitation
+        ? `${caseCitation} ${pinpoint.pinpointString}`
+        : pinpoint.pinpointString;
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ ...pinpoint, fullCitation }, null, 2),
+        }],
+      };
+    },
+  );
+
+  // ── search_by_citation ────────────────────────────────────────────────────
+  const searchByCitationShape = {
+    citation: z.string().min(1).describe("Citation to search for, e.g. '[1992] HCA 23' or 'Mabo v Queensland'"),
+    format: formatEnum.optional(),
+  };
+  const searchByCitationParser = z.object(searchByCitationShape);
+
+  server.registerTool(
+    "search_by_citation",
+    {
+      title: "Search by Citation",
+      description:
+        "Find a case by its citation. If a neutral citation is detected, validates it against AustLII and returns the direct URL. Otherwise performs a case name search.",
+      inputSchema: searchByCitationShape,
+    },
+    async (rawInput) => {
+      const { citation, format } = searchByCitationParser.parse(rawInput);
+      const parsed = parseCitation(citation);
+
+      if (parsed?.neutralCitation) {
+        const validated = await validateCitation(parsed.neutralCitation);
+        if (validated.valid && validated.austliiUrl) {
+          const result: SearchResult = {
+            title: citation,
+            neutralCitation: parsed.neutralCitation,
+            url: validated.austliiUrl,
+            source: "austlii",
+            type: "case",
+          };
+          return formatSearchResults([result], format ?? "json");
+        }
+      }
+
+      // Fall back to text search
+      const results = await searchAustLii(citation, {
+        type: "case",
+        sortBy: "relevance",
+        limit: 5,
+      });
+      return formatSearchResults(results, format ?? "json");
     },
   );
 

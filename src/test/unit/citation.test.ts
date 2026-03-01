@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import axios from "axios";
-import { parseCitation, formatAGLC4, isValidNeutralCitation, isValidReportedCitation, shortFormAGLC4, normaliseCitation, validateCitation } from "../../services/citation.js";
+import { parseCitation, formatAGLC4, isValidNeutralCitation, isValidReportedCitation, shortFormAGLC4, normaliseCitation, validateCitation, generatePinpoint } from "../../services/citation.js";
 import { COURT_TO_AUSTLII_PATH } from "../../constants.js";
+import type { ParagraphBlock } from "../../services/fetcher.js";
 
 describe("parseCitation", () => {
   it("extracts neutral citation from plain string", () => {
@@ -134,5 +135,44 @@ describe("validateCitation", () => {
       expect(result.valid).toBe(true);
       expect(result.austliiUrl).toContain("austlii.edu.au");
     }, 30_000);
+  });
+});
+
+describe("generatePinpoint", () => {
+  const paragraphs: ParagraphBlock[] = [
+    { number: 1, text: "Background facts." },
+    { number: 2, text: "The duty of care applied here." },
+    { number: 3, text: "Conclusion and orders." },
+  ];
+
+  it("finds paragraph by number", () => {
+    const result = generatePinpoint(paragraphs, { paragraphNumber: 2 });
+    expect(result?.paragraphNumber).toBe(2);
+    expect(result?.pinpointString).toBe("at [2]");
+  });
+
+  it("finds paragraph by phrase", () => {
+    const result = generatePinpoint(paragraphs, { phrase: "duty of care" });
+    expect(result?.paragraphNumber).toBe(2);
+    expect(result?.pinpointString).toBe("at [2]");
+  });
+
+  it("returns null when phrase not found", () => {
+    expect(generatePinpoint(paragraphs, { phrase: "estoppel" })).toBeNull();
+  });
+
+  it("returns null when paragraph number not found", () => {
+    expect(generatePinpoint(paragraphs, { paragraphNumber: 99 })).toBeNull();
+  });
+
+  it("includes page pinpoint when pageNumber available", () => {
+    const paras: ParagraphBlock[] = [{ number: 1, text: "facts", pageNumber: 456 }];
+    const result = generatePinpoint(paras, { paragraphNumber: 1 });
+    expect(result?.pageString).toBe("at 456");
+  });
+
+  it("phrase match is case-insensitive", () => {
+    const result = generatePinpoint(paragraphs, { phrase: "DUTY OF CARE" });
+    expect(result?.paragraphNumber).toBe(2);
   });
 });

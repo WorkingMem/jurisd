@@ -8,6 +8,8 @@ import * as fs from "fs/promises";
 import { config } from "../config.js";
 import { MAX_CONTENT_LENGTH } from "../constants.js";
 import { isSourceUrl } from "./source.js";
+import { assertFetchableUrl } from "../utils/url-guard.js";
+import { austliiRateLimiter, upstreamRateLimiter } from "../utils/rate-limiter.js";
 
 export interface ParagraphBlock {
   number: number;
@@ -177,7 +179,15 @@ function extractParagraphBlocks(html: string): ParagraphBlock[] {
  * @throws {Error} If the network request fails or the content type is unsupported
  */
 export async function fetchDocumentText(url: string): Promise<FetchResponse> {
+  assertFetchableUrl(url);
   try {
+    // Apply rate limiting based on host
+    if (isSourceUrl(url)) {
+      await upstreamRateLimiter.throttle();
+    } else {
+      await austliiRateLimiter.throttle();
+    }
+
     const headers: Record<string, string> = {
       "User-Agent": config.source.userAgent,
     };

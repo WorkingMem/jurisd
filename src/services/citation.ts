@@ -12,6 +12,7 @@ import {
   REPORTED_CITATION_PATTERNS,
   COURT_TO_AUSTLII_PATH,
 } from "../constants.js";
+import type { ParagraphBlock } from "./fetcher.js";
 
 export interface ParsedCitation {
   neutralCitation?: string;
@@ -94,6 +95,45 @@ export function isValidReportedCitation(s: string): boolean {
 
 export function normaliseCitation(s: string): string {
   return s.replace(/\s+/g, " ").trim();
+}
+
+export interface PinpointResult {
+  paragraphNumber: number;
+  pinpointString: string; // e.g. "at [2]"
+  pageNumber?: number;
+  pageString?: string; // e.g. "at 456"
+}
+
+export interface PinpointQuery {
+  paragraphNumber?: number;
+  phrase?: string;
+}
+
+/**
+ * Finds the pinpoint reference for a paragraph in a judgment.
+ * Can search by paragraph number or by a phrase appearing in the text.
+ */
+export function generatePinpoint(
+  paragraphs: ParagraphBlock[],
+  query: PinpointQuery,
+): PinpointResult | null {
+  let para: ParagraphBlock | undefined;
+
+  if (query.paragraphNumber !== undefined) {
+    para = paragraphs.find((p) => p.number === query.paragraphNumber);
+  } else if (query.phrase) {
+    const phraseLower = query.phrase.toLowerCase();
+    para = paragraphs.find((p) => p.text.toLowerCase().includes(phraseLower));
+  }
+
+  if (!para) return null;
+
+  return {
+    paragraphNumber: para.number,
+    pinpointString: `at [${para.number}]`,
+    pageNumber: para.pageNumber,
+    pageString: para.pageNumber !== undefined ? `at ${para.pageNumber}` : undefined,
+  };
 }
 
 export async function validateCitation(
