@@ -44,19 +44,43 @@ backend XHR API can be called directly with session credentials.
 **Goal:** Identify the XHR endpoints the RPC app uses to load judgment text.
 
 Tasks:
-- [ ] Open Chrome DevTools Network tab on an authenticated removed.invalid session
-- [ ] Navigate to a known judgment (e.g. `removed.invalid/article/67401`)
-- [ ] Filter for XHR/Fetch requests and capture all calls after initial page load
-- [ ] Identify endpoints that return judgment content (likely JSON or XML)
-- [ ] Document: URL patterns, request headers, authentication mechanism, response schema
-- [ ] Check whether `alcsessionid` / `IID` cookies alone are sufficient or if additional
-      tokens (CSRF, RPC variant token) are required
+- [x] Open Chrome DevTools Network tab on an authenticated removed.invalid session
+- [x] Navigate to a known judgment (`removed.invalid/article/67401`)
+- [x] Filter for XHR/Fetch requests and capture all calls after initial page load
+- [x] Identify endpoints that return judgment content
+- [x] Document URL patterns, authentication mechanism, and response schema
+- [ ] Inspect `sourceService.do` POST body and response for article content call (needs Proxyman)
 
-Key things to look for:
-- Does removed.invalid use a REST API or RPC (binary protocol)?
-- Are response payloads JSON, XML, or RPC serialisation format?
-- Is there pagination or streaming for long judgments?
-- Are there rate limits or bot-detection headers?
+**Findings (2026-03-02):**
+
+All removed.invalid API traffic uses **RPC** wire format (`//OK[integer-array, ..., string-table]`).
+There is no REST or JSON API surface accessible without RPC deserialization.
+
+Endpoints observed loading `removed.invalid/article/67401`:
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `sourceService.do` | POST ×6 | Main RPC service (likely includes article content load) |
+| `tranche2.do?ds:SourceModelAllUsersInitial,0,0,{userId},,,0` | GET | User session state (DomainModel init) |
+| `tranche2.do?ds:SourceModelJournals,0,0,{userId},,,0` | GET | Journal metadata for UI |
+
+The integer `127351` in `tranche2.do` URLs is the authenticated **user ID**, not the article ID.
+
+Additional findings:
+- **Cookies rotate on every response** — `IID` and `alcsessionid` are refreshed via `Set-Cookie`
+  on each reply. Any direct API client must maintain a cookie jar and track rotations.
+- Auth cookies are `HttpOnly` — not readable via `document.cookie`, but sent automatically by
+  the browser with each request.
+- Cookie extraction from Chrome: `browser_cookie3` can read HttpOnly cookies from the Chrome
+  profile on disk (macOS Keychain decryption included).
+
+Next: use Proxyman to capture the `sourceService.do` POST body and response for the article content
+call to determine the RPC method name and argument structure.
+
+Key things still to determine:
+- Which of the 6 `sourceService.do` calls loads article text, and what is the RPC method name?
+- Is the judgment text in the RPC response, or is it fetched as a separate static resource?
+- Is there pagination or chunking for long judgments?
 
 ### Phase 2 — Feasibility Assessment
 
