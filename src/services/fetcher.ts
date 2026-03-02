@@ -7,7 +7,7 @@ import * as tmp from "tmp";
 import * as fs from "fs/promises";
 import { config } from "../config.js";
 import { MAX_CONTENT_LENGTH } from "../constants.js";
-import { isSourceUrl } from "./source.js";
+import { isSourceUrl, extractArticleId, fetchSourceArticleContent } from "./source.js";
 import { assertFetchableUrl } from "../utils/url-guard.js";
 import { austliiRateLimiter, upstreamRateLimiter } from "../utils/rate-limiter.js";
 
@@ -222,39 +222,50 @@ function extractParagraphBlocks(html: string): ParagraphBlock[] {
 export async function fetchDocumentText(url: string): Promise<FetchResponse> {
   assertFetchableUrl(url);
 
-  // removed.invalid is a RPC single-page application. The initial HTTP response is a
-  // ~12KB JavaScript bootstrap shell — judgment text is rendered client-side
-  // and is not accessible via a simple HTTP fetch + HTML extraction. Returning
-  // empty content silently is misleading, so we fail fast with a clear message.
-  // See ROADMAP.md for the planned headless-browser / API approach.
+  // removed.invalid uses RPC — content is loaded client-side and not available
+  // via a plain HTTP fetch. Route through the direct RPC API when a
+  // session cookie is configured; reject with a helpful message otherwise.
   if (isSourceUrl(url)) {
-    throw new Error(
-      "fetch_document_text does not support removed.invalid URLs: removed.invalid renders content " +
-        "via a RPC single-page application and full text is not available in the " +
-        "initial HTTP response. Use AustLII URLs for full text fetching, or see " +
-        "ROADMAP.md for the planned removed.invalid headless-browser integration.",
-    );
+    if (!config.source.sessionCookie) {
+      throw new Error(
+        "fetch_document_text requires SESSION_COOKIE for removed.invalid URLs. " +
+          "removed.invalid renders content via a RPC single-page application. " +
+          "Set SESSION_COOKIE in your environment (see README for extraction instructions).",
+      );
+    }
+
+    const articleId = extractArticleId(url);
+    if (!articleId) {
+      throw new Error(`Could not extract article ID from removed.invalid URL: ${url}`);
+    }
+
+    await upstreamRateLimiter.throttle();
+    const html = await fetchSourceArticleContent(articleId, config.source.sessionCookie);
+    const text = extractTextFromHtml(html, url);
+    const paragraphs = extractParagraphBlocks(html);
+    const cleanedHtml = cleanHtmlForOutput(html);
+
+    return {
+      text,
+      html: cleanedHtml,
+      contentType: "text/html",
+      sourceUrl: url,
+      ocrUsed: false,
+      metadata: {
+        contentLength: String(html.length),
+        contentType: "text/html",
+        source: "source-rpc-rpc",
+      },
+      paragraphs,
+    };
   }
 
   try {
-    // Apply rate limiting based on host
-    if (isSourceUrl(url)) {
-      await upstreamRateLimiter.throttle();
-    } else {
-      await austliiRateLimiter.throttle();
-    }
+    await austliiRateLimiter.throttle();
 
     const headers: Record<string, string> = {
       "User-Agent": config.source.userAgent,
     };
-
-    if (isSourceUrl(url) && config.source.sessionCookie) {
-      const cookie = config.source.sessionCookie;
-      if (!/^[\x20-\x7E]+$/.test(cookie) || /[\r\n]/.test(cookie)) {
-        throw new Error("SESSION_COOKIE contains invalid characters");
-      }
-      headers["Cookie"] = cookie;
-    }
 
     const response = await axios.get(url, {
       responseType: "arraybuffer",

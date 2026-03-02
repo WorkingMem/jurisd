@@ -10,6 +10,7 @@ const mockConfig = vi.hoisted(() => ({
     userAgent: "test-agent",
     timeout: 5000,
     sessionCookie: undefined as string | undefined,
+    baseUrl: "https://removed.invalid",
   },
   ocr: { language: "eng", oem: 1, psm: 3 },
   austlii: { searchBase: "", referer: "", userAgent: "", timeout: 5000 },
@@ -36,22 +37,59 @@ describe("fetchDocumentText", () => {
     mockConfig.source.sessionCookie = undefined;
   });
 
-  it("throws immediately for removed.invalid URLs without making any HTTP request", async () => {
-    // removed.invalid is a RPC SPA; HTTP fetch only returns a JS bootstrap shell, not judgment text.
-    // We reject early so callers get a clear error rather than empty content.
+  it("throws for removed.invalid URLs when no session cookie is configured", async () => {
     await expect(fetchDocumentText("https://removed.invalid/article/68901")).rejects.toThrow(
-      /fetch_document_text does not support source\.io/i,
+      /SESSION_COOKIE/i,
     );
     expect(axios.get).not.toHaveBeenCalled();
+    expect(axios.post).not.toHaveBeenCalled();
   });
 
-  it("throws immediately for removed.invalid URLs regardless of session cookie config", async () => {
-    mockConfig.source.sessionCookie = "alcsessionid=abc123";
+  it("calls sourceService.do via POST with fetchRequest when session cookie is configured", async () => {
+    mockConfig.source.sessionCookie = "IID=abc; alcsessionid=xyz";
 
-    await expect(fetchDocumentText("https://removed.invalid/article/12345")).rejects.toThrow(
-      /RPC single-page application/i,
+    const rpcHtml = "<DIV><P>[1] Judgment text here.</P></DIV>";
+    // fetchResponse format: [integers..., [string_table], 4, 7]
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: `//OK[0,-2,0,["Type/123","${rpcHtml}"],4,7]`,
+      status: 200,
+      headers: {},
+    });
+
+    const result = await fetchDocumentText("https://removed.invalid/article/67401");
+
+    expect(axios.post).toHaveBeenCalledWith(
+      "https://removed.invalid/sourceService.do",
+      expect.stringContaining("fetchRequest"),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "Content-Type": "text/x-rpc-rpc; charset=UTF-8",
+          "Cookie": "IID=abc; alcsessionid=xyz",
+        }),
+      }),
     );
-    expect(axios.get).not.toHaveBeenCalled();
+    expect(result.text).toContain("Judgment text");
+    expect(result.contentType).toBe("text/html");
+    expect(result.sourceUrl).toBe("https://removed.invalid/article/67401");
+  });
+
+  it("sends RPC-encoded article ID in the fetchRequest POST body", async () => {
+    mockConfig.source.sessionCookie = "alcsessionid=test";
+
+    const rpcHtml = "<DIV>content</DIV>";
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: `//OK[0,-2,0,["Type/123","${rpcHtml}"],4,7]`,
+      status: 200,
+      headers: {},
+    });
+
+    await fetchDocumentText("https://removed.invalid/article/67401");
+
+    const postBody = vi.mocked(axios.post).mock.calls[0]?.[1] as string;
+    // Article 67401 encodes as "QdJ" in RPC integer encoding
+    expect(postBody).toContain("QdJ");
+    // Should NOT contain the raw integer
+    expect(postBody).not.toMatch(/\|67401\|/);
   });
 
   it("extracts paragraph blocks from AustLII HTML with [N] markers", async () => {

@@ -82,71 +82,90 @@ Key things still to determine:
 - Is the judgment text in the RPC response, or is it fetched as a separate static resource?
 - Is there pagination or chunking for long judgments?
 
-### Phase 2 — Feasibility Assessment
+### Phase 2 — Feasibility Assessment (COMPLETED 2026-03-02)
 
-Based on Phase 1 findings, assess which path to take:
+**Assessment:** Option A (Direct RPC API) is fully feasible and has been implemented.
 
-#### Option A: Direct API calls (preferred if feasible)
+#### Option A: Direct RPC API - IMPLEMENTED
 
-If removed.invalid's backend API is accessible with standard HTTP + session cookies:
+**Initial attempt (Proxyman HAR, 2026-03-02):** Captured `getInitialContent` on
+`SourceRemoteService` (token `16E3F568878E6841670449E07D95BA3E`). However,
+calling this method directly (from Node.js or browser JS) returns HTTP 200 with
+empty body. The server appears to require prior session state setup that only
+occurs during the full RPC page load sequence.
 
-- Implement a `fetchSourceArticle(articleId)` function in `src/services/source.ts`
-- Parse the API response format (JSON/XML/RPC)
-- Integrate with the existing `fetch_document_text` tool (remove the "not supported" error)
-- Session cookie extraction via `browser_cookie3` can be scripted:
-  ```bash
-  python3 -c "
-  import browser_cookie3
-  auth = ['IID','alcsessionid','cf_clearance']
-  cookies = browser_cookie3.chrome(domain_name='removed.invalid')
-  print('; '.join(f'{c.name}={c.value}' for c in cookies if c.name in auth))
-  "
-  ```
+**Working method (SPA interception, 2026-03-02):** Installed an XHR interceptor
+in a live authenticated removed.invalid session and triggered SPA navigation from the
+Source Browser to capture the actual content-loading sequence. Discovered
+`fetchRequest` on `ArticleViewRemoteService` - this is the primary method the
+RPC app uses to load article content.
 
-Pros: No new binary dependencies, fast, works headlessly in any environment.
-Cons: Fragile to API changes; potentially against removed.invalid ToS.
+**Endpoint:** `POST https://removed.invalid/sourceService.do`
 
-#### Option B: Headless browser via Playwright (fallback)
+**Request headers:**
+```
+Content-Type: text/x-rpc-rpc; charset=UTF-8
+X-RPC-Module-Base: https://removed.invalid/au.com.upstream.source.SourceClient/
+X-Variant: 0BCBB10F3C94380A7BB607710B95A8EF
+Origin: https://removed.invalid
+Referer: https://removed.invalid/article/{articleId}
+Cookie: {session cookie}
+```
 
-If the API is RPC (binary) or requires JavaScript execution to authenticate:
+**Request body** (`fetchRequest` method, article 1182103):
+```
+7|0|10|https://removed.invalid/au.com.upstream.source.SourceClient/|E2F710F48F8237D9E1397729B9933A69|au.com.upstream.source.cs.remote.ArticleViewRemoteService|fetchRequest|au.com.upstream.source.cs.csobjects.avd.FetchRequest/2068227305|au.com.upstream.source.cs.persistent.Jrl/728826604|au.com.upstream.source.cs.persistent.Article|java.util.ArrayList/4159755760|au.com.upstream.source.cs.csobjects.avd.PhraseFrequencyParams/1915696367|cc.alcina.framework.common.client.util.IntPair/1982199244|1|2|3|4|1|5|5|A|A|0|6|EgmX|A|0|A|A|7|0|0|0|8|0|0|9|0|10|3|500|A|8|0|
+```
 
-- Add `@playwright/test` or `playwright-core` as an optional dependency
-- Implement a `SourceBrowser` singleton that keeps a Chromium instance alive for the
-  lifetime of the MCP server process (MCP servers are long-running, so startup cost
-  is amortised)
-- Navigate to `removed.invalid/article/<id>`, wait for the RPC content selector to appear,
-  extract inner text/HTML
-- Pass the user's existing Chrome session profile path to avoid re-authentication
+Where `EgmX` is 1182103 encoded using RPC's custom base-64 charset.
 
-Pros: Handles any page, most reliable, works regardless of API complexity.
-Cons: ~300MB Chromium binary, adds process management complexity, potential
-      memory pressure in constrained environments.
+**Tokens:**
+- `E2F710F48F8237D9E1397729B9933A69` - ArticleViewRemoteService (fetchRequest, getCitedPreview)
+- `16E3F568878E6841670449E07D95BA3E` - SourceRemoteService (getArticleStructuredMetadata)
 
-#### Option C: Claude-in-Chrome MCP bridge (experimental)
+**Response format:**
+```
+//OK[integer_refs..., ["string_table_entry_1", ..., "HTML_CONTENT"], 4, 7]
+```
+Not strict JSON - uses JavaScript `"+"` string concatenation for long strings.
+After removing `"+"` markers, parseable with `JSON.parse`. The HTML content is the
+longest string in the nested string table array at `parsed[parsed.length - 3]`.
+Unicode escape sequences (`\u003C` etc.) are decoded by `JSON.parse` automatically.
 
-Leverage the existing `mcp__claude-in-chrome__*` tools to navigate removed.invalid in the
-user's running Chrome instance (already authenticated):
+**Three calls fired per article navigation:**
+1. `fetchRequest` (ArticleViewRemoteService) - returns full HTML (25KB-738KB)
+2. `getArticleStructuredMetadata` (SourceRemoteService) - returns schema.org JSON (228B-2KB)
+3. `loadTranches` (SourceRemoteService) - returns DomainModel data (34KB-967KB)
 
-- New MCP tool `fetch_source_document(url)` internally calls the Chrome MCP
-- Navigate to the removed.invalid URL, wait for RPC render, extract text
-- No Playwright dependency; reuses existing Chrome session
+**Additional method:** `getArticleStructuredMetadata` returns schema.org JSON
+with case name and neutral citation (228 bytes, simpler than fetchRequest).
+Body template: `7|0|5|...|getArticleStructuredMetadata|J|1|2|3|4|1|5|{ENCODED_ID}|`
 
-Pros: Zero extra dependencies, uses existing authenticated session.
-Cons: Only works when Claude Code is running with the Chrome MCP active and a
-      Chrome window is open; not suitable for CI/headless contexts; tight coupling
-      between two MCPs.
+**Dead end: getInitialContent** - captured from Proxyman HAR but returns empty
+body when called directly. Likely requires server-side state from the 49
+`sourceService.do` calls that occur during full page load. Not usable for our
+purposes.
 
-### Phase 3 — Implementation
+#### Options B and C - Not implemented
 
-Based on Phase 2 assessment, implement the chosen option:
+Option B (Playwright headless browser): Not needed given Option A works.
+Option C (Chrome MCP bridge): Useful for investigation but too fragile for production.
 
-- [ ] Implement `fetchSourceDocument()` in `src/services/source.ts`
-- [ ] Update `fetchDocumentText` in `src/services/fetcher.ts` to route removed.invalid URLs
-      through the new implementation (remove early-rejection error)
-- [ ] Add integration tests against live removed.invalid (tagged `@live`, skipped in CI)
+### Phase 3 - Implementation (COMPLETED 2026-03-02)
+
+- [x] Implement `encodeInt()` in `src/services/source-rpc.ts`
+- [x] Implement `buildGetInitialContentRequest()` in `src/services/source-rpc.ts` (kept for reference)
+- [x] Implement `buildFetchRequest()` in `src/services/source-rpc.ts` (primary method)
+- [x] Implement `buildGetMetadataRequest()` in `src/services/source-rpc.ts`
+- [x] Implement `parseRpcRpcResponse()` in `src/services/source-rpc.ts` (simple format)
+- [x] Implement `parseFetchResponse()` in `src/services/source-rpc.ts` (complex format with string concat)
+- [x] Implement `fetchSourceArticleContent()` in `src/services/source.ts` (uses fetchRequest)
+- [x] Update `fetchDocumentText` in `src/services/fetcher.ts`:
+      - When `SESSION_COOKIE` is set: call RPC API, return full HTML
+      - When not set: throw with `SESSION_COOKIE` instructions
+- [x] Add integration tests in `src/test/source.test.ts` (skipped in CI and without env var)
 - [ ] Update `.env.example` with cookie extraction instructions
-- [ ] Document the cookie refresh workflow (cookies expire; `browser_cookie3` script
-      should be the canonical refresh mechanism)
+- [ ] Document the cookie refresh workflow in README
 
 ---
 
