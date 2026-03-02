@@ -33,7 +33,7 @@
     "moduleDetection": "force",
     "moduleResolution": "nodeNext",
     "esModuleInterop": true,
-    "resolveJsonModule": true,
+    "resolveJsonModule": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "coverage"]

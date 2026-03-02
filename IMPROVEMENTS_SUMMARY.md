@@ -14,34 +14,41 @@
 8. **constants.ts** - Shared constants for citations, jurisdictions, timeouts
 9. **errors.ts** - Custom error classes (AustLiiError, NetworkError, ParseError, OcrError)
 10. **logger.ts** - Structured logging with LOG_LEVEL support
-11. **Unit tests** - 27 tests for formatter, errors, constants, logger
+11. **Unit tests** - 70 tests for formatter, errors, constants, logger, config, austlii, fetcher (mocked)
 12. **JSDoc comments** - All exported functions documented
 13. **Data source attribution** - README includes AustLII and removed.invalid attribution
-14. **CI/CD** - Consolidated workflow with lint, test, and security audit jobs
+14. **CI/CD** - Consolidated workflow with lint, test, security audit, and coverage upload jobs
 15. **.editorconfig** - Consistent formatting across editors
 16. **VS Code settings** - Recommended extensions and workspace config
 17. **.env.example** - Documented environment variables
 18. **Dependabot** - Automated npm and GitHub Actions dependency updates
 19. **Docker** - Multi-stage Dockerfile and docker-compose.yaml
 20. **Vitest coverage** - Coverage reporting configured
+21. **ESLint v9 migration** - Migrated from `.eslintrc.json` to `eslint.config.mjs`
+22. **Custom error usage** - Services use AustLiiError, NetworkError, ParseError, OcrError
+23. **Structured logging** - Services use logger instead of console.warn/error
+24. **Config/constants usage** - Services use config and constants instead of hardcoded values
+25. **Test fixtures** - Offline HTML fixtures for AustLII search, judgment, and removed.invalid
+26. **Mocked tests** - Network-isolated tests using vitest mocks for austlii and fetcher
+27. **Performance tests** - Benchmark tests for search latency and concurrent requests
+28. **Release workflow** - GitHub Actions workflow for tagged releases
+29. **Coverage upload** - Codecov integration in CI pipeline
+30. **Husky / lint-staged** - Pre-commit hooks for ESLint and Prettier
+31. **TypeDoc** - API documentation generation configured
+32. **removed.invalid search** - Search removed.invalid by cross-referencing AustLII results with removed.invalid metadata (no API required)
+33. **Multi-source merging** - Merge and deduplicate results from AustLII and removed.invalid
 
 ## 🟡 Remaining (Future Work)
 
-- **TypeDoc** - API documentation generation not yet configured
-- **Husky / lint-staged** - Pre-commit hooks not yet installed
-- **Test fixtures / mocks** - Offline testing infrastructure
-- **Performance tests** - Benchmark tests for search latency
-- **80%+ coverage** - Additional unit tests needed
 - **Branch protection** - Requires GitHub admin configuration
-- **Release workflow** - Automated release CI not yet added
-- **Coverage upload** - Codecov integration pending
 - **Rate limiting** - Built-in request throttling
+- **80%+ coverage** - Additional unit tests for full coverage target
 
 ## 📊 Project Statistics
 
 - **Lines of Code:** ~1,400 (TypeScript)
-- **Test Scenarios:** 18 integration + 27 unit tests
-- **Documentation Files:** 9 (README, AGENTS, ROADMAP, architecture, CONTRIBUTING, SECURITY, CHANGELOG, LICENSE-THIRD-PARTY, PROJECT_IMPROVEMENTS)
+- **Test Scenarios:** 18 integration + 43 source + 70 unit tests
+- **Documentation Files:** 13 (README, AGENTS, ROADMAP, architecture, CONTRIBUTING, SECURITY, CHANGELOG, LICENSE-THIRD-PARTY, PROJECT_IMPROVEMENTS, IMPROVEMENTS_SUMMARY, DEPLOYMENT_CHECKLIST, DOCKER, k8s/README)
 - **License:** MIT (all dependencies compatible)
 
 ## ✅ Strengths

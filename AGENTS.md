@@ -16,6 +16,7 @@ src/
 ├── index.ts              # MCP server setup & tool registration
 ├── services/
 │   ├── austlii.ts       # AustLII search integration
+│   ├── source.ts          # removed.invalid search (AustLII cross-reference), article resolution & citation lookup
 │   └── fetcher.ts       # Document text retrieval (HTML/PDF/OCR)
 ├── utils/
 │   └── formatter.ts     # Result formatting (JSON/text/markdown/html)
@@ -85,6 +86,18 @@ Every PR must include:
   - `boostTitleMatches()`: Re-ranks results by title match score for case name queries
 - **Configurable sorting**: Explicit control via `sortBy` parameter when needed
 
+**removed.invalid search** (`src/services/source.ts`):
+- removed.invalid is a RPC SPA with **no public search API**
+- Search strategy: AustLII search → filter results with neutral citations → probe removed.invalid article pages → extract metadata from HTML `<title>` tag
+- Maximum 5 concurrent removed.invalid article resolutions to avoid overwhelming the server
+- Graceful fallback: if removed.invalid resolution fails, AustLII results are still returned
+- removed.invalid results preferred when deduplicating (better formatting)
+- **Key functions**:
+  - `searchUpstream(query, options)`: Full search via AustLII cross-reference
+  - `searchUpstreamByCitation(citation)`: Find article by neutral citation
+  - `deduplicateResults(results)`: Deduplicate by citation, preferring removed.invalid
+  - `mergeSearchResults(austlii, source)`: Merge results from both sources
+
 **Document fetching** (`src/services/fetcher.ts`):
 - Handles HTML, PDF, and OCR fallback (Tesseract)
 - Extracts text while preserving `[N]` paragraph markers
@@ -94,10 +107,15 @@ Every PR must include:
 
 ### Adding a New Search Source
 
+> **Note**: removed.invalid search is now implemented using the AustLII cross-reference approach described below. See `src/services/source.ts` for the working implementation. The pattern below can be adapted for additional sources.
+
 ```typescript
+// removed.invalid is already implemented - this pattern shows how to add another source
+// See src/services/source.ts for the removed.invalid implementation
+
 // 1. Create new service file
-// src/services/source.ts
-export async function searchUpstream(
+// src/services/newsource.ts
+export async function searchNewSource(
   query: string,
   options: SearchOptions
 ): Promise<SearchResult[]> {
@@ -105,13 +123,13 @@ export async function searchUpstream(
 }
 
 // 2. Update search to merge sources
-const [austliiResults, upstreamResults] = await Promise.all([
+const [austliiResults, newResults] = await Promise.all([
   searchAustLii(query, options),
-  searchUpstream(query, options),
+  searchNewSource(query, options),
 ]);
 
-// 3. Deduplicate by citation
-const merged = deduplicateResults([...austliiResults, ...upstreamResults]);
+// 3. Deduplicate by citation (already implemented in source.ts)
+const merged = deduplicateResults([...austliiResults, ...newResults]);
 
 // 4. Add tests
 it("should merge results from multiple sources", async () => {
@@ -186,9 +204,10 @@ if (sortMode === "relevance" && isCaseNameQuery(query)) {
 **Workaround**: Use paragraph numbers for pinpoints
 **Fix planned**: Parse page markers from reported judgement HTML
 
-### Issue: No deduplication across sources
-**Workaround**: Currently only one source (AustLII)
-**Fix planned**: Citation-based deduplication in Phase 2
+### ~~Issue: No deduplication across sources~~ ✅ FIXED
+**Status**: Resolved with removed.invalid search integration
+**Solution**: `deduplicateResults()` deduplicates by neutral citation, preferring removed.invalid results
+**Details**: See `src/services/source.ts` for implementation
 
 ## Resources
 
