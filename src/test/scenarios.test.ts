@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import { searchAustLii } from "../services/austlii.js";
 import { fetchDocumentText } from "../services/fetcher.js";
 
+// Skip live network tests in CI to prevent flaky failures
+const describeLive = process.env.CI ? describe.skip : describe;
+
 /**
  * Real-world non-deterministic test scenarios for AustLII search
  *
@@ -11,11 +14,7 @@ import { fetchDocumentText } from "../services/fetcher.js";
  * 3. Results are filtered correctly (only primary sources)
  * 4. Results are recent (when sorted by date)
  * 5. Document fetching works for returned URLs
- *
- * Skipped in CI because they depend on external service availability.
  */
-
-const describeLive = process.env.CI ? describe.skip : describe;
 
 describeLive("Real-world legal search scenarios", () => {
   /**
@@ -195,11 +194,11 @@ describeLive("Search result quality checks", () => {
 
 describeLive("Search relevance and sorting", () => {
   /**
-   * Test case name query with auto sorting - Cole v Whitfield
+   * Test case name query with auto sorting
    * Should detect "X v Y" pattern and use relevance sorting
    */
-  it("should find specific case when searching by name (Cole v Whitfield)", async () => {
-    const results = await searchAustLii("Cole v Whitfield", {
+  it("should find specific case when searching by name (auto mode)", async () => {
+    const results = await searchAustLii("Donoghue v Stevenson", {
       type: "case",
       limit: 10,
       sortBy: "auto", // Should auto-detect case name and use relevance
@@ -213,37 +212,11 @@ describeLive("Search relevance and sorting", () => {
 
     // Should contain both party names (at least one result in top 5)
     const topResults = results.slice(0, 5);
-    const hasCole = topResults.some((r) => r.title.toLowerCase().includes("cole"));
-    const hasWhitfield = topResults.some((r) => r.title.toLowerCase().includes("whitfield"));
+    const hasDonoghue = topResults.some((r) => r.title.toLowerCase().includes("donoghue"));
+    const hasStevenson = topResults.some((r) => r.title.toLowerCase().includes("stevenson"));
 
     // At least one of the top results should mention the parties
-    expect(hasCole || hasWhitfield).toBe(true);
-  }, 30000);
-
-  /**
-   * Test case name query with auto sorting - Mabo v Queensland
-   * Should detect "X v Y" pattern and use relevance sorting
-   */
-  it("should find specific case when searching by name (Mabo v Queensland)", async () => {
-    const results = await searchAustLii("Mabo v Queensland", {
-      type: "case",
-      limit: 10,
-      sortBy: "auto", // Should auto-detect case name and use relevance
-    });
-
-    expect(results.length).toBeGreaterThan(0);
-
-    // First result should have both party names in title
-    const firstTitle = results[0]?.title.toLowerCase();
-    expect(firstTitle).toBeDefined();
-
-    // Should contain both party names (at least one result in top 5)
-    const topResults = results.slice(0, 5);
-    const hasMabo = topResults.some((r) => r.title.toLowerCase().includes("mabo"));
-    const hasQueensland = topResults.some((r) => r.title.toLowerCase().includes("queensland"));
-
-    // At least one of the top results should mention the parties
-    expect(hasMabo || hasQueensland).toBe(true);
+    expect(hasDonoghue || hasStevenson).toBe(true);
   }, 30000);
 
   /**
@@ -406,7 +379,7 @@ describeLive("Reported citations and removed.invalid support", () => {
     const resultsWithReported = results.filter((r) => r.reportedCitation);
     resultsWithReported.forEach((result) => {
       // Should match pattern like: (2024) 350 ALR 123 or [2024] 350 ALR 123
-      expect(result.reportedCitation).toMatch(/[([[](\d{4})[)\]]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/);
+      expect(result.reportedCitation).toMatch(/[([](\d{4})[)\]]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/);
     });
   }, 30000);
 

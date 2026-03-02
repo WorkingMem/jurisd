@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import axios from "axios";
 import { searchAustLii } from "../../services/austlii.js";
 import { AUSTLII_SEARCH_HTML } from "../fixtures/index.js";
-import { AustLiiError } from "../../errors.js";
 
 vi.mock("axios");
 const mockedAxios = vi.mocked(axios, true);
@@ -64,12 +63,14 @@ describe("searchAustLii (mocked)", () => {
     }
   });
 
-  it("should throw AustLiiError on network failure", async () => {
+  it("should throw on network failure", async () => {
     const axiosError = new Error("Network Error");
     mockedAxios.get.mockRejectedValue(axiosError);
     mockedAxios.isAxiosError.mockReturnValue(true);
 
-    await expect(searchAustLii("negligence", { type: "case" })).rejects.toThrow(AustLiiError);
+    await expect(searchAustLii("negligence", { type: "case" })).rejects.toThrow(
+      "AustLII search failed",
+    );
   });
 
   it("should build correct search URL with jurisdiction filter", async () => {

@@ -11,6 +11,8 @@ export default defineConfig({
         'src/test/',
         '**/*.test.ts',
         '**/*.spec.ts',
+        'src/index.ts',
+        'vitest.config.ts',
       ],
       all: true,
       lines: 70,

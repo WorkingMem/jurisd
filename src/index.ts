@@ -4,14 +4,14 @@ import { z } from "zod";
 
 import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
-import { searchAustLii } from "./services/austlii.js";
+import { searchAustLii, type SearchResult } from "./services/austlii.js";
+import { resolveArticle, buildCitationLookupUrl } from "./services/source.js";
 import {
-  resolveArticle,
-  buildCitationLookupUrl,
-  searchUpstream,
-  searchUpstreamByCitation,
-  mergeSearchResults,
-} from "./services/source.js";
+  formatAGLC4,
+  validateCitation,
+  parseCitation,
+  generatePinpoint,
+} from "./services/citation.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
 const jurisdictionEnum = z.enum([
@@ -51,7 +51,6 @@ async function main() {
     sortBy: sortByEnum.optional(),
     method: legislationMethodEnum.optional(),
     offset: z.number().int().min(0).max(500).optional(),
-    includeSource: z.boolean().optional(),
   };
   const searchLegislationParser = z.object(searchLegislationShape);
 
@@ -60,29 +59,21 @@ async function main() {
     {
       title: "Search Legislation",
       description:
-        "Search Australian and New Zealand legislation. Jurisdictions: cth, vic, nsw, qld, sa, wa, tas, nt, act, federal, nz, other (all). Methods: auto, title (titles only), phrase (exact match), all (all words), any (any word), near (proximity), legis (legislation names). Use offset for pagination. Set includeSource=true to also search removed.invalid and merge results.",
+        "Search Australian and New Zealand legislation. Jurisdictions: cth, vic, nsw, qld, sa, wa, tas, nt, act, federal, nz, other (all). Methods: auto, title (titles only), phrase (exact match), all (all words), any (any word), near (proximity), legis (legislation names). Use offset for pagination.",
       inputSchema: searchLegislationShape,
     },
     async (rawInput) => {
-      const { query, jurisdiction, limit, format, sortBy, method, offset, includeSource } =
+      const { query, jurisdiction, limit, format, sortBy, method, offset } =
         searchLegislationParser.parse(rawInput);
-      const options = {
-        type: "legislation" as const,
+      const results = await searchAustLii(query, {
+        type: "legislation",
         jurisdiction,
         limit,
         sortBy,
         method,
         offset,
-      };
-      const austliiResults = await searchAustLii(query, options);
-
-      if (includeSource) {
-        const upstreamResults = await searchUpstream(query, options);
-        const merged = mergeSearchResults(austliiResults, upstreamResults);
-        return formatSearchResults(merged, format ?? "json");
-      }
-
-      return formatSearchResults(austliiResults, format ?? "json");
+      });
+      return formatSearchResults(results, format ?? "json");
     },
   );
 
@@ -94,7 +85,6 @@ async function main() {
     sortBy: sortByEnum.optional(),
     method: caseMethodEnum.optional(),
     offset: z.number().int().min(0).max(500).optional(),
-    includeSource: z.boolean().optional(),
   };
   const searchCasesParser = z.object(searchCasesShape);
 
@@ -103,29 +93,21 @@ async function main() {
     {
       title: "Search Cases",
       description:
-        "Search Australian and New Zealand case law. Jurisdictions: cth, vic, nsw, qld, sa, wa, tas, nt, act, federal, nz, other (all). Methods: auto, title (case names only), phrase (exact match), all (all words), any (any word), near (proximity), boolean. Sorting: auto (smart detection), relevance, date. Use offset for pagination (e.g., offset=50 for page 2). Set includeSource=true to also search removed.invalid (Upstream Source) and merge results.",
+        "Search Australian and New Zealand case law. Jurisdictions: cth, vic, nsw, qld, sa, wa, tas, nt, act, federal, nz, other (all). Methods: auto, title (case names only), phrase (exact match), all (all words), any (any word), near (proximity), boolean. Sorting: auto (smart detection), relevance, date. Use offset for pagination (e.g., offset=50 for page 2).",
       inputSchema: searchCasesShape,
     },
     async (rawInput) => {
-      const { query, jurisdiction, limit, format, sortBy, method, offset, includeSource } =
+      const { query, jurisdiction, limit, format, sortBy, method, offset } =
         searchCasesParser.parse(rawInput);
-      const options = {
-        type: "case" as const,
+      const results = await searchAustLii(query, {
+        type: "case",
         jurisdiction,
         limit,
         sortBy,
         method,
         offset,
-      };
-      const austliiResults = await searchAustLii(query, options);
-
-      if (includeSource) {
-        const upstreamResults = await searchUpstream(query, options);
-        const merged = mergeSearchResults(austliiResults, upstreamResults);
-        return formatSearchResults(merged, format ?? "json");
-      }
-
-      return formatSearchResults(austliiResults, format ?? "json");
+      });
+      return formatSearchResults(results, format ?? "json");
     },
   );
 
@@ -204,85 +186,173 @@ async function main() {
     },
   );
 
-  const searchUpstreamShape = {
-    query: z.string().min(1, "Query cannot be empty."),
-    jurisdiction: jurisdictionEnum.optional(),
-    limit: z.number().int().min(1).max(50).optional(),
-    format: formatEnum.optional(),
-    sortBy: sortByEnum.optional(),
-    type: z.enum(["case", "legislation"]).default("case"),
+  // ── format_citation ──────────────────────────────────────────────────────
+  const formatCitationShape = {
+    title: z.string().min(1).describe("Case name, e.g. 'Mabo v Queensland (No 2)'"),
+    neutralCitation: z.string().optional().describe("Neutral citation, e.g. '[1992] HCA 23'"),
+    reportedCitation: z.string().optional().describe("Reported citation, e.g. '(1992) 175 CLR 1'"),
+    pinpoint: z.string().optional().describe("Pinpoint reference, e.g. '[20]'"),
+    style: z
+      .enum(["neutral", "reported", "combined"])
+      .default("combined")
+      .describe(
+        "Citation style: neutral (neutral only), reported (reported only), combined (both)",
+      ),
   };
-  const searchUpstreamParser = z.object(searchUpstreamShape);
+  const formatCitationParser = z.object(formatCitationShape);
 
   server.registerTool(
-    "search_source",
+    "format_citation",
     {
-      title: "Search removed.invalid (Upstream Source)",
+      title: "Format AGLC4 Citation",
       description:
-        "Search Australian legal materials on removed.invalid (Upstream Source). Works without API access by cross-referencing AustLII search results with removed.invalid article metadata. Returns results with removed.invalid URLs when articles are found. Best for finding cases with removed.invalid links. For direct citation lookup, use search_source_by_citation instead.",
-      inputSchema: searchUpstreamShape,
+        "Format an Australian case citation according to AGLC4 rules. Combines case name, neutral citation, reported citation, and optional pinpoint into the correct format.",
+      inputSchema: formatCitationShape,
     },
     async (rawInput) => {
-      const { query, jurisdiction, limit, format, sortBy, type } = searchUpstreamParser.parse(rawInput);
-      const results = await searchUpstream(query, {
-        type,
-        jurisdiction,
-        limit,
-        sortBy,
-      });
-      return formatSearchResults(results, format ?? "json");
+      const { title, neutralCitation, reportedCitation, pinpoint, style } =
+        formatCitationParser.parse(rawInput);
+
+      const info = {
+        title,
+        neutralCitation: style !== "reported" ? neutralCitation : undefined,
+        reportedCitation: style !== "neutral" ? reportedCitation : undefined,
+        pinpoint,
+      };
+      const formatted = formatAGLC4(info);
+      return { content: [{ type: "text" as const, text: formatted }] };
     },
   );
 
-  const searchUpstreamByCitationShape = {
-    citation: z.string().min(1, "Citation cannot be empty."),
-    format: formatEnum.optional(),
+  // ── validate_citation ─────────────────────────────────────────────────────
+  const validateCitationShape = {
+    citation: z.string().min(1).describe("Neutral citation to validate, e.g. '[1992] HCA 23'"),
   };
-  const searchUpstreamByCitationParser = z.object(searchUpstreamByCitationShape);
+  const validateCitationParser = z.object(validateCitationShape);
 
   server.registerTool(
-    "search_source_by_citation",
+    "validate_citation",
     {
-      title: "Find removed.invalid Article by Citation",
+      title: "Validate Citation Against AustLII",
       description:
-        "Find a removed.invalid article by its neutral citation (e.g. '[2008] NSWSC 323', '[1992] HCA 23'). Resolves article metadata including case name, jurisdiction, and year from removed.invalid. Returns the removed.invalid article URL if found.",
-      inputSchema: searchUpstreamByCitationShape,
+        "Validate a neutral citation by checking it exists on AustLII. Returns the canonical URL if valid.",
+      inputSchema: validateCitationShape,
     },
     async (rawInput) => {
-      const { citation, format } = searchUpstreamByCitationParser.parse(rawInput);
-      const article = await searchUpstreamByCitation(citation);
-      if (!article) {
+      const { citation } = validateCitationParser.parse(rawInput);
+      const result = await validateCitation(citation);
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  // ── generate_pinpoint ─────────────────────────────────────────────────────
+  const generatePinpointShape = {
+    url: z.string().url().describe("AustLII document URL to fetch and search"),
+    paragraphNumber: z.number().int().positive().optional().describe("Paragraph number to locate"),
+    phrase: z.string().min(1).optional().describe("Phrase to search for within paragraphs"),
+    caseCitation: z
+      .string()
+      .optional()
+      .describe("Case citation to prepend to the pinpoint, e.g. '[2022] FedCFamC2F 786'"),
+  };
+  const generatePinpointParser = z
+    .object(generatePinpointShape)
+    .refine(
+      (d) => d.paragraphNumber !== undefined || d.phrase !== undefined,
+      "Provide at least one of paragraphNumber or phrase",
+    );
+
+  server.registerTool(
+    "generate_pinpoint",
+    {
+      title: "Generate Pinpoint Citation",
+      description:
+        "Fetch a judgment from AustLII and generate a pinpoint citation to a specific paragraph (by number or by searching for a phrase).",
+      inputSchema: generatePinpointShape,
+    },
+    async (rawInput) => {
+      const { url, paragraphNumber, phrase, caseCitation } = generatePinpointParser.parse(rawInput);
+      const doc = await fetchDocumentText(url);
+      if (!doc.paragraphs || doc.paragraphs.length === 0) {
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(
-                { citation, found: false, message: "No removed.invalid article found for this citation." },
-                null,
-                2,
-              ),
+              text: JSON.stringify({ error: "No paragraph blocks found in document" }),
             },
           ],
         };
       }
-      if (format === "text" || format === "markdown") {
+      const pinpoint = generatePinpoint(doc.paragraphs, { paragraphNumber, phrase });
+      if (!pinpoint) {
         return {
           content: [
             {
               type: "text" as const,
-              text: `${article.title}\nCitation: ${article.neutralCitation ?? "N/A"}\nURL: ${article.url}\nJurisdiction: ${article.jurisdiction ?? "N/A"}\nYear: ${article.year ?? "N/A"}`,
+              text: JSON.stringify({ error: "Paragraph not found" }),
             },
           ],
         };
       }
+      const fullCitation = caseCitation
+        ? `${caseCitation} ${pinpoint.pinpointString}`
+        : pinpoint.pinpointString;
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ citation, found: true, article }, null, 2),
+            text: JSON.stringify({ ...pinpoint, fullCitation }, null, 2),
           },
         ],
       };
+    },
+  );
+
+  // ── search_by_citation ────────────────────────────────────────────────────
+  const searchByCitationShape = {
+    citation: z
+      .string()
+      .min(1)
+      .describe("Citation to search for, e.g. '[1992] HCA 23' or 'Mabo v Queensland'"),
+    format: formatEnum.optional(),
+  };
+  const searchByCitationParser = z.object(searchByCitationShape);
+
+  server.registerTool(
+    "search_by_citation",
+    {
+      title: "Search by Citation",
+      description:
+        "Find a case by its citation. If a neutral citation is detected, validates it against AustLII and returns the direct URL. Otherwise performs a case name search.",
+      inputSchema: searchByCitationShape,
+    },
+    async (rawInput) => {
+      const { citation, format } = searchByCitationParser.parse(rawInput);
+      const parsed = parseCitation(citation);
+
+      if (parsed?.neutralCitation) {
+        const validated = await validateCitation(parsed.neutralCitation);
+        if (validated.valid && validated.austliiUrl) {
+          const result: SearchResult = {
+            title: citation,
+            neutralCitation: parsed.neutralCitation,
+            url: validated.austliiUrl,
+            source: "austlii",
+            type: "case",
+          };
+          return formatSearchResults([result], format ?? "json");
+        }
+      }
+
+      // Fall back to text search
+      const results = await searchAustLii(citation, {
+        type: "case",
+        sortBy: "relevance",
+        limit: 5,
+      });
+      return formatSearchResults(results, format ?? "json");
     },
   );
 

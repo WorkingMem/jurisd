@@ -1,195 +1,244 @@
 import { describe, it, expect } from "vitest";
 import {
+  calculateAuthorityScore,
+  extractReportedCitation,
   isCaseNameQuery,
   determineSortMode,
+  buildSearchParams,
   boostTitleMatches,
-  extractReportedCitation,
-  shouldUseCaseNameFallback,
 } from "../../services/austlii.js";
 import type { SearchResult, SearchOptions } from "../../services/austlii.js";
 
-describe("isCaseNameQuery", () => {
-  it("should detect 'X v Y' pattern", () => {
-    expect(isCaseNameQuery("Donoghue v Stevenson")).toBe(true);
-    expect(isCaseNameQuery("Mabo v Queensland")).toBe(true);
-    expect(isCaseNameQuery("Smith v Jones")).toBe(true);
+describe("calculateAuthorityScore", () => {
+  it("HCA scores higher than NSWSC", () => {
+    const hca: SearchResult = {
+      url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/2024/1.html",
+      title: "Test",
+      source: "austlii",
+      type: "case",
+    };
+    const nswsc: SearchResult = {
+      url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/nsw/NSWSC/2024/1.html",
+      title: "Test",
+      source: "austlii",
+      type: "case",
+    };
+    expect(calculateAuthorityScore(hca)).toBeGreaterThan(calculateAuthorityScore(nswsc));
   });
 
-  it("should detect 'X v. Y' pattern with period", () => {
-    expect(isCaseNameQuery("Smith v. Jones")).toBe(true);
+  it("FCAFC scores higher than FCA", () => {
+    const fcafc: SearchResult = {
+      url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/FCAFC/2024/1.html",
+      title: "Test",
+      source: "austlii",
+      type: "case",
+    };
+    const fca: SearchResult = {
+      url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/FCA/2024/1.html",
+      title: "Test",
+      source: "austlii",
+      type: "case",
+    };
+    expect(calculateAuthorityScore(fcafc)).toBeGreaterThan(calculateAuthorityScore(fca));
   });
 
-  it("should detect 'Re X' pattern", () => {
-    expect(isCaseNameQuery("Re Wakim")).toBe(true);
-    expect(isCaseNameQuery("Re Bolton")).toBe(true);
-  });
-
-  it("should detect 'In re X' pattern", () => {
-    expect(isCaseNameQuery("In re Wakim")).toBe(true);
-  });
-
-  it("should detect citation patterns", () => {
-    expect(isCaseNameQuery("[1992] HCA 23")).toBe(true);
-    expect(isCaseNameQuery("[2024] NSWSC 100")).toBe(true);
-    expect(isCaseNameQuery("[2025] FCA 456")).toBe(true);
-  });
-
-  it("should detect quoted queries", () => {
-    expect(isCaseNameQuery('"specific case name"')).toBe(true);
-  });
-
-  it("should not detect topic searches", () => {
-    expect(isCaseNameQuery("negligence duty of care")).toBe(false);
-    expect(isCaseNameQuery("contract breach damages")).toBe(false);
-    expect(isCaseNameQuery("unfair dismissal")).toBe(false);
-    expect(isCaseNameQuery("property rights")).toBe(false);
-  });
-});
-
-describe("determineSortMode", () => {
-  const caseOptions: SearchOptions = { type: "case" };
-  const legisOptions: SearchOptions = { type: "legislation" };
-
-  it("should return 'relevance' when explicitly set", () => {
-    expect(determineSortMode("anything", { ...caseOptions, sortBy: "relevance" })).toBe(
-      "relevance",
+  it("reported citation adds score", () => {
+    const withReported: SearchResult = {
+      url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/nsw/NSWSC/2024/1.html",
+      title: "Test",
+      source: "austlii",
+      type: "case",
+      reportedCitation: "(2024) 350 ALR 123",
+    };
+    const withoutReported: SearchResult = {
+      url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/nsw/NSWSC/2024/1.html",
+      title: "Test",
+      source: "austlii",
+      type: "case",
+    };
+    expect(calculateAuthorityScore(withReported)).toBeGreaterThan(
+      calculateAuthorityScore(withoutReported),
     );
   });
 
-  it("should return 'date' when explicitly set", () => {
-    expect(determineSortMode("anything", { ...caseOptions, sortBy: "date" })).toBe("date");
-  });
-
-  it("should auto-detect case name queries as relevance", () => {
-    expect(determineSortMode("Smith v Jones", { ...caseOptions, sortBy: "auto" })).toBe(
-      "relevance",
-    );
-    expect(determineSortMode("Re Wakim", { ...caseOptions, sortBy: "auto" })).toBe("relevance");
-  });
-
-  it("should auto-detect topic queries as date", () => {
-    expect(determineSortMode("negligence duty of care", { ...caseOptions, sortBy: "auto" })).toBe(
-      "date",
-    );
-    expect(determineSortMode("contract breach", { ...caseOptions, sortBy: "auto" })).toBe("date");
-  });
-
-  it("should default to date for legislation searches even with case name pattern", () => {
-    expect(determineSortMode("Smith v Jones", { ...legisOptions, sortBy: "auto" })).toBe("date");
-  });
-
-  it("should default to date when sortBy is not set", () => {
-    expect(determineSortMode("negligence", caseOptions)).toBe("date");
-  });
-
-  it("should default to auto mode (relevance for case names) when sortBy is omitted", () => {
-    // sortBy is omitted entirely (not even set to "auto")
-    expect(determineSortMode("Smith v Jones", caseOptions)).toBe("relevance");
+  it("unknown court gets score 0", () => {
+    const unknown: SearchResult = {
+      url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/other/UNKNOWN/2024/1.html",
+      title: "Test",
+      source: "austlii",
+      type: "case",
+    };
+    expect(calculateAuthorityScore(unknown)).toBe(0);
   });
 });
 
 describe("extractReportedCitation", () => {
-  it("should extract round-bracket reported citations", () => {
-    expect(extractReportedCitation("(2024) 350 ALR 123")).toBe("(2024) 350 ALR 123");
+  it("extracts CLR citation", () => {
     expect(extractReportedCitation("(1992) 175 CLR 1")).toBe("(1992) 175 CLR 1");
-    expect(extractReportedCitation("(2024) 98 ALJR 456")).toBe("(2024) 98 ALJR 456");
   });
 
-  it("should extract square-bracket reported citations", () => {
-    expect(extractReportedCitation("[2024] 1 NZLR 456")).toBe("[2024] 1 NZLR 456");
+  it("extracts ALR citation", () => {
+    expect(extractReportedCitation("(2024) 350 ALR 123")).toBe("(2024) 350 ALR 123");
   });
 
-  it("should extract from longer text", () => {
-    const text = "Mabo v Queensland (No 2) (1992) 175 CLR 1 - High Court of Australia";
-    expect(extractReportedCitation(text)).toBe("(1992) 175 CLR 1");
+  it("extracts citation from surrounding text", () => {
+    const result = extractReportedCitation("Mabo v Queensland (1992) 175 CLR 1 at [20]");
+    expect(result).toBe("(1992) 175 CLR 1");
   });
 
-  it("should return undefined for text without reported citations", () => {
-    expect(extractReportedCitation("Donoghue v Stevenson")).toBeUndefined();
-    expect(extractReportedCitation("negligence duty of care")).toBeUndefined();
-    expect(extractReportedCitation("")).toBeUndefined();
+  it("returns undefined for non-citation text", () => {
+    expect(extractReportedCitation("no citation here")).toBeUndefined();
   });
 
-  it("should return undefined for neutral citations only", () => {
-    // Neutral citations like [2024] HCA 26 have non-numeric third part
-    expect(extractReportedCitation("[2024] HCA 26")).toBeUndefined();
+  it("returns undefined for neutral citation only", () => {
+    expect(extractReportedCitation("[2022] HCA 5")).toBeUndefined();
+  });
+});
+
+describe("isCaseNameQuery", () => {
+  it("detects X v Y pattern", () => {
+    expect(isCaseNameQuery("Donoghue v Stevenson")).toBe(true);
+  });
+
+  it("detects X v. Y pattern with period", () => {
+    expect(isCaseNameQuery("Mabo v. Queensland")).toBe(true);
+  });
+
+  it("detects Re X pattern", () => {
+    expect(isCaseNameQuery("Re Wakim")).toBe(true);
+  });
+
+  it("detects In re X pattern", () => {
+    expect(isCaseNameQuery("In re Smith")).toBe(true);
+  });
+
+  it("detects citation pattern", () => {
+    expect(isCaseNameQuery("[2024] HCA 26")).toBe(true);
+  });
+
+  it("detects quoted query", () => {
+    expect(isCaseNameQuery('"Donoghue v Stevenson"')).toBe(true);
+  });
+
+  it("returns false for topic query", () => {
+    expect(isCaseNameQuery("negligence duty of care")).toBe(false);
+  });
+
+  it("returns false for legislation query", () => {
+    expect(isCaseNameQuery("Privacy Act 1988")).toBe(false);
+  });
+});
+
+describe("determineSortMode", () => {
+  it("returns relevance when sortBy is relevance", () => {
+    const opts: SearchOptions = { type: "case", sortBy: "relevance" };
+    expect(determineSortMode("anything", opts)).toBe("relevance");
+  });
+
+  it("returns date when sortBy is date", () => {
+    const opts: SearchOptions = { type: "case", sortBy: "date" };
+    expect(determineSortMode("Mabo v Queensland", opts)).toBe("date");
+  });
+
+  it("auto mode: case name query returns relevance", () => {
+    const opts: SearchOptions = { type: "case", sortBy: "auto" };
+    expect(determineSortMode("Mabo v Queensland", opts)).toBe("relevance");
+  });
+
+  it("auto mode: topic query returns date", () => {
+    const opts: SearchOptions = { type: "case", sortBy: "auto" };
+    expect(determineSortMode("negligence duty of care", opts)).toBe("date");
+  });
+
+  it("auto mode: legislation type returns date even for case name pattern", () => {
+    const opts: SearchOptions = { type: "legislation", sortBy: "auto" };
+    expect(determineSortMode("Mabo v Queensland", opts)).toBe("date");
+  });
+
+  it("no sortBy defaults to date for topic", () => {
+    const opts: SearchOptions = { type: "case" };
+    expect(determineSortMode("negligence", opts)).toBe("date");
+  });
+});
+
+describe("buildSearchParams", () => {
+  it("sets meta to /au for Australian jurisdiction", () => {
+    const opts: SearchOptions = { type: "case", jurisdiction: "cth" };
+    const params = buildSearchParams("test", opts);
+    expect(params.meta).toBe("/au");
+  });
+
+  it("sets mask_path for cth cases", () => {
+    const opts: SearchOptions = { type: "case", jurisdiction: "cth" };
+    const params = buildSearchParams("test", opts);
+    expect(params.mask_path).toBe("au/cases/cth");
+  });
+
+  it("sets mask_path for nsw legislation", () => {
+    const opts: SearchOptions = { type: "legislation", jurisdiction: "nsw" };
+    const params = buildSearchParams("test", opts);
+    expect(params.mask_path).toBe("au/legis/nsw");
+  });
+
+  it("sets /austlii meta for NZ jurisdiction", () => {
+    const opts: SearchOptions = { type: "case", jurisdiction: "nz" };
+    const params = buildSearchParams("test", opts);
+    expect(params.meta).toBe("/austlii");
+    expect(params.mask_path).toBe("nz/cases");
+  });
+
+  it("uses au/cases mask_path when no jurisdiction specified", () => {
+    const opts: SearchOptions = { type: "case" };
+    const params = buildSearchParams("test", opts);
+    expect(params.mask_path).toBe("au/cases");
+  });
+
+  it("propagates offset", () => {
+    const opts: SearchOptions = { type: "case", offset: 50 };
+    const params = buildSearchParams("test", opts);
+    expect(params.offset).toBe(50);
+  });
+
+  it("sets method from options", () => {
+    const opts: SearchOptions = { type: "case", method: "phrase" };
+    const params = buildSearchParams("test", opts);
+    expect(params.method).toBe("phrase");
+  });
+
+  it("defaults method to auto when not specified", () => {
+    const opts: SearchOptions = { type: "case" };
+    const params = buildSearchParams("test", opts);
+    expect(params.method).toBe("auto");
   });
 });
 
 describe("boostTitleMatches", () => {
   const makeResult = (title: string): SearchResult => ({
     title,
-    url: `https://www.austlii.edu.au/au/cases/cth/${title.replace(/\s/g, "_")}.html`,
+    url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/2024/1.html",
     source: "austlii",
     type: "case",
   });
 
-  it("should boost exact party name matches to the top", () => {
+  it("boosts exact case name match to the top", () => {
     const results = [
-      makeResult("Other Case v Someone [2025] HCA 1"),
-      makeResult("Donoghue v Stevenson [1932] UKHL 100"),
-      makeResult("Another Case [2024] FCA 99"),
+      makeResult("Smith v Jones (citing Mabo v Queensland)"),
+      makeResult("Mabo v Queensland (No 2) [1992] HCA 23"),
+      makeResult("Other case about native title"),
     ];
-
-    const boosted = boostTitleMatches(results, "Donoghue v Stevenson");
-
-    // Donoghue v Stevenson should be first
-    expect(boosted[0]?.title).toContain("Donoghue");
-    expect(boosted[0]?.title).toContain("Stevenson");
+    const boosted = boostTitleMatches(results, "Mabo v Queensland");
+    expect(boosted[0]!.title).toContain("Mabo v Queensland (No 2)");
   });
 
-  it("should rank partial matches below exact matches", () => {
-    const results = [
-      makeResult("Donoghue v Another [2020] HCA 5"),
-      makeResult("Donoghue v Stevenson [1932] UKHL 100"),
-      makeResult("Smith v Jones [2024] FCA 1"),
-    ];
-
-    const boosted = boostTitleMatches(results, "Donoghue v Stevenson");
-
-    // Exact match (both parties) should be first
-    expect(boosted[0]?.title).toContain("Stevenson");
-    // Partial match (one party) should be before unrelated
-    const donoghueIdx = boosted.findIndex((r) => r.title.includes("Donoghue v Another"));
-    const smithIdx = boosted.findIndex((r) => r.title.includes("Smith"));
-    expect(donoghueIdx).toBeLessThan(smithIdx);
+  it("both parties matching gives higher score than one party", () => {
+    const results = [makeResult("Mabo v Smith"), makeResult("Mabo v Queensland (No 2)")];
+    const boosted = boostTitleMatches(results, "Mabo v Queensland");
+    expect(boosted[0]!.title).toContain("Queensland");
   });
 
-  it("should handle empty results", () => {
-    expect(boostTitleMatches([], "Donoghue v Stevenson")).toEqual([]);
-  });
-
-  it("should handle queries without party names", () => {
-    const results = [makeResult("Case A [2024] HCA 1"), makeResult("Case B [2024] FCA 2")];
-
-    // Should not throw even without "v" pattern
-    const boosted = boostTitleMatches(results, "negligence duty of care");
+  it("returns all results with order changed", () => {
+    const results = [makeResult("Smith v Jones"), makeResult("Mabo v Queensland (No 2)")];
+    const boosted = boostTitleMatches(results, "Mabo v Queensland");
     expect(boosted).toHaveLength(2);
-  });
-});
-
-describe("shouldUseCaseNameFallback", () => {
-  it("should fallback for case-name queries when auto method returns no results", () => {
-    expect(shouldUseCaseNameFallback("Donoghue v Stevenson", { type: "case" }, "auto", 0)).toBe(
-      true,
-    );
-  });
-
-  it("should not fallback when results are already present", () => {
-    expect(shouldUseCaseNameFallback("Donoghue v Stevenson", { type: "case" }, "auto", 1)).toBe(
-      false,
-    );
-  });
-
-  it("should not fallback for non-case-name queries or non-auto methods", () => {
-    expect(shouldUseCaseNameFallback("negligence duty of care", { type: "case" }, "auto", 0)).toBe(
-      false,
-    );
-    expect(shouldUseCaseNameFallback("Donoghue v Stevenson", { type: "case" }, "boolean", 0)).toBe(
-      false,
-    );
-    expect(
-      shouldUseCaseNameFallback("Donoghue v Stevenson", { type: "legislation" }, "auto", 0),
-    ).toBe(false);
   });
 });

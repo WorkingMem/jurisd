@@ -6,9 +6,16 @@ import tesseract from "node-tesseract-ocr";
 import * as tmp from "tmp";
 import * as fs from "fs/promises";
 import { config } from "../config.js";
-import { NetworkError, OcrError, ParseError } from "../errors.js";
-import { logger } from "../utils/logger.js";
-import { OCR_MIN_TEXT_LENGTH, MAX_CONTENT_LENGTH } from "../constants.js";
+import { MAX_CONTENT_LENGTH } from "../constants.js";
+import { isSourceUrl } from "./source.js";
+import { assertFetchableUrl } from "../utils/url-guard.js";
+import { austliiRateLimiter, upstreamRateLimiter } from "../utils/rate-limiter.js";
+
+export interface ParagraphBlock {
+  number: number;
+  text: string;
+  pageNumber?: number;
+}
 
 export interface FetchResponse {
   text: string;
@@ -16,6 +23,7 @@ export interface FetchResponse {
   sourceUrl: string;
   ocrUsed: boolean;
   metadata?: Record<string, string>;
+  paragraphs?: ParagraphBlock[];
 }
 
 async function extractTextFromPdf(
@@ -30,15 +38,15 @@ async function extractTextFromPdf(
     const extractedText = textResult.text.trim();
 
     // If we got substantial text, return it
-    if (extractedText.length > OCR_MIN_TEXT_LENGTH) {
+    if (extractedText.length > 100) {
       return { text: extractedText, ocrUsed: false };
     }
 
     // Otherwise, fall back to OCR
-    logger.warn(`PDF at ${url} has minimal text, attempting OCR...`);
+    console.warn(`PDF at ${url} has minimal text, attempting OCR...`);
     return await performOcr(buffer);
   } catch (error) {
-    logger.warn(`PDF parsing failed for ${url}, attempting OCR`, { error: String(error) });
+    console.warn(`PDF parsing failed for ${url}, attempting OCR:`, error);
     return await performOcr(buffer);
   }
 }
@@ -58,11 +66,7 @@ async function performOcr(buffer: Buffer): Promise<{ text: string; ocrUsed: bool
     const text = await tesseract.recognize(tmpFile.name, ocrConfig);
     return { text: text.trim(), ocrUsed: true };
   } catch (error) {
-    throw new OcrError(
-      `OCR failed: ${error instanceof Error ? error.message : String(error)}`,
-      tmpFile.name,
-      error instanceof Error ? error : undefined,
-    );
+    throw new Error(`OCR failed: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
     tmpFile.removeCallback();
   }
@@ -146,6 +150,24 @@ function extractTextFromHtml(html: string, url?: string): string {
   return bodyText.replace(/\s+/g, " ").trim();
 }
 
+function extractParagraphBlocks(html: string): ParagraphBlock[] {
+  const $ = cheerio.load(html);
+  const paragraphs: ParagraphBlock[] = [];
+
+  $("p, div").each((_, el) => {
+    const text = $(el).text().trim();
+    const match = text.match(/^\[(\d+)\]\s*([\s\S]+)/);
+    if (match && match[1] && match[2]) {
+      paragraphs.push({
+        number: parseInt(match[1], 10),
+        text: match[2].trim(),
+      });
+    }
+  });
+
+  return paragraphs;
+}
+
 /**
  * Fetches a legal document from a URL and extracts its text content.
  *
@@ -157,13 +179,31 @@ function extractTextFromHtml(html: string, url?: string): string {
  * @throws {Error} If the network request fails or the content type is unsupported
  */
 export async function fetchDocumentText(url: string): Promise<FetchResponse> {
+  assertFetchableUrl(url);
   try {
+    // Apply rate limiting based on host
+    if (isSourceUrl(url)) {
+      await upstreamRateLimiter.throttle();
+    } else {
+      await austliiRateLimiter.throttle();
+    }
+
+    const headers: Record<string, string> = {
+      "User-Agent": config.source.userAgent,
+    };
+
+    if (isSourceUrl(url) && config.source.sessionCookie) {
+      const cookie = config.source.sessionCookie;
+      if (!/^[\x20-\x7E]+$/.test(cookie) || /[\r\n]/.test(cookie)) {
+        throw new Error("SESSION_COOKIE contains invalid characters");
+      }
+      headers["Cookie"] = cookie;
+    }
+
     const response = await axios.get(url, {
       responseType: "arraybuffer",
-      headers: {
-        "User-Agent": config.source.userAgent,
-      },
-      timeout: config.austlii.timeout,
+      headers,
+      timeout: config.source.timeout,
       maxContentLength: MAX_CONTENT_LENGTH,
     });
 
@@ -175,6 +215,7 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
 
     let text: string;
     let ocrUsed = false;
+    let paragraphs: ParagraphBlock[] | undefined;
 
     // Handle PDF documents
     if (contentType.includes("application/pdf") || detectedType?.mime === "application/pdf") {
@@ -186,6 +227,7 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     else if (contentType.includes("text/html") || detectedType?.mime === "text/html") {
       const html = buffer.toString("utf-8");
       text = extractTextFromHtml(html, url);
+      paragraphs = extractParagraphBlocks(html);
     }
     // Handle plain text
     else if (contentType.includes("text/plain")) {
@@ -193,7 +235,7 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     }
     // Unsupported format
     else {
-      throw new ParseError(
+      throw new Error(
         `Unsupported content type: ${contentType}${detectedType ? ` (detected: ${detectedType.mime})` : ""}`,
       );
     }
@@ -210,10 +252,16 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
       sourceUrl: url,
       ocrUsed,
       metadata,
+      paragraphs,
     };
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      throw new NetworkError(`Failed to fetch document from ${url}: ${error.message}`, url, error);
+      if (isSourceUrl(url) && (error.response?.status === 401 || error.response?.status === 403)) {
+        throw new Error(
+          `removed.invalid returned ${error.response.status}. Set SESSION_COOKIE env var with your authenticated session cookie.`,
+        );
+      }
+      throw new Error(`Failed to fetch document from ${url}: ${error.message}`);
     }
     throw error;
   }

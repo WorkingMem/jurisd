@@ -3,7 +3,6 @@
 ## Current State Analysis
 
 ### What Works Well ✅
-
 - Fetches recent case law from AustLII
 - Filters out journal articles (primary sources only)
 - Extracts neutral citations and jurisdictions
@@ -13,26 +12,22 @@
 ### Current Limitations 🔴
 
 #### 1. **Search Quality Issues**
-
 - **Problem**: Searching "Donoghue v Stevenson" returns recent 2025 cases that merely cite it, NOT the actual 1932 case
 - **Root cause**: Sorting by date prioritises recent cases over relevance
 - **Impact**: Users can't find the specific case they're looking for
 
 #### 2. **Limited Sources**
-
 - **Current**: Only searches AustLII
 - **Missing**: removed.invalid (superior reported judgments), Upstream Source, other authoritative sources
 - **Impact**: May miss best/most authoritative version of judgments
 
 #### 3. **Paragraph Number Preservation**
-
 - **Current**: Text extraction strips HTML structure
 - **Found**: `[N]` format markers ARE preserved (402 instances)
 - **Issue**: Page numbers from reported judgments are lost
 - **Impact**: Can't generate accurate pinpoints for reported citations
 
 #### 4. **No Ranking/Relevance**
-
 - **Problem**: No way to prioritise authoritative sources
 - **Missing**: Reported vs unreported distinction, court hierarchy weighting
 
@@ -43,7 +38,6 @@
 **Goal**: Return the ACTUAL case being searched for, not just cases that cite it
 
 **Implementation**:
-
 1. **Add search mode parameter**: `relevance` vs `date` sorting
 2. **Smart query detection**:
    - If query looks like case name (e.g. "X v Y"), use relevance
@@ -52,7 +46,6 @@
 4. **Citation matching**: Parse citations from query and match
 
 **Code changes**:
-
 ```typescript
 interface SearchOptions {
   jurisdiction?: "cth" | "vic" | "federal" | "other";
@@ -62,64 +55,45 @@ interface SearchOptions {
 }
 ```
 
-### Phase 2: Multi-Source Integration (COMPLETED ✅)
+### Phase 2: Multi-Source Integration (MEDIUM PRIORITY)
 
 **Goal**: Search multiple authoritative sources and return best results
 
-**Status**: ✅ Implemented without API access using AustLII cross-referencing
-
-**Sources integrated**:
-
-1. **AustLII** - Comprehensive unreported coverage (original source)
-2. **removed.invalid** - Superior reported judgments with better formatting (NEW)
+**Sources to integrate**:
+1. **removed.invalid** - Superior reported judgments with page numbers
+2. **Upstream Source** - Free access to some reported cases
+3. **AustLII** - Comprehensive unreported coverage (current)
 
 **Implementation approach**:
-
-- removed.invalid is a RPC SPA with no public search API
-- Search works by: AustLII search → filter results with neutral citations → resolve removed.invalid articles by probing article pages → extract metadata from HTML `<title>` tag
-- Maximum 5 concurrent removed.invalid article resolutions to avoid overwhelming the server
-- Graceful fallback: if removed.invalid resolution fails, AustLII results are still returned
-- removed.invalid results are preferred when deduplicating (better formatting)
-
-**Implemented functions**:
-
 ```typescript
-// Search removed.invalid via AustLII cross-reference
-searchUpstream(query, options) → SearchResult[]
+// Parallel search across sources
+const [austliiResults, upstreamResults] = await Promise.all([
+  searchAustLii(query, options),
+  searchUpstream(query, options), // NEW
+]);
 
-// Find removed.invalid article by neutral citation
-searchUpstreamByCitation(citation) → SearchResult
+// Merge and deduplicate by citation
+const merged = deduplicateResults([...austliiResults, ...upstreamResults]);
 
-// Deduplicate results by neutral citation (removed.invalid preferred)
-deduplicateResults(results) → SearchResult[]
-
-// Merge results from both sources
-mergeSearchResults(austlii, source) → SearchResult[]
+// Rank by authority: Reported > Unreported, Higher court > Lower court
+const ranked = rankByAuthority(merged);
 ```
 
-**New MCP tools**:
-
-- `search_source` - Search removed.invalid for cases/legislation
-- `search_source_by_citation` - Find removed.invalid article by neutral citation
-- `includeSource` parameter added to `search_cases` and `search_legislation`
-
-**Future sources to consider**:
-
-- **Upstream Source** - Free access to some reported cases
+**Challenges**:
+- removed.invalid may require authentication/API key
+- Need to handle different HTML structures per source
+- Deduplication logic must match same case across sources
 
 ### Phase 3: Enhanced Paragraph/Page Preservation (HIGH PRIORITY)
 
 **Goal**: Preserve both paragraph numbers AND page numbers for accurate pinpoint citations
 
 **Current state**:
-
 - `[N]` paragraph markers: ✅ Preserved (402 found)
 - Page numbers: ❌ Lost in text extraction
 
 **Implementation**:
-
 1. **Improve HTML parsing** to preserve structural markers:
-
    ```typescript
    // Keep paragraph markers
    <p class="Judg-Para-1">[1]</p> → "[1]"
@@ -129,7 +103,6 @@ mergeSearchResults(austlii, source) → SearchResult[]
    ```
 
 2. **Return structured content**:
-
    ```typescript
    interface EnhancedFetchResponse extends FetchResponse {
      paragraphs?: Array<{
@@ -144,7 +117,7 @@ mergeSearchResults(austlii, source) → SearchResult[]
    ```typescript
    function generatePinpoint(
      text: string,
-     searchPhrase: string,
+     searchPhrase: string
    ): { paragraph?: number; page?: number } {
      // Find paragraph/page containing phrase
    }
@@ -155,7 +128,6 @@ mergeSearchResults(austlii, source) → SearchResult[]
 **Goal**: Return best/most authoritative version of each case
 
 **Ranking criteria** (in order):
-
 1. **Reported vs unreported**: Reported judgments rank higher
 2. **Court hierarchy**: HCA > Full Court > Single judge
 3. **Completeness**: Judgments with page numbers > without
@@ -163,7 +135,6 @@ mergeSearchResults(austlii, source) → SearchResult[]
 5. **Relevance**: Title/citation exact match > partial match
 
 **Implementation**:
-
 ```typescript
 function calculateAuthorityScore(result: SearchResult): number {
   let score = 0;
@@ -172,8 +143,8 @@ function calculateAuthorityScore(result: SearchResult): number {
   if (result.citation && !result.neutralCitation) score += 100;
 
   // Court hierarchy
-  if (result.url.includes("/HCA/")) score += 50;
-  else if (result.url.includes("/FCA/")) score += 30;
+  if (result.url.includes('/HCA/')) score += 50;
+  else if (result.url.includes('/FCA/')) score += 30;
   // ... etc
 
   // Has page numbers
@@ -188,7 +159,6 @@ function calculateAuthorityScore(result: SearchResult): number {
 ### ✅ Phase 1: Search Relevance (COMPLETED)
 
 **Implemented features:**
-
 1. ✅ Smart query detection: Auto-detects case names ("X v Y", "Re X", citations) vs topic searches
 2. ✅ `sortBy` parameter: "auto" (default), "relevance", or "date" modes
 3. ✅ Title matching boost: Prioritizes exact case name matches in results
@@ -198,12 +168,10 @@ function calculateAuthorityScore(result: SearchResult): number {
 5. ✅ Comprehensive test suite: 7 new tests covering all sorting scenarios
 
 **What was fixed:**
-
 - ❌ **OLD**: Searching "Donoghue v Stevenson" returned 2025 cases citing it
 - ✅ **NEW**: Search returns the actual case being searched for
 
 **Technical details:**
-
 - Pattern detection for "X v Y", "Re X", citations, and quoted queries
 - Title scoring algorithm with party name matching
 - Configurable sorting with sensible defaults
@@ -211,7 +179,6 @@ function calculateAuthorityScore(result: SearchResult): number {
 ## Implementation Priority
 
 ### Must Have (Next Sprint)
-
 1. ✅ ~~Fix search relevance for case name queries~~ (COMPLETED)
 2. ✅ ~~Preserve paragraph numbers properly~~ (already working)
 3. ✅ ~~Add search mode parameter (relevance/date/auto)~~ (COMPLETED)
@@ -219,7 +186,6 @@ function calculateAuthorityScore(result: SearchResult): number {
 ### ✅ Phase 2A: Reported Citations & removed.invalid Support (COMPLETED)
 
 **Implemented features:**
-
 1. ✅ Reported citation extraction from AustLII results
    - Extracts citations like `(2024) 350 ALR 123`, `(1992) 175 CLR 1`
    - Supports common law report patterns (CLR, ALR, ALJR, etc.)
@@ -234,58 +200,73 @@ function calculateAuthorityScore(result: SearchResult): number {
 4. ✅ New test coverage (4 additional tests)
 
 **What this enables:**
-
 - Users can now see both neutral and reported citations
 - More complete citation information for legal research
 - removed.invalid integration without needing API access
 - Users leverage their own removed.invalid subscriptions
 
 **Technical implementation:**
-
 - `extractReportedCitation()` function with regex patterns
 - `extractTextFromHtml()` for removed.invalid-specific parsing
 - Updated test suite with 18 total scenarios
 
-### ✅ Phase 2B: removed.invalid Search Integration (COMPLETED)
+### ✅ Phase 2B: removed.invalid Authenticated Fetch (COMPLETED)
 
 **Implemented features:**
+1. ✅ `SESSION_COOKIE` environment variable for authenticated removed.invalid access
+2. ✅ Cookie header injection with sanitisation (printable ASCII validation, newline rejection)
+3. ✅ Helpful 401/403 error message directing user to set the env var
+4. ✅ Rate limiting: 5 req/min for removed.invalid, 10 req/min for AustLII (token bucket)
 
-1. ✅ removed.invalid search via AustLII cross-referencing (no API access required)
-   - `searchUpstream()` searches by cross-referencing AustLII results with removed.invalid metadata
-   - `searchUpstreamByCitation()` finds removed.invalid articles by neutral citation
-   - Maximum 5 concurrent resolutions to avoid overwhelming removed.invalid
-2. ✅ Multi-source result merging and deduplication
-   - `deduplicateResults()` deduplicates by neutral citation, preferring removed.invalid
-   - `mergeSearchResults()` merges results from AustLII and removed.invalid
-3. ✅ New MCP tools
-   - `search_source` tool for removed.invalid case/legislation search
-   - `search_source_by_citation` tool for citation-based lookup
-   - `includeSource` parameter on `search_cases` and `search_legislation`
-4. ✅ Graceful fallback: if removed.invalid resolution fails, AustLII results still returned
+### ✅ Phase 3: Paragraph Block Extraction and Pinpoint Citations (COMPLETED)
 
-**Technical implementation:**
+**Implemented features:**
+1. ✅ `ParagraphBlock` interface with `number`, `text`, and optional `pageNumber`
+2. ✅ `paragraphs` field on `FetchResponse` - populated from `[N]` markers in AustLII HTML
+3. ✅ `generate_pinpoint` MCP tool: finds paragraph by number or phrase, returns `at [N]` string
+4. ✅ Full citation composition: `"[2022] FedCFamC2F 786 at [23]"`
 
-- removed.invalid is a RPC SPA with no public search API
-- Approach: AustLII search → filter results with neutral citations → probe removed.invalid article pages → extract metadata from HTML `<title>` tag
-- Concurrency limited to 5 simultaneous removed.invalid resolutions
-- removed.invalid results preferred during deduplication (better formatting)
+### ✅ Phase 4: Authority-Based Result Ranking (COMPLETED)
 
-### Should Have (Following Sprint)
+**Implemented features:**
+1. ✅ `calculateAuthorityScore()` with court hierarchy scoring (HCA=100, FCAFC=80, FCA=60, state SC=30, etc.)
+2. ✅ Reported citation bonus (+10 points)
+3. ✅ Secondary sort by authority score applied to case-name queries
 
-1. 🔶 Implement page number extraction (Phase 3)
-2. 🔶 Add authority-based ranking (Phase 4)
+### ✅ Phase 5: AGLC4 Citation Service (COMPLETED)
 
-### Nice to Have (Future)
+**Implemented features:**
+1. ✅ `parseCitation()` - extracts neutral and reported citations from text
+2. ✅ `formatAGLC4()` - formats citations per AGLC4 rules
+3. ✅ `validateCitation()` - HEAD-checks citation against AustLII
+4. ✅ `generatePinpoint()` - finds paragraph by number or phrase
+5. ✅ Extended `NEUTRAL_CITATION_PATTERN` to handle mixed-case court codes (e.g. FedCFamC2F)
+6. ✅ `REPORTERS` registry and `COURT_TO_AUSTLII_PATH` map added to constants
 
-1. 📋 Upstream Source integration
-2. 📋 Citation parsing and validation
-3. 📋 Automatic pinpoint generation
-4. 📋 Related cases/legislation suggestions
+### ✅ Phase 6: Security Hardening (COMPLETED)
+
+**Implemented features:**
+1. ✅ `assertFetchableUrl()` - SSRF protection: HTTPS-only, allowlisted hosts (austlii.edu.au, removed.invalid)
+2. ✅ Cookie sanitisation: printable ASCII validation, newline injection rejection
+3. ✅ Token bucket rate limiter: 10 req/min AustLII, 5 req/min removed.invalid
+4. ✅ Config DRY: all hardcoded constants removed, sourced from `config.ts`
+
+### ✅ Phase 7: New MCP Tools (COMPLETED)
+
+**Four new tools registered:**
+1. ✅ `format_citation` - formats AGLC4 citations with neutral, reported, and pinpoint components
+2. ✅ `validate_citation` - validates neutral citations against AustLII and returns canonical URL
+3. ✅ `generate_pinpoint` - fetches a judgment and generates a pinpoint citation reference
+4. ✅ `search_by_citation` - resolves a citation to a direct URL or falls back to text search
+
+### Should Have (Future)
+1. 🔶 Contact removed.invalid for a search API (Phase 2B search - currently only fetch is supported)
+2. 🔶 Upstream Source integration
+3. 🔶 Related cases and legislation suggestions
 
 ## Testing Requirements
 
 Each phase must include:
-
 1. **Unit tests** for new parsing/ranking logic
 2. **Integration tests** with real judgments
 3. **Comparison tests** - verify improvements over current state

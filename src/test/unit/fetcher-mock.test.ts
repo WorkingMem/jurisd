@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import axios from "axios";
 import { fetchDocumentText } from "../../services/fetcher.js";
 import { AUSTLII_JUDGMENT_HTML } from "../fixtures/index.js";
-import { NetworkError, ParseError } from "../../errors.js";
 
 vi.mock("axios");
 vi.mock("file-type", () => ({
@@ -83,29 +82,33 @@ describe("fetchDocumentText (mocked)", () => {
       headers: { "content-type": "text/plain" },
     });
 
-    const result = await fetchDocumentText("https://example.com/doc.txt");
+    const result = await fetchDocumentText(
+      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/doc.txt",
+    );
     expect(result.text).toBe(plainText);
     expect(result.contentType).toBe("text/plain");
     expect(result.ocrUsed).toBe(false);
   });
 
-  it("should throw NetworkError on axios failure", async () => {
+  it("should throw on axios failure", async () => {
     const axiosError = new Error("Connection refused");
     mockedAxios.get.mockRejectedValue(axiosError);
     mockedAxios.isAxiosError.mockReturnValue(true);
 
     await expect(
       fetchDocumentText("https://www.austlii.edu.au/au/cases/cth/HCA/2024/1.html"),
-    ).rejects.toThrow(NetworkError);
+    ).rejects.toThrow();
   });
 
-  it("should throw ParseError for unsupported content type", async () => {
+  it("should throw for unsupported content type", async () => {
     mockedAxios.get.mockResolvedValue({
       data: Buffer.from("binary data"),
       status: 200,
       headers: { "content-type": "application/octet-stream" },
     });
 
-    await expect(fetchDocumentText("https://example.com/file.bin")).rejects.toThrow(ParseError);
+    await expect(
+      fetchDocumentText("https://www.austlii.edu.au/au/cases/cth/HCA/2024/file.bin"),
+    ).rejects.toThrow();
   });
 });
