@@ -171,4 +171,34 @@ describe("formatFetchResponse", () => {
     expect(text).toContain("data-source=");
     expect(text).toContain("data-ocr=");
   });
+
+  it("should use preserved HTML structure when available", () => {
+    const fetchWithHtml: FetchResponse = {
+      ...sampleFetch,
+      html: '<article><h1>Smith v Jones</h1><p>[1] Appeal allowed.</p></article>',
+    };
+    const result = formatFetchResponse(fetchWithHtml, "html");
+    const text = getText(result.content);
+    expect(text).toContain("<h1>Smith v Jones</h1>");
+    expect(text).toContain("<p>[1] Appeal allowed.</p>");
+    expect(text).not.toContain("<pre>");
+  });
+
+  it("html format includes print-friendly stylesheet when html field present", () => {
+    const fetchWithHtml: FetchResponse = {
+      ...sampleFetch,
+      html: '<article><p>Judgment text</p></article>',
+    };
+    const result = formatFetchResponse(fetchWithHtml, "html");
+    const text = getText(result.content);
+    expect(text).toContain("<!DOCTYPE html>");
+    expect(text).toContain("<style>");
+    expect(text).toContain("font-family");
+  });
+
+  it("html format falls back to pre-wrapped text when no html field", () => {
+    const result = formatFetchResponse(sampleFetch, "html");
+    const text = getText(result.content);
+    expect(text).toContain("<pre>");
+  });
 });

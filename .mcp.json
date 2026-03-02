@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "auslaw-mcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Users/rbrenner/git/auslaw-mcp/dist/index.js"
+      ],
+      "env": {}
+    }
+  }
+}

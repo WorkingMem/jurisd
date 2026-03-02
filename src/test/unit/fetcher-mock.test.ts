@@ -100,6 +100,38 @@ describe("fetchDocumentText (mocked)", () => {
     ).rejects.toThrow();
   });
 
+  it("should preserve cleaned HTML in response.html for HTML content", async () => {
+    mockedAxios.get.mockResolvedValue({
+      data: Buffer.from(AUSTLII_JUDGMENT_HTML),
+      status: 200,
+      headers: { "content-type": "text/html" },
+    });
+
+    const result = await fetchDocumentText(
+      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/1.html",
+    );
+    expect(result.html).toBeDefined();
+    expect(result.html).toContain("<h1>");
+    expect(result.html).toContain("Smith v Jones");
+    expect(result.html).not.toContain("<script");
+    expect(result.html).not.toContain("<style");
+    expect(result.html).not.toContain("<nav");
+  });
+
+  it("should not set html field for plain text content", async () => {
+    const plainText = "This is a plain text legal document.";
+    mockedAxios.get.mockResolvedValue({
+      data: Buffer.from(plainText),
+      status: 200,
+      headers: { "content-type": "text/plain" },
+    });
+
+    const result = await fetchDocumentText(
+      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/doc.txt",
+    );
+    expect(result.html).toBeUndefined();
+  });
+
   it("should throw for unsupported content type", async () => {
     mockedAxios.get.mockResolvedValue({
       data: Buffer.from("binary data"),

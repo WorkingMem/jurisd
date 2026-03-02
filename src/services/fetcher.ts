@@ -19,6 +19,8 @@ export interface ParagraphBlock {
 
 export interface FetchResponse {
   text: string;
+  /** Cleaned HTML preserving document structure (only set for HTML sources). */
+  html?: string;
   contentType: string;
   sourceUrl: string;
   ocrUsed: boolean;
@@ -150,6 +152,45 @@ function extractTextFromHtml(html: string, url?: string): string {
   return bodyText.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Cleans HTML by removing scripts, styles, navigation and other non-content
+ * elements while preserving the document structure (headings, paragraphs, etc).
+ */
+function cleanHtmlForOutput(html: string): string {
+  const $ = cheerio.load(html);
+
+  // Remove non-content elements
+  $("script, style, nav, header, footer, .sidebar, .navigation, .menu, link, meta").remove();
+
+  // Try to extract just the main content area
+  const contentSelectors = [
+    "article",
+    "main",
+    ".content",
+    "#content",
+    ".judgment",
+    ".judgment-text",
+    ".judgment-content",
+    ".decision",
+    ".case-content",
+    "[role='main']",
+  ];
+
+  for (const selector of contentSelectors) {
+    const $content = $(selector);
+    if ($content.length > 0) {
+      const contentHtml = $content.html()?.trim();
+      if (contentHtml && contentHtml.length > 200) {
+        return contentHtml;
+      }
+    }
+  }
+
+  // Fallback: return the cleaned body
+  const bodyHtml = $("body").html()?.trim();
+  return bodyHtml || $.html() || "";
+}
+
 function extractParagraphBlocks(html: string): ParagraphBlock[] {
   const $ = cheerio.load(html);
   const paragraphs: ParagraphBlock[] = [];
@@ -214,6 +255,7 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     const detectedType = await fileTypeFromBuffer(buffer);
 
     let text: string;
+    let cleanedHtml: string | undefined;
     let ocrUsed = false;
     let paragraphs: ParagraphBlock[] | undefined;
 
@@ -225,9 +267,10 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     }
     // Handle HTML documents
     else if (contentType.includes("text/html") || detectedType?.mime === "text/html") {
-      const html = buffer.toString("utf-8");
-      text = extractTextFromHtml(html, url);
-      paragraphs = extractParagraphBlocks(html);
+      const rawHtml = buffer.toString("utf-8");
+      text = extractTextFromHtml(rawHtml, url);
+      paragraphs = extractParagraphBlocks(rawHtml);
+      cleanedHtml = cleanHtmlForOutput(rawHtml);
     }
     // Handle plain text
     else if (contentType.includes("text/plain")) {
@@ -248,6 +291,7 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
 
     return {
       text,
+      html: cleanedHtml,
       contentType: contentType || detectedType?.mime || "unknown",
       sourceUrl: url,
       ocrUsed,

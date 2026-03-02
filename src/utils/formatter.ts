@@ -98,15 +98,24 @@ export function formatFetchResponse(
   format: ResponseFormat,
 ): CallToolResult {
   switch (format) {
-    case "json":
+    case "json": {
+      // Omit the bulky html field from JSON output; consumers should
+      // request format=html when they need the styled document.
+      const { html: _html, ...jsonSafe } = response;
       return {
-        content: ensureContent(JSON.stringify(response, null, 2)),
+        content: ensureContent(JSON.stringify(jsonSafe, null, 2)),
         structuredContent: {
           format: "json",
-          data: response,
+          data: jsonSafe,
         },
       };
+    }
     case "html":
+      if (response.html) {
+        return {
+          content: ensureContent(wrapInStyledDocument(response.html, response.sourceUrl)),
+        };
+      }
       return {
         content: ensureContent(
           `<article data-source="${escapeHtml(response.sourceUrl)}" data-ocr="${String(response.ocrUsed)}"><pre>${escapeHtml(response.text)}</pre></article>`,
@@ -122,6 +131,39 @@ export function formatFetchResponse(
         content: ensureContent(response.text),
       };
   }
+}
+
+function wrapInStyledDocument(bodyHtml: string, sourceUrl: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="source" content="${escapeHtml(sourceUrl)}">
+<style>
+  body {
+    font-family: "Georgia", "Times New Roman", serif;
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 800px;
+    margin: 2em auto;
+    padding: 0 1.5em;
+    color: #222;
+  }
+  h1, h2, h3 { font-family: "Helvetica Neue", Arial, sans-serif; }
+  h1 { font-size: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.3em; }
+  h2 { font-size: 1.2em; margin-top: 1.5em; }
+  p { margin: 0.8em 0; text-align: justify; }
+  a { color: #1a5276; }
+  @media print {
+    body { margin: 0; padding: 0; max-width: none; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>`;
 }
 
 function escapeHtml(input: string): string {
