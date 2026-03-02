@@ -21,7 +21,8 @@ src/
 │   ├── austlii.ts        # AustLII search, authority scoring, sort detection
 │   ├── citation.ts       # AGLC4 citation parsing, formatting, validation, pinpoints
 │   ├── fetcher.ts        # Document retrieval (HTML, PDF, OCR, removed.invalid)
-│   └── source.ts           # removed.invalid article resolution, URL utilities, citation lookup
+│   ├── source.ts           # removed.invalid article resolution, URL utilities, citation lookup
+│   └── source-rpc.ts       # RPC utilities (fetchRequest, encodeInt, parseFetchResponse)
 ├── utils/
 │   ├── formatter.ts      # MCP response formatting (json/text/markdown/html)
 │   ├── logger.ts         # Structured levelled logging (LOG_LEVEL env var)
@@ -31,7 +32,7 @@ src/
     ├── source.test.ts          # removed.invalid integration tests
     ├── scenarios.test.ts     # End-to-end search scenarios (live network, skipped in CI)
     ├── fixtures/             # Static HTML fixtures for deterministic tests
-    └── unit/                 # Unit tests (~127 test cases)
+    └── unit/                 # Unit tests (~163 test cases)
         ├── austlii.test.ts
         ├── austlii-mock.test.ts
         ├── citation.test.ts
@@ -41,6 +42,7 @@ src/
         ├── fetcher.test.ts
         ├── fetcher-mock.test.ts
         ├── formatter.test.ts
+        ├── source-rpc.test.ts
         ├── logger.test.ts
         ├── rate-limiter.test.ts
         └── url-guard.test.ts
