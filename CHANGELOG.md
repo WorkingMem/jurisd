@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- removed.invalid search integration via AustLII cross-referencing (no API access required)
+  - `search_source` MCP tool for searching removed.invalid cases/legislation
+  - `search_source_by_citation` MCP tool for finding removed.invalid articles by neutral citation
+  - `searchUpstream()` function: searches by cross-referencing AustLII results with removed.invalid metadata
+  - `searchUpstreamByCitation()` function: resolves removed.invalid articles by neutral citation
+  - `deduplicateResults()` function: deduplicates by neutral citation, preferring removed.invalid
+  - `mergeSearchResults()` function: merges results from AustLII and removed.invalid
+- `includeSource` parameter on `search_cases` and `search_legislation` tools for multi-source merging
+- Maximum 5 concurrent removed.invalid article resolutions to avoid overwhelming the server
+- Graceful fallback: if removed.invalid resolution fails, AustLII results are still returned
 - ESLint and Prettier for code quality enforcement
 - SECURITY.md for responsible vulnerability disclosure
 - CONTRIBUTING.md with development guidelines
@@ -15,18 +26,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive project improvement documentation
 - Linting and formatting scripts in package.json
 - Test coverage support configuration
+- Unit tests for AustLII search internals (isCaseNameQuery, determineSortMode, boostTitleMatches, extractReportedCitation)
+- Unit tests for configuration module
 
 ### Changed
+
 - Updated dependencies to address security vulnerabilities
 - Enhanced documentation structure
+- Migrated ESLint configuration from `.eslintrc.json` to `eslint.config.mjs` for ESLint v9 compatibility
+- Services now use custom error classes (AustLiiError, NetworkError, ParseError, OcrError) instead of generic Error
+- Document fetcher now uses structured logger instead of console.warn/error
+- Document fetcher now uses config and constants modules instead of hardcoded values
+- Exported internal AustLII functions for testability
 
 ### Security
+
 - Fixed 3 HIGH severity vulnerabilities in dependencies
 - Added npm audit to development workflow
 
-## [0.1.0] - 2024-12-XX
+## [0.1.0] - 2024-12-01
 
 ### Added
+
 - Initial MVP release
 - AustLII search integration for Australian and NZ legal research
 - Intelligent search relevance with auto-detection
@@ -50,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 
 ### Features
+
 - **Search Tools**:
   - `search_cases` - Search Australian and NZ case law
   - `search_legislation` - Search legislation
@@ -72,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Paragraph numbers: `[N]` format preservation
 
 ### Technical
+
 - Node.js 18+ required
 - TypeScript 5.9+ with strict mode
 - Model Context Protocol (MCP) SDK 1.19+
@@ -81,12 +104,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tesseract OCR for scanned PDFs
 
 ### Documentation
+
 - Comprehensive README with usage examples
 - AGENTS.md for AI-assisted development
 - ROADMAP.md for planned features
 - Architecture documentation
 
 ### Testing
+
 - 18 integration test scenarios
 - Real-world API testing against AustLII
 - Coverage of main use cases:

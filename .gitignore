@@ -19,5 +19,8 @@ coverage
 *.swo
 *~
 
+# Generated docs
+docs/api
+
 # OS
 Thumbs.db

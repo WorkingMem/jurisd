@@ -18,6 +18,7 @@ Please be respectful and constructive in all interactions. We are committed to p
 ### Setting Up Development Environment
 
 1. **Fork the repository**
+
    ```bash
    # Click "Fork" on GitHub, then clone your fork
    git clone https://github.com/YOUR_USERNAME/auslaw-mcp.git
@@ -25,16 +26,19 @@ Please be respectful and constructive in all interactions. We are committed to p
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Build the project**
+
    ```bash
    npm run build
    ```
 
 4. **Run tests**
+
    ```bash
    npm test
    ```
@@ -49,6 +53,7 @@ Please be respectful and constructive in all interactions. We are committed to p
 ### Creating a Branch
 
 Create a descriptive branch name:
+
 ```bash
 git checkout -b feature/your-feature-name
 # or
@@ -63,6 +68,7 @@ git checkout -b fix/issue-description
    - Add JSDoc comments for exported functions
 
 2. **Run linting and formatting**
+
    ```bash
    npm run lint:fix
    npm run format
@@ -81,6 +87,7 @@ git checkout -b fix/issue-description
 ### Commit Messages
 
 Use clear, descriptive commit messages:
+
 ```
 feat: Add pagination support to search results
 fix: Correct citation parsing for reported cases
@@ -89,6 +96,7 @@ test: Add unit tests for citation extraction
 ```
 
 Prefix types:
+
 - `feat:` New feature
 - `fix:` Bug fix
 - `docs:` Documentation changes
@@ -104,6 +112,7 @@ Prefix types:
 **For detailed guidance, see [AGENTS.md](AGENTS.md).**
 
 Key principles:
+
 - **TypeScript strict mode**: All code must type-check
 - **No `any` types**: Use proper types or `unknown`
 - **Error handling**: Wrap network calls in try/catch
@@ -113,6 +122,7 @@ Key principles:
 ### Testing Requirements
 
 Every PR must include:
+
 - ✅ TypeScript compilation passes (`npm run build`)
 - ✅ All tests pass (`npm test`)
 - ✅ Linting passes (`npm run lint`)
@@ -123,12 +133,14 @@ Every PR must include:
 ### Documentation
 
 Update documentation when:
+
 - Adding new features
 - Changing public APIs
 - Modifying configuration options
 - Adding new dependencies
 
 Files to update:
+
 - `README.md` - User-facing documentation
 - `AGENTS.md` - AI agent development guidelines
 - `ROADMAP.md` - Feature planning (if major changes)
@@ -139,12 +151,14 @@ Files to update:
 ### Before Submitting
 
 1. **Update your branch**
+
    ```bash
    git fetch origin
    git rebase origin/main
    ```
 
 2. **Run all checks**
+
    ```bash
    npm run lint
    npm run format:check
@@ -160,6 +174,7 @@ Files to update:
 ### Submitting a PR
 
 1. **Push your branch**
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -188,10 +203,12 @@ Files to update:
 ### Bug Reports
 
 **Before submitting:**
+
 - Search existing issues
 - Check if it's already fixed in `main`
 
 **Include:**
+
 - Clear description
 - Steps to reproduce
 - Expected vs actual behavior
@@ -201,10 +218,12 @@ Files to update:
 ### Feature Requests
 
 **Before submitting:**
+
 - Check ROADMAP.md for planned features
 - Search existing issues/discussions
 
 **Include:**
+
 - Clear use case
 - Proposed solution
 - Why it benefits the project
@@ -213,12 +232,14 @@ Files to update:
 ### Code Contributions
 
 **Good first issues:**
+
 - Look for `good first issue` label
 - Start with documentation improvements
 - Add tests for existing code
 - Fix minor bugs
 
 **Major features:**
+
 - Discuss in an issue first
 - Follow the ROADMAP.md priorities
 - Break into smaller PRs when possible
@@ -241,21 +262,23 @@ npm run test:watch
 ### Writing Tests
 
 Place tests in appropriate locations:
+
 - `src/test/unit/` - Unit tests for individual functions
 - `src/test/integration/` - Integration tests with live APIs
 
 Example test:
-```typescript
-import { describe, it, expect } from 'vitest';
-import { searchAustLii } from '../../services/austlii';
 
-describe('searchAustLii', () => {
-  it('should return search results', async () => {
-    const results = await searchAustLii('negligence', {
-      type: 'case',
-      limit: 5
+```typescript
+import { describe, it, expect } from "vitest";
+import { searchAustLii } from "../../services/austlii";
+
+describe("searchAustLii", () => {
+  it("should return search results", async () => {
+    const results = await searchAustLii("negligence", {
+      type: "case",
+      limit: 5,
     });
-    
+
     expect(results).toBeDefined();
     expect(results.length).toBeGreaterThan(0);
   });
@@ -267,14 +290,22 @@ describe('searchAustLii', () => {
 ```
 src/
 ├── index.ts              # MCP server entry point
+├── config.ts             # Configuration management
+├── constants.ts          # Shared constants
+├── errors.ts             # Custom error classes
 ├── services/
 │   ├── austlii.ts       # AustLII search integration
+│   ├── source.ts          # removed.invalid search & cross-referencing
 │   └── fetcher.ts       # Document text retrieval
 ├── utils/
-│   └── formatter.ts     # Output formatting
+│   ├── formatter.ts     # Output formatting
+│   └── logger.ts        # Structured logging
 └── test/
     ├── unit/            # Unit tests
-    └── integration/     # Integration tests
+    ├── fixtures/        # Test fixtures (HTML responses)
+    ├── performance/     # Performance benchmarks
+    ├── scenarios.test.ts # Integration test scenarios
+    └── source.test.ts     # removed.invalid integration tests
 ```
 
 ## Resources
@@ -291,6 +322,26 @@ src/
 - **Bugs**: Open a GitHub Issue
 - **Security**: Email russell@lawquarter.com
 - **General**: Comment on relevant issues
+
+## GitHub Actions Workflows
+
+### Automated Documentation Sync
+
+This repository includes a nightly workflow (`.github/workflows/docs-sync.yml`) that automatically syncs documentation with the repository state.
+
+**Repository Setup Required:**
+
+For this workflow to function properly, the repository must have the following setting enabled:
+
+1. Go to **Settings** > **Actions** > **General** > **Workflow permissions**
+2. Enable **"Allow GitHub Actions to create and approve pull requests"**
+
+Alternatively, you can create a Personal Access Token (PAT) with `repo` and `workflow` scopes and add it as a repository secret named `PAT_TOKEN`.
+
+Without this configuration, the workflow will fail with:
+```
+GitHub Actions is not permitted to create or approve pull requests.
+```
 
 ## License
 

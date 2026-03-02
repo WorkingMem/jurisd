@@ -109,20 +109,24 @@ docker-compose up --build
 
 All configuration can be set via environment variables:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NODE_ENV` | `production` | Node environment |
-| `AUSTLII_SEARCH_BASE` | `https://www.austlii.edu.au/cgi-bin/sinosrch.cgi` | AustLII search endpoint |
-| `AUSTLII_REFERER` | `https://www.austlii.edu.au/forms/search1.html` | Referer header |
-| `AUSTLII_USER_AGENT` | Mozilla/5.0... | User agent string |
-| `AUSTLII_TIMEOUT` | `60000` | Request timeout (ms) |
-| `OCR_LANGUAGE` | `eng` | Tesseract language |
-| `OCR_OEM` | `1` | OCR Engine Mode |
-| `OCR_PSM` | `3` | Page Segmentation Mode |
-| `DEFAULT_SEARCH_LIMIT` | `10` | Default results limit |
-| `MAX_SEARCH_LIMIT` | `50` | Maximum results limit |
-| `DEFAULT_OUTPUT_FORMAT` | `json` | Default format |
-| `DEFAULT_SORT_BY` | `auto` | Default sort order |
+| Variable                | Default                                           | Description                  |
+| ----------------------- | ------------------------------------------------- | ---------------------------- |
+| `NODE_ENV`              | `production`                                      | Node environment             |
+| `AUSTLII_SEARCH_BASE`   | `https://www.austlii.edu.au/cgi-bin/sinosrch.cgi` | AustLII search endpoint      |
+| `AUSTLII_REFERER`       | `https://www.austlii.edu.au/forms/search1.html`   | Referer header               |
+| `AUSTLII_USER_AGENT`    | Mozilla/5.0...                                    | User agent string            |
+| `AUSTLII_TIMEOUT`       | `60000`                                           | Request timeout (ms)         |
+| `SOURCE_BASE_URL`         | `https://removed.invalid`                                 | removed.invalid base URL             |
+| `SOURCE_USER_AGENT`       | `auslaw-mcp/0.1.0 (legal research tool)`          | removed.invalid user agent           |
+| `SOURCE_TIMEOUT`          | `15000`                                           | removed.invalid request timeout (ms) |
+| `OCR_LANGUAGE`          | `eng`                                             | Tesseract language           |
+| `OCR_OEM`               | `1`                                               | OCR Engine Mode              |
+| `OCR_PSM`               | `3`                                               | Page Segmentation Mode       |
+| `DEFAULT_SEARCH_LIMIT`  | `10`                                              | Default results limit        |
+| `MAX_SEARCH_LIMIT`      | `50`                                              | Maximum results limit        |
+| `DEFAULT_OUTPUT_FORMAT` | `json`                                            | Default format               |
+| `DEFAULT_SORT_BY`       | `auto`                                            | Default sort order           |
+| `LOG_LEVEL`             | `1`                                               | Logging level (0-3)          |
 
 ### Config File
 
