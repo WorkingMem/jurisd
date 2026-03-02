@@ -301,7 +301,15 @@ export async function searchAustLii(
         let cleanUrl = basePath!;
         if (queryString) {
           const preservedParams = new URLSearchParams();
-          const searchDecorations = new Set(["stem", "synonyms", "num", "mask_path", "meta", "query", "method"]);
+          const searchDecorations = new Set([
+            "stem",
+            "synonyms",
+            "num",
+            "mask_path",
+            "meta",
+            "query",
+            "method",
+          ]);
           for (const [key, val] of new URLSearchParams(queryString)) {
             if (!searchDecorations.has(key)) {
               preservedParams.set(key, val);

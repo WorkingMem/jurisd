@@ -12,7 +12,7 @@ export class RateLimiter {
   constructor(requestsPerMinute: number) {
     this.maxTokens = requestsPerMinute;
     this.tokens = requestsPerMinute;
-    this.refillIntervalMs = (60_000 / requestsPerMinute);
+    this.refillIntervalMs = 60_000 / requestsPerMinute;
     this.lastRefill = Date.now();
   }
 

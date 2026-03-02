@@ -13,11 +13,15 @@ describe("calculateAuthorityScore", () => {
   it("HCA scores higher than NSWSC", () => {
     const hca: SearchResult = {
       url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/2024/1.html",
-      title: "Test", source: "austlii", type: "case",
+      title: "Test",
+      source: "austlii",
+      type: "case",
     };
     const nswsc: SearchResult = {
       url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/nsw/NSWSC/2024/1.html",
-      title: "Test", source: "austlii", type: "case",
+      title: "Test",
+      source: "austlii",
+      type: "case",
     };
     expect(calculateAuthorityScore(hca)).toBeGreaterThan(calculateAuthorityScore(nswsc));
   });
@@ -25,11 +29,15 @@ describe("calculateAuthorityScore", () => {
   it("FCAFC scores higher than FCA", () => {
     const fcafc: SearchResult = {
       url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/FCAFC/2024/1.html",
-      title: "Test", source: "austlii", type: "case",
+      title: "Test",
+      source: "austlii",
+      type: "case",
     };
     const fca: SearchResult = {
       url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/FCA/2024/1.html",
-      title: "Test", source: "austlii", type: "case",
+      title: "Test",
+      source: "austlii",
+      type: "case",
     };
     expect(calculateAuthorityScore(fcafc)).toBeGreaterThan(calculateAuthorityScore(fca));
   });
@@ -37,20 +45,28 @@ describe("calculateAuthorityScore", () => {
   it("reported citation adds score", () => {
     const withReported: SearchResult = {
       url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/nsw/NSWSC/2024/1.html",
-      title: "Test", source: "austlii", type: "case",
+      title: "Test",
+      source: "austlii",
+      type: "case",
       reportedCitation: "(2024) 350 ALR 123",
     };
     const withoutReported: SearchResult = {
       url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/nsw/NSWSC/2024/1.html",
-      title: "Test", source: "austlii", type: "case",
+      title: "Test",
+      source: "austlii",
+      type: "case",
     };
-    expect(calculateAuthorityScore(withReported)).toBeGreaterThan(calculateAuthorityScore(withoutReported));
+    expect(calculateAuthorityScore(withReported)).toBeGreaterThan(
+      calculateAuthorityScore(withoutReported),
+    );
   });
 
   it("unknown court gets score 0", () => {
     const unknown: SearchResult = {
       url: "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/other/UNKNOWN/2024/1.html",
-      title: "Test", source: "austlii", type: "case",
+      title: "Test",
+      source: "austlii",
+      type: "case",
     };
     expect(calculateAuthorityScore(unknown)).toBe(0);
   });
@@ -215,19 +231,13 @@ describe("boostTitleMatches", () => {
   });
 
   it("both parties matching gives higher score than one party", () => {
-    const results = [
-      makeResult("Mabo v Smith"),
-      makeResult("Mabo v Queensland (No 2)"),
-    ];
+    const results = [makeResult("Mabo v Smith"), makeResult("Mabo v Queensland (No 2)")];
     const boosted = boostTitleMatches(results, "Mabo v Queensland");
     expect(boosted[0]!.title).toContain("Queensland");
   });
 
   it("returns all results with order changed", () => {
-    const results = [
-      makeResult("Smith v Jones"),
-      makeResult("Mabo v Queensland (No 2)"),
-    ];
+    const results = [makeResult("Smith v Jones"), makeResult("Mabo v Queensland (No 2)")];
     const boosted = boostTitleMatches(results, "Mabo v Queensland");
     expect(boosted).toHaveLength(2);
   });

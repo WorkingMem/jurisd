@@ -5,10 +5,7 @@ import { z } from "zod";
 import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii, type SearchResult } from "./services/austlii.js";
-import {
-  resolveArticle,
-  buildCitationLookupUrl,
-} from "./services/source.js";
+import { resolveArticle, buildCitationLookupUrl } from "./services/source.js";
 import {
   formatAGLC4,
   validateCitation,
@@ -32,8 +29,12 @@ const jurisdictionEnum = z.enum([
   "other",
 ]);
 const sortByEnum = z.enum(["relevance", "date", "auto"]).default("auto");
-const caseMethodEnum = z.enum(["auto", "title", "phrase", "all", "any", "near", "boolean"]).default("auto");
-const legislationMethodEnum = z.enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"]).default("auto");
+const caseMethodEnum = z
+  .enum(["auto", "title", "phrase", "all", "any", "near", "boolean"])
+  .default("auto");
+const legislationMethodEnum = z
+  .enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"])
+  .default("auto");
 
 async function main() {
   const server = new McpServer({
@@ -178,11 +179,7 @@ async function main() {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(
-              { citation, sourceUrl: lookupUrl },
-              null,
-              2,
-            ),
+            text: JSON.stringify({ citation, sourceUrl: lookupUrl }, null, 2),
           },
         ],
       };
@@ -195,9 +192,12 @@ async function main() {
     neutralCitation: z.string().optional().describe("Neutral citation, e.g. '[1992] HCA 23'"),
     reportedCitation: z.string().optional().describe("Reported citation, e.g. '(1992) 175 CLR 1'"),
     pinpoint: z.string().optional().describe("Pinpoint reference, e.g. '[20]'"),
-    style: z.enum(["neutral", "reported", "combined"]).default("combined").describe(
-      "Citation style: neutral (neutral only), reported (reported only), combined (both)"
-    ),
+    style: z
+      .enum(["neutral", "reported", "combined"])
+      .default("combined")
+      .describe(
+        "Citation style: neutral (neutral only), reported (reported only), combined (both)",
+      ),
   };
   const formatCitationParser = z.object(formatCitationShape);
 
@@ -252,14 +252,17 @@ async function main() {
     url: z.string().url().describe("AustLII document URL to fetch and search"),
     paragraphNumber: z.number().int().positive().optional().describe("Paragraph number to locate"),
     phrase: z.string().min(1).optional().describe("Phrase to search for within paragraphs"),
-    caseCitation: z.string().optional().describe(
-      "Case citation to prepend to the pinpoint, e.g. '[2022] FedCFamC2F 786'"
-    ),
+    caseCitation: z
+      .string()
+      .optional()
+      .describe("Case citation to prepend to the pinpoint, e.g. '[2022] FedCFamC2F 786'"),
   };
-  const generatePinpointParser = z.object(generatePinpointShape).refine(
-    (d) => d.paragraphNumber !== undefined || d.phrase !== undefined,
-    "Provide at least one of paragraphNumber or phrase",
-  );
+  const generatePinpointParser = z
+    .object(generatePinpointShape)
+    .refine(
+      (d) => d.paragraphNumber !== undefined || d.phrase !== undefined,
+      "Provide at least one of paragraphNumber or phrase",
+    );
 
   server.registerTool(
     "generate_pinpoint",
@@ -270,41 +273,49 @@ async function main() {
       inputSchema: generatePinpointShape,
     },
     async (rawInput) => {
-      const { url, paragraphNumber, phrase, caseCitation } =
-        generatePinpointParser.parse(rawInput);
+      const { url, paragraphNumber, phrase, caseCitation } = generatePinpointParser.parse(rawInput);
       const doc = await fetchDocumentText(url);
       if (!doc.paragraphs || doc.paragraphs.length === 0) {
         return {
-          content: [{
-            type: "text" as const,
-            text: JSON.stringify({ error: "No paragraph blocks found in document" }),
-          }],
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ error: "No paragraph blocks found in document" }),
+            },
+          ],
         };
       }
       const pinpoint = generatePinpoint(doc.paragraphs, { paragraphNumber, phrase });
       if (!pinpoint) {
         return {
-          content: [{
-            type: "text" as const,
-            text: JSON.stringify({ error: "Paragraph not found" }),
-          }],
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ error: "Paragraph not found" }),
+            },
+          ],
         };
       }
       const fullCitation = caseCitation
         ? `${caseCitation} ${pinpoint.pinpointString}`
         : pinpoint.pinpointString;
       return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({ ...pinpoint, fullCitation }, null, 2),
-        }],
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ ...pinpoint, fullCitation }, null, 2),
+          },
+        ],
       };
     },
   );
 
   // ── search_by_citation ────────────────────────────────────────────────────
   const searchByCitationShape = {
-    citation: z.string().min(1).describe("Citation to search for, e.g. '[1992] HCA 23' or 'Mabo v Queensland'"),
+    citation: z
+      .string()
+      .min(1)
+      .describe("Citation to search for, e.g. '[1992] HCA 23' or 'Mabo v Queensland'"),
     format: formatEnum.optional(),
   };
   const searchByCitationParser = z.object(searchByCitationShape);

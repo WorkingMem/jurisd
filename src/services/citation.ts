@@ -136,9 +136,7 @@ export function generatePinpoint(
   };
 }
 
-export async function validateCitation(
-  citation: string,
-): Promise<CitationValidationResult> {
+export async function validateCitation(citation: string): Promise<CitationValidationResult> {
   const normalised = normaliseCitation(citation);
   const match = normalised.match(NEUTRAL_CITATION_PATTERN);
   if (!match) {

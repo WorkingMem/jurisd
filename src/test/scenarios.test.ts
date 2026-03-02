@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import { searchAustLii } from "../services/austlii.js";
 import { fetchDocumentText } from "../services/fetcher.js";
 
+// Skip live network tests in CI to prevent flaky failures
+const describeLive = process.env.CI ? describe.skip : describe;
+
 /**
  * Real-world non-deterministic test scenarios for AustLII search
  *
@@ -13,7 +16,7 @@ import { fetchDocumentText } from "../services/fetcher.js";
  * 5. Document fetching works for returned URLs
  */
 
-describe("Real-world legal search scenarios", () => {
+describeLive("Real-world legal search scenarios", () => {
   /**
    * Scenario 1: Negligence and duty of care
    * Common personal injury law search
@@ -148,7 +151,7 @@ describe("Real-world legal search scenarios", () => {
   }, 60000); // Longer timeout for fetch
 });
 
-describe("Search result quality checks", () => {
+describeLive("Search result quality checks", () => {
   it("should return properly structured results", async () => {
     const results = await searchAustLii("contract breach", {
       type: "case",
@@ -189,7 +192,7 @@ describe("Search result quality checks", () => {
   }, 30000);
 });
 
-describe("Search relevance and sorting", () => {
+describeLive("Search relevance and sorting", () => {
   /**
    * Test case name query with auto sorting
    * Should detect "X v Y" pattern and use relevance sorting
@@ -354,7 +357,7 @@ describe("Search relevance and sorting", () => {
   }, 30000);
 });
 
-describe("Reported citations and removed.invalid support", () => {
+describeLive("Reported citations and removed.invalid support", () => {
   /**
    * Test that reported citations are extracted when available
    */

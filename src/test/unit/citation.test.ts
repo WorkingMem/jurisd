@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import axios from "axios";
-import { parseCitation, formatAGLC4, isValidNeutralCitation, isValidReportedCitation, shortFormAGLC4, normaliseCitation, validateCitation, generatePinpoint } from "../../services/citation.js";
+import {
+  parseCitation,
+  formatAGLC4,
+  isValidNeutralCitation,
+  isValidReportedCitation,
+  shortFormAGLC4,
+  normaliseCitation,
+  validateCitation,
+  generatePinpoint,
+} from "../../services/citation.js";
 import type { ParagraphBlock } from "../../services/fetcher.js";
 
 describe("parseCitation", () => {
@@ -32,7 +41,10 @@ describe("parseCitation", () => {
 
 describe("formatAGLC4", () => {
   it("formats neutral citation only", () => {
-    const result = formatAGLC4({ title: "Mabo v Queensland (No 2)", neutralCitation: "[1992] HCA 23" });
+    const result = formatAGLC4({
+      title: "Mabo v Queensland (No 2)",
+      neutralCitation: "[1992] HCA 23",
+    });
     expect(result).toBe("Mabo v Queensland (No 2) [1992] HCA 23");
   });
 

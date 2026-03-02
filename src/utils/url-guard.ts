@@ -26,6 +26,8 @@ export function assertFetchableUrl(url: string): void {
   }
 
   if (!ALLOWED_HOSTS.has(parsed.hostname)) {
-    throw new Error(`Host '${parsed.hostname}' not in permitted list: ${[...ALLOWED_HOSTS].join(", ")}`);
+    throw new Error(
+      `Host '${parsed.hostname}' not in permitted list: ${[...ALLOWED_HOSTS].join(", ")}`,
+    );
   }
 }

@@ -256,10 +256,7 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     };
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      if (
-        isSourceUrl(url) &&
-        (error.response?.status === 401 || error.response?.status === 403)
-      ) {
+      if (isSourceUrl(url) && (error.response?.status === 401 || error.response?.status === 403)) {
         throw new Error(
           `removed.invalid returned ${error.response.status}. Set SESSION_COOKIE env var with your authenticated session cookie.`,
         );
