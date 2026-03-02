@@ -92,6 +92,39 @@ describe("fetchDocumentText", () => {
     expect(postBody).not.toMatch(/\|67401\|/);
   });
 
+  it("does not expose SESSION_COOKIE in propagated error when removed.invalid RPC call fails", async () => {
+    mockConfig.source.sessionCookie = "IID=secret123; alcsessionid=abc456; cf_clearance=xxx";
+
+    // Simulate an AxiosError carrying the Cookie header in config (as axios does on failure)
+    const axiosError = Object.assign(new Error("Network Error"), {
+      isAxiosError: true,
+      config: {
+        headers: { Cookie: "IID=secret123; alcsessionid=abc456; cf_clearance=xxx" },
+      },
+      response: undefined,
+    });
+    vi.mocked(axios.post).mockRejectedValueOnce(axiosError);
+    vi.mocked(axios.isAxiosError).mockReturnValue(true);
+
+    let caughtError: unknown;
+    try {
+      await fetchDocumentText("https://removed.invalid/article/67401");
+    } catch (e) {
+      caughtError = e;
+    }
+
+    expect(caughtError).toBeDefined();
+    // The error message must not contain the raw session cookie value
+    const errorMessage = caughtError instanceof Error ? caughtError.message : String(caughtError);
+    expect(errorMessage).not.toContain("secret123");
+    expect(errorMessage).not.toContain("alcsessionid=abc456");
+    // The propagated error must not carry config.headers with the Cookie
+    if (caughtError && typeof caughtError === "object" && "config" in caughtError) {
+      const errConfig = (caughtError as { config?: { headers?: { Cookie?: string } } }).config;
+      expect(errConfig?.headers?.Cookie).not.toContain("secret123");
+    }
+  });
+
   it("extracts paragraph blocks from AustLII HTML with [N] markers", async () => {
     const html = `<html><body>
       <p>[1] First paragraph text here.</p>
