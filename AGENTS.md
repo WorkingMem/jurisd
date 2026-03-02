@@ -22,16 +22,17 @@ src/
 │   ├── citation.ts       # AGLC4 citation parsing, formatting, validation, pinpoints
 │   ├── fetcher.ts        # Document retrieval (HTML, PDF, OCR, removed.invalid)
 │   ├── source.ts           # removed.invalid article resolution, URL utilities, citation lookup
-│   └── source-rpc.ts       # RPC utilities (fetchRequest, encodeInt, parseFetchResponse)
+│   └── source-rpc.ts       # RPC utilities (buildFetchRequest, encodeInt, parseFetchResponse)
 ├── utils/
 │   ├── formatter.ts      # MCP response formatting (json/text/markdown/html)
 │   ├── logger.ts         # Structured levelled logging (LOG_LEVEL env var)
 │   ├── rate-limiter.ts   # Token bucket rate limiter (AustLII 10 req/min, removed.invalid 5 req/min)
 │   └── url-guard.ts      # SSRF protection (HTTPS-only, allowlisted hosts)
 └── test/
-    ├── source.test.ts          # removed.invalid integration tests
+    ├── source.test.ts          # removed.invalid integration tests (unit + live + authenticated RPC)
     ├── scenarios.test.ts     # End-to-end search scenarios (live network, skipped in CI)
     ├── fixtures/             # Static HTML fixtures for deterministic tests
+    ├── performance/          # Performance benchmarks (large result sets, timing)
     └── unit/                 # Unit tests (~163 test cases)
         ├── austlii.test.ts
         ├── austlii-mock.test.ts
@@ -71,7 +72,7 @@ src/
 - Tests hit live AustLII API (non-deterministic)
 - Validate with actual legal queries (e.g., "negligence duty of care")
 - Live tests in `src/test/scenarios.test.ts` are skipped in CI (`process.env.CI`) to avoid flaky failures
-- 18 live test scenarios covering search quality, relevance, and sorting modes
+- Live test scenarios covering search quality, relevance, and sorting modes
 - Deterministic unit tests use HTML fixtures from `src/test/fixtures/`
 
 ## Development Guidelines
@@ -82,7 +83,7 @@ src/
 2. **Update tests**: Add test scenarios for new functionality
 3. **Maintain filtering**: Ensure journal articles remain excluded
 4. **Preserve structure**: Keep paragraph numbers intact in text extraction
-5. **Update docs**: Modify README.md and ROADMAP.md as needed
+5. **Update docs**: Modify README.md and `docs/ROADMAP.md` as needed
 
 ### Code Style
 
@@ -90,6 +91,26 @@ src/
 - **Error handling**: Wrap network calls in try/catch with descriptive errors
 - **Interfaces first**: Define TypeScript interfaces before implementation
 - **No magic strings**: Use enums/constants for repeated values
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SESSION_COOKIE` | For removed.invalid fetch | Full cookie header from an authenticated removed.invalid browser session (`IID=...; alcsessionid=...; cf_clearance=...`). Without this, `fetch_document_text` for removed.invalid URLs throws an actionable error. |
+| `AUSTLII_SEARCH_BASE` | No | Override AustLII search endpoint (default: `https://www.austlii.edu.au/cgi-bin/sinosrch.cgi`) |
+| `AUSTLII_REFERER` | No | Referer header for AustLII requests |
+| `AUSTLII_USER_AGENT` | No | User-Agent string for AustLII requests |
+| `AUSTLII_TIMEOUT` | No | AustLII request timeout in ms |
+| `OCR_LANGUAGE` | No | Tesseract OCR language (default: `eng`) |
+| `OCR_OEM` | No | Tesseract OCR engine mode |
+| `OCR_PSM` | No | Tesseract page segmentation mode |
+| `DEFAULT_SEARCH_LIMIT` | No | Default number of search results (default: 10) |
+| `MAX_SEARCH_LIMIT` | No | Maximum allowed search results (default: 50) |
+| `DEFAULT_OUTPUT_FORMAT` | No | Default format: `json`, `text`, `markdown`, `html` |
+| `DEFAULT_SORT_BY` | No | Default sort: `auto`, `relevance`, `date` |
+| `LOG_LEVEL` | No | Logging verbosity: `error`, `warn`, `info`, `debug` |
+
+See README.md "removed.invalid Authenticated Access" for cookie extraction instructions. See `src/config.ts` for all defaults.
 
 ### Testing Requirements
 
@@ -126,10 +147,18 @@ Every PR must include:
 - AustLII enrichment: `enrichWithSourceLinks(results)` adds a `sourceUrl` field to results that have a neutral citation
 - Key exports: `resolveArticle`, `resolveArticleFromUrl`, `articleToSearchResult`, `enrichWithSourceLinks`, `buildCitationLookupUrl`, `isSourceUrl`, `extractArticleId`
 
+**RPC utilities** (`src/services/source-rpc.ts`):
+- Low-level implementation of removed.invalid's RPC wire protocol (reverse-engineered, 2026-03-02)
+- `encodeInt(n)`: Encodes integers using RPC's custom base-64 charset (A-Z, a-z, 0-9, $, _)
+- `buildFetchRequest(articleId)`: Builds the POST body for `ArticleViewRemoteService.fetchRequest` — the primary method removed.invalid's RPC app uses to load article content
+- `parseFetchResponse(text)`: Strips `//OK` prefix, joins RPC `"+"` string concatenation, JSON-parses, and extracts the longest HTML string from the nested string table
+- `buildGetMetadataRequest(articleId)`: Lighter-weight call that returns schema.org JSON with case name and neutral citation
+- Tokens and the variant hash may need refreshing if removed.invalid redeploys its RPC app (inspect `X-Variant` from a live browser session)
+
 **Document fetching** (`src/services/fetcher.ts`):
 - Handles HTML, PDF, and OCR fallback (Tesseract)
 - Extracts text while preserving `[N]` paragraph markers as `ParagraphBlock[]`
-- Special parsing for removed.invalid document structure when a removed.invalid URL is detected
+- For removed.invalid URLs: routes to `fetchSourceArticleContent()` via `SESSION_COOKIE`; calls `fetchRequest` RPC to bypass the JavaScript SPA and retrieve full HTML directly
 - **Limitation**: Page numbers from reported judgements not extracted
 
 ## Common Tasks
@@ -238,9 +267,10 @@ if (sortMode === "relevance" && isCaseNameQuery(query)) {
 
 ## Resources
 
-- **AustLII Search Help**: https://www.austlii.edu.au/austlii/help/search.html
-- **MCP Specification**: https://modelcontextprotocol.io/
-- **Project Roadmap**: `docs/ROADMAP.md`
+- **AustLII Search Help**: <https://www.austlii.edu.au/austlii/help/search.html>
+- **MCP Specification**: <https://modelcontextprotocol.io/>
+- **Project Roadmap**: [docs/ROADMAP.md](docs/ROADMAP.md)
+- **Architecture overview**: [docs/architecture.md](docs/architecture.md)
 - **Test Coverage**: Run `npm test` to see real-world scenarios
 
 ## Critical Reminders
