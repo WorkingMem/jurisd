@@ -20,9 +20,9 @@ npm run lint:fix       # Auto-fix lint issues
 
 ## Key Architecture
 
-- `src/index.ts` - MCP server, 9 tool registrations
-- `src/services/source-rpc.ts` - RPC protocol: `resolveRecords` (search), `fetchRequest` (fetch), tokens, RPC encoding
-- `src/services/source.ts` - removed.invalid integration: `searchUpstream`, `resolveArticle`, bridge section resolution
+- `src/index.ts` - MCP server, 10 tool registrations
+- `src/services/source-rpc.ts` - RPC protocol: `resolveRecords` (search), `fetchRequest` (fetch), citator, tokens, RPC encoding
+- `src/services/source.ts` - removed.invalid integration: `searchUpstream`, `resolveArticle`, `searchCitingCases`, bridge section resolution
 - `src/services/austlii.ts` - AustLII search with authority-based ranking
 - `src/services/citation.ts` - AGLC4 formatting, validation, pinpoints
 - `src/services/fetcher.ts` - Document retrieval (HTML, PDF, OCR, removed.invalid RPC)
@@ -35,8 +35,10 @@ The removed.invalid integration uses reverse-engineered RPC (Google Web Toolkit 
 - **Tokens** change on removed.invalid redeployment; update from HAR captures (see below)
 - **resolveRecords** = search/autocomplete endpoint (SourceRemoteService)
 - **fetchRequest** = fetch judgment content (ArticleViewRemoteService)
-- **RemoteService** = citation search ("who cites this article") - planned, not yet implemented
+- **RemoteService** = citation search ("who cites this article") - implemented as `search_citing_cases` tool
 - **Bridge section** = last ~10% of resolveRecords flat array; contains record-ID/article-ID pairs
+- **Citable IDs** = internal IDs in 2M-10M range (different from article IDs 100-2M); input to citator
+- **`.concat()` responses** = RPC splits arrays >32768 elements via `.concat()` join; `parseRpcConcatResponse()` handles this
 - Article IDs are resolved via public GET to `removed.invalid/article/{id}` (no session cookie needed)
 
 ### Token updates
@@ -45,7 +47,7 @@ When removed.invalid redeploys, the RPC tokens (type hashes) change. To update:
 1. Capture a HAR from removed.invalid (see Proxyman workflow below)
 2. Find the `sourceService.do` POST requests
 3. Extract the new token from the request body (field 4 in the pipe-delimited RPC payload)
-4. Update constants in `src/services/source-rpc.ts`: `SOURCE_TOKEN`, `FETCH_TOKEN`, `SOURCE_VARIANT`
+4. Update constants in `src/services/source-rpc.ts`: `SOURCE_TOKEN`, `FETCH_TOKEN`, `REMOTE_TOKEN`, `SOURCE_VARIANT`
 5. Update `docs/source-rpc-protocol.md`
 
 ## Proxyman Debug Workflow
