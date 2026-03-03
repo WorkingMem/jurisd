@@ -7,7 +7,7 @@ import { z } from "zod";
 import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii, type SearchResult } from "./services/austlii.js";
-import { resolveArticle, buildCitationLookupUrl } from "./services/source.js";
+import { resolveArticle, buildCitationLookupUrl, searchUpstream } from "./services/source.js";
 import {
   formatAGLC4,
   validateCitation,
@@ -101,15 +101,22 @@ async function main() {
     async (rawInput) => {
       const { query, jurisdiction, limit, format, sortBy, method, offset } =
         searchCasesParser.parse(rawInput);
-      const results = await searchAustLii(query, {
-        type: "case",
-        jurisdiction,
-        limit,
-        sortBy,
-        method,
-        offset,
-      });
-      return formatSearchResults(results, format ?? "json");
+
+      // Run AustLII and removed.invalid searches in parallel
+      const [austliiResults, upstreamResults] = await Promise.all([
+        searchAustLii(query, { type: "case", jurisdiction, limit, sortBy, method, offset }),
+        searchUpstream(query, { type: "case", jurisdiction, limit }),
+      ]);
+
+      // Merge with deduplication by neutral citation — source results preferred (richer data)
+      const seen = new Map<string, SearchResult>();
+      for (const r of [...upstreamResults, ...austliiResults]) {
+        const key = r.neutralCitation ?? r.url;
+        if (!seen.has(key)) seen.set(key, r);
+      }
+      const merged = limit ? [...seen.values()].slice(0, limit) : [...seen.values()];
+
+      return formatSearchResults(merged, format ?? "json");
     },
   );
 
@@ -374,7 +381,7 @@ async function main() {
         const bodyStr = Buffer.concat(chunks).toString();
         const body = bodyStr ? (JSON.parse(bodyStr) as Record<string, unknown>) : undefined;
         await transport.handleRequest(req, res, body);
-      } catch (err) {
+      } catch {
         if (!res.headersSent) {
           res.writeHead(500);
           res.end("Internal server error");
