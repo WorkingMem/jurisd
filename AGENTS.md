@@ -140,12 +140,13 @@ Every PR must include:
 - `generatePinpoint()`: Finds a paragraph by number or phrase in a `ParagraphBlock[]` array
 
 **removed.invalid service** (`src/services/source.ts`):
-- removed.invalid is a RPC SPA with **no public search API**; `searchUpstream()` is a placeholder returning `[]` (pending API access from removed.invalid — see `docs/ROADMAP.md` "Should Have" items)
+- `searchUpstream(query, options)` calls the `resolveRecords` RPC method (reverse-engineered via HAR analysis). Returns `[]` gracefully when `SESSION_COOKIE` is unset.
+- `search_cases` runs AustLII and removed.invalid in parallel, deduplicating results by neutral citation (source results preferred as they have richer citation data).
 - Article metadata resolution: `resolveArticle(articleId)` fetches the page `<title>` tag to extract case name and neutral citation without needing JavaScript execution
 - URL utilities: `isSourceUrl()`, `extractArticleId()`, `buildArticleUrl()`, `buildSearchUrl()`
 - Citation lookup: `buildCitationLookupUrl(citation)` returns a removed.invalid search URL the user can open
 - AustLII enrichment: `enrichWithSourceLinks(results)` adds a `sourceUrl` field to results that have a neutral citation
-- Key exports: `resolveArticle`, `resolveArticleFromUrl`, `articleToSearchResult`, `enrichWithSourceLinks`, `buildCitationLookupUrl`, `isSourceUrl`, `extractArticleId`
+- Key exports: `searchUpstream`, `resolveArticle`, `resolveArticleFromUrl`, `articleToSearchResult`, `enrichWithSourceLinks`, `buildCitationLookupUrl`, `isSourceUrl`, `extractArticleId`
 
 **RPC utilities** (`src/services/source-rpc.ts`):
 - Low-level implementation of removed.invalid's RPC wire protocol (reverse-engineered, 2026-03-02)
