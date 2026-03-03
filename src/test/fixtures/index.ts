@@ -38,3 +38,8 @@ export const PROPOSE_CITABLES_ROGERS = readFileSync(
   join(__dirname, "propose-citables-rogers.txt"),
   "utf-8",
 );
+
+export const CITATOR_MABO = readFileSync(
+  join(__dirname, "citator-mabo.txt"),
+  "utf-8",
+);
