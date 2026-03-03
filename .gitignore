@@ -22,5 +22,8 @@ coverage
 # Generated docs
 docs/api
 
+# Worktrees
+.worktrees
+
 # OS
 Thumbs.db
