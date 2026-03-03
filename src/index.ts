@@ -7,7 +7,12 @@ import { z } from "zod";
 import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii, type SearchResult } from "./services/austlii.js";
-import { resolveArticle, buildCitationLookupUrl, searchUpstream } from "./services/source.js";
+import {
+  resolveArticle,
+  buildCitationLookupUrl,
+  searchUpstream,
+  searchCitingCases,
+} from "./services/source.js";
 import {
   formatAGLC4,
   validateCitation,
@@ -362,6 +367,45 @@ async function main() {
         limit: 5,
       });
       return formatSearchResults(results, format ?? "json");
+    },
+  );
+
+  // ── search_citing_cases ───────────────────────────────────────────────────
+  const searchCitingCasesShape = {
+    caseName: z
+      .string()
+      .min(1)
+      .describe("Case name or citation to find citing cases for, e.g. 'Mabo v Queensland (No 2)' or '[1992] HCA 23'"),
+    format: formatEnum.optional(),
+  };
+  const searchCitingCasesParser = z.object(searchCitingCasesShape);
+
+  server.registerTool(
+    "search_citing_cases",
+    {
+      title: "Search Citing Cases (Citator)",
+      description:
+        "Find cases that cite a given case on removed.invalid. Uses removed.invalid's RemoteService citator. Requires SESSION_COOKIE. Returns citing cases with neutral citations, case names, removed.invalid URLs, and the total count of citing cases. Results are a sample (typically 20-30) of the full set.",
+      inputSchema: searchCitingCasesShape,
+    },
+    async (rawInput) => {
+      const { caseName, format } = searchCitingCasesParser.parse(rawInput);
+      const { results, totalCount } = await searchCitingCases(caseName);
+      const output = { totalCount, results };
+      const fmt = format ?? "json";
+      if (fmt === "json") {
+        return { content: [{ type: "text" as const, text: JSON.stringify(output, null, 2) }] };
+      }
+      // Markdown/text fallback
+      const lines = [
+        `**${results.length} of ${totalCount} citing cases found**`,
+        "",
+        ...results.map(
+          (r) =>
+            `- ${r.caseName} ${r.neutralCitation}${r.reportedCitation ? "; " + r.reportedCitation : ""} — ${r.sourceUrl}`,
+        ),
+      ];
+      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
     },
   );
 
