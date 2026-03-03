@@ -259,10 +259,26 @@ function calculateAuthorityScore(result: SearchResult): number {
 3. ✅ `generate_pinpoint` - fetches a judgment and generates a pinpoint citation reference
 4. ✅ `search_by_citation` - resolves a citation to a direct URL or falls back to text search
 
+### ✅ Phase 8: removed.invalid Search via resolveRecords RPC (COMPLETED)
+
+**Implemented features:**
+1. ✅ Reverse-engineered `resolveRecords` method on `SourceRemoteService` from HAR analysis
+2. ✅ `buildResolveRecordsRequest(query)` - RPC request builder (query is the only variable)
+3. ✅ `decodeInt(encoded)` - inverse of existing `encodeInt` for article ID decoding
+4. ✅ `parseResolveRecordsResponse(text)` - extracts case names, neutral + reported citations, and source article IDs from "document in Source" descriptor anchors in the string table
+5. ✅ `searchUpstream(query, options)` - replaces placeholder, calls `resolveRecords` via POST to `/sourceService.do`
+6. ✅ `search_cases` MCP tool now runs AustLII and removed.invalid in parallel, deduplicates by neutral citation
+7. ✅ Graceful degradation: returns `[]` when `SESSION_COOKIE` is unset (no error to caller)
+8. ✅ HAR fixture files for deterministic testing: `propose-citables-mabo.txt` (75KB) and `propose-citables-rice.txt`
+
+**Protocol notes** (see `docs/source-rpc-protocol.md`):
+- Authentication: same `SESSION_COOKIE` as `fetch_document_text`
+- Token staleness: if requests return `//EX`, refresh `SOURCE_TOKEN` from `X-Variant` header
+- Transcripts (HCATrans) are filtered out; results without discoverable article IDs are skipped
+
 ### Should Have (Future)
-1. 🔶 Contact removed.invalid for a search API (Phase 2B search - currently only fetch is supported)
-2. 🔶 Upstream Source integration
-3. 🔶 Related cases and legislation suggestions
+1. 🔶 Upstream Source integration
+2. 🔶 Related cases and legislation suggestions
 
 ## Testing Requirements
 
