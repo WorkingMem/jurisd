@@ -18,3 +18,13 @@ export const SOURCE_ARTICLE_HTML = readFileSync(
   join(__dirname, "source-article-response.html"),
   "utf-8",
 );
+
+export const PROPOSE_CITABLES_MABO = readFileSync(
+  join(__dirname, "propose-citables-mabo.txt"),
+  "utf-8",
+);
+
+export const PROPOSE_CITABLES_RICE = readFileSync(
+  join(__dirname, "propose-citables-rice.txt"),
+  "utf-8",
+);
