@@ -19,6 +19,9 @@ coverage
 *.swo
 *~
 
+# Warp
+.warp/
+
 # Generated docs
 docs/api
 
