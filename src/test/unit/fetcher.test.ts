@@ -64,7 +64,7 @@ describe("fetchDocumentText", () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           "Content-Type": "text/x-rpc-rpc; charset=UTF-8",
-          "Cookie": "IID=abc; alcsessionid=xyz",
+          Cookie: "IID=abc; alcsessionid=xyz",
         }),
       }),
     );

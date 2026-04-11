@@ -19,9 +19,9 @@ describe("fetchDocumentText (mocked)", () => {
   it("should throw a descriptive error for removed.invalid URLs instead of returning empty content", async () => {
     // removed.invalid is a RPC SPA — HTTP fetch returns a JS bootstrap shell, not judgment text.
     // Silently returning empty content is misleading; we want a clear, actionable error.
-    await expect(
-      fetchDocumentText("https://removed.invalid/article/67401"),
-    ).rejects.toThrow(/source\.io.*not supported|fetch_document_text.*source\.io/i);
+    await expect(fetchDocumentText("https://removed.invalid/article/67401")).rejects.toThrow(
+      /source\.io.*not supported|fetch_document_text.*source\.io/i,
+    );
   });
 
   it("should extract text from HTML content", async () => {
