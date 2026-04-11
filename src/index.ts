@@ -43,7 +43,16 @@ const legislationMethodEnum = z
   .enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"])
   .default("auto");
 
-async function main() {
+/**
+ * Build a fresh McpServer with all tools registered.
+ *
+ * In stateless HTTP mode (`sessionIdGenerator: undefined`), each request
+ * requires its own server + transport instance because
+ * `StreamableHTTPServerTransport` tracks per-request state on the Response
+ * object. Reusing a single server/transport across requests throws
+ * "Transport is already started" or silently corrupts the state machine.
+ */
+function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "auslaw-mcp",
     version: "0.1.0",
@@ -375,7 +384,9 @@ async function main() {
     caseName: z
       .string()
       .min(1)
-      .describe("Case name or citation to find citing cases for, e.g. 'Mabo v Queensland (No 2)' or '[1992] HCA 23'"),
+      .describe(
+        "Case name or citation to find citing cases for, e.g. 'Mabo v Queensland (No 2)' or '[1992] HCA 23'",
+      ),
     format: formatEnum.optional(),
   };
   const searchCitingCasesParser = z.object(searchCitingCasesShape);
@@ -409,9 +420,11 @@ async function main() {
     },
   );
 
+  return server;
+}
+
+async function main() {
   if (process.env.MCP_TRANSPORT === "http") {
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-    await server.connect(transport);
     const port = parseInt(process.env.PORT ?? "3000", 10);
     createServer(async (req, res) => {
       if (req.url === "/health") {
@@ -419,22 +432,41 @@ async function main() {
         res.end(JSON.stringify({ status: "ok" }));
         return;
       }
+      // Per-request server + transport (required for stateless streamable HTTP).
+      // The SDK's StreamableHTTPServerTransport mutates the Response object and
+      // cannot be reused across requests when sessionIdGenerator is undefined.
+      const mcpServer = createMcpServer();
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+      });
+      res.on("close", () => {
+        // Fire-and-forget cleanup; errors here are non-fatal.
+        void transport.close().catch(() => {});
+        void mcpServer.close().catch(() => {});
+      });
       try {
+        await mcpServer.connect(transport);
         const chunks: Buffer[] = [];
         for await (const chunk of req) chunks.push(chunk as Buffer);
         const bodyStr = Buffer.concat(chunks).toString();
         const body = bodyStr ? (JSON.parse(bodyStr) as Record<string, unknown>) : undefined;
         await transport.handleRequest(req, res, body);
-      } catch {
+      } catch (err) {
+        console.error("auslaw-mcp request error:", err);
         if (!res.headersSent) {
-          res.writeHead(500);
-          res.end("Internal server error");
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: err instanceof Error ? err.message : "Internal server error",
+            }),
+          );
         }
       }
     }).listen(port, () => {
       console.error(`auslaw-mcp HTTP transport listening on :${port}`);
     });
   } else {
+    const server = createMcpServer();
     const transport = new StdioServerTransport();
     await server.connect(transport);
   }
