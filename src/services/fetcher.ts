@@ -2,9 +2,15 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import { fileTypeFromBuffer } from "file-type";
 import { PDFParse } from "pdf-parse";
-import tesseract from "node-tesseract-ocr";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import * as tmp from "tmp";
 import * as fs from "fs/promises";
+
+// Promisified execFile — passes argv as an array so shell metacharacters in
+// any argument are not interpreted. Replaces the abandoned node-tesseract-ocr
+// package (GHSA-8j44-735h-w4w2: OS command injection via recognize() params).
+const execFileAsync = promisify(execFile);
 import { config } from "../config.js";
 import { MAX_CONTENT_LENGTH } from "../constants.js";
 import { isSourceUrl, extractArticleId, fetchSourceArticleContent } from "./source.js";
@@ -53,20 +59,37 @@ async function extractTextFromPdf(
   }
 }
 
+/**
+ * Tesseract OCR via direct execFile (no shell). All arguments are passed
+ * as an argv array so shell metacharacters cannot be interpreted. The input
+ * path is a locally-generated tempfile (not user-controlled), and the OCR
+ * config values come from env-var-backed `config.ocr.*` fields.
+ */
 async function performOcr(buffer: Buffer): Promise<{ text: string; ocrUsed: boolean }> {
-  // Create a temporary file for Tesseract
   const tmpFile = tmp.fileSync({ postfix: ".pdf" });
   try {
     await fs.writeFile(tmpFile.name, buffer);
 
-    const ocrConfig = {
-      lang: config.ocr.language,
-      oem: config.ocr.oem,
-      psm: config.ocr.psm,
-    };
+    // tesseract CLI: `tesseract <input> stdout -l <lang> --oem <n> --psm <n>`
+    // Writing to stdout avoids a second tempfile for the output.
+    const args = [
+      tmpFile.name,
+      "stdout",
+      "-l",
+      String(config.ocr.language),
+      "--oem",
+      String(config.ocr.oem),
+      "--psm",
+      String(config.ocr.psm),
+    ];
 
-    const text = await tesseract.recognize(tmpFile.name, ocrConfig);
-    return { text: text.trim(), ocrUsed: true };
+    const { stdout } = await execFileAsync("tesseract", args, {
+      // Allow up to 50 MB of recognised text — PDFs of full judgments can be large.
+      maxBuffer: 50 * 1024 * 1024,
+      // Fail fast on stuck tesseract (should never take more than a couple minutes).
+      timeout: 180_000,
+    });
+    return { text: stdout.trim(), ocrUsed: true };
   } catch (error) {
     throw new Error(`OCR failed: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
