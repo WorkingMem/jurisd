@@ -1,10 +1,10 @@
 name: Nightly Docs Sync
 
-on:
-  schedule:
+#on:
+# schedule:
     # Run nightly at 3am UTC
-    - cron: '0 3 * * *'
-  workflow_dispatch:
+#    - cron: '0 3 * * *'
+#  workflow_dispatch:
 
 # Required permissions for creating pull requests
 # IMPORTANT: Repository must have "Allow GitHub Actions to create and approve pull requests" enabled
