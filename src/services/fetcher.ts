@@ -314,7 +314,8 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     });
 
     const buffer = Buffer.from(response.data);
-    const contentType = response.headers["content-type"] || "";
+    const rawContentType = response.headers["content-type"];
+    const contentType = typeof rawContentType === "string" ? rawContentType : "";
 
     // Detect file type from buffer
     const detectedType = await fileTypeFromBuffer(buffer);
