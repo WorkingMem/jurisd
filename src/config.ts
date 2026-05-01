@@ -41,6 +41,14 @@ export interface Config {
     /** When true, fetch_document_text automatically saves a local source copy. */
     fetchByDefault: boolean;
   };
+  citedBy: {
+    /** Cache cited-by results from removed.invalid citator lookups. */
+    enabled: boolean;
+    /** Download source files for the top-N citing cases when caching cited-by results. */
+    downloadSources: boolean;
+    /** Maximum number of citing-case sources to download per lookup. */
+    downloadLimit: number;
+  };
 }
 
 /**
@@ -87,6 +95,11 @@ export function loadConfig(): Config {
     sources: {
       dir: sourcesDir,
       fetchByDefault: process.env.AUSLAW_FETCH_SOURCES !== "false",
+    },
+    citedBy: {
+      enabled: process.env.AUSLAW_CACHE_CITED_BY !== "false",
+      downloadSources: process.env.AUSLAW_DOWNLOAD_CITED_BY_SOURCES !== "false",
+      downloadLimit: parseInt(process.env.AUSLAW_CITED_BY_DOWNLOAD_LIMIT ?? "5", 10) || 5,
     },
   };
 }

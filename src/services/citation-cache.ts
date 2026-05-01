@@ -15,6 +15,30 @@ const CACHE_FILE_NAME = "citations.json";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Metadata for a case that cites the parent entry.
+ * Source-download fields are populated for the top-N entries when
+ * AUSLAW_DOWNLOAD_CITED_BY_SOURCES is enabled.
+ */
+export interface CitedByRef {
+  /** Cite key of this citing case if it is also a main-cache entry. */
+  citeKey?: string;
+  title: string;
+  neutralCitation?: string;
+  aglc4Full?: string;
+  /** Primary URL — AustLII if derivable from neutral citation, otherwise removed.invalid. */
+  url?: string;
+  year?: number;
+  court?: string;
+  /** Relative path from cacheDir of the downloaded source markdown (if any). */
+  sourceFile?: string;
+  /** ISO timestamp of the most recent source download for this ref. */
+  sourceFetchedAt?: string;
+  contentHash?: string;
+  sourceEtag?: string;
+  sourceLastModified?: string;
+}
+
 export interface CachedCitation {
   /** biblatex-compatible cite key, unique within this project. */
   citeKey: string;
@@ -49,6 +73,14 @@ export interface CachedCitation {
   court?: string;
   keywords?: string[];
   summary?: string;
+
+  // Cited-by — populated by cache_cited_by / refresh_cited_by tool calls
+  /** Citing cases from removed.invalid citator. All have metadata; top-N have sourceFile. */
+  citedBy?: CitedByRef[];
+  /** ISO timestamp when the cited-by list was last fetched from removed.invalid. */
+  citedByFetchedAt?: string;
+  /** Total citing-case count reported by removed.invalid (may exceed citedBy.length). */
+  citedByTotalCount?: number;
 
   // Embedding slot — populated by a future kannon-2 / local-model integration
   embedding?: number[];
@@ -303,6 +335,58 @@ export async function exportBib(cacheDir: string, document?: string): Promise<st
   const entries = await listCitations(cacheDir, document);
   if (entries.length === 0) return "";
   return entries.map(formatBibEntry).join("\n\n");
+}
+
+/**
+ * Replace the citedBy list on an existing cache entry and record when it was
+ * fetched.  Overwrites any prior citedBy array so callers always store the
+ * most recent snapshot from removed.invalid.
+ *
+ * Note: same load-mutate-save limitation as upsertCitation.
+ */
+export async function updateCitedBy(
+  cacheDir: string,
+  citeKey: string,
+  refs: CitedByRef[],
+  totalCount: number,
+  fetchedAt?: string,
+): Promise<void> {
+  const cache = await loadCache(cacheDir);
+  const entry = cache.entries.find((e) => e.citeKey === citeKey);
+  if (!entry) return;
+  entry.citedBy = refs;
+  entry.citedByFetchedAt = fetchedAt ?? new Date().toISOString();
+  entry.citedByTotalCount = totalCount;
+  entry.updatedAt = new Date().toISOString();
+  await saveCache(cacheDir, cache);
+}
+
+/**
+ * Update source-download fields on a specific CitedByRef within a parent entry.
+ * The ref is matched by neutralCitation.
+ *
+ * Note: same load-mutate-save limitation as upsertCitation.
+ */
+export async function updateCitedBySource(
+  cacheDir: string,
+  parentCiteKey: string,
+  refNeutralCitation: string,
+  fields: {
+    sourceFile?: string;
+    sourceFetchedAt?: string;
+    contentHash?: string;
+    sourceEtag?: string;
+    sourceLastModified?: string;
+  },
+): Promise<void> {
+  const cache = await loadCache(cacheDir);
+  const entry = cache.entries.find((e) => e.citeKey === parentCiteKey);
+  if (!entry?.citedBy) return;
+  const ref = entry.citedBy.find((r) => r.neutralCitation === refNeutralCitation);
+  if (!ref) return;
+  Object.assign(ref, fields);
+  entry.updatedAt = new Date().toISOString();
+  await saveCache(cacheDir, cache);
 }
 
 /**
