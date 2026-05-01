@@ -2,6 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 import type { FetchResponse } from "../services/fetcher.js";
 import type { SearchResult } from "../services/austlii.js";
+import { formatAGLC4 } from "../services/citation.js";
 
 export type ResponseFormat = "json" | "text" | "markdown" | "html";
 
@@ -23,21 +24,34 @@ function ensureContent(text: string): CallToolResult["content"] {
  * @param format - Desired output format (json, text, markdown, or html)
  * @returns An MCP {@link CallToolResult} containing the formatted content
  */
+/** Attach a canonical AGLC4 string to each search result. */
+function withAglc4(results: SearchResult[]): (SearchResult & { aglc4: string })[] {
+  return results.map((r) => ({
+    ...r,
+    aglc4: formatAGLC4({
+      title: r.title,
+      neutralCitation: r.neutralCitation,
+      reportedCitation: r.reportedCitation,
+    }),
+  }));
+}
+
 export function formatSearchResults(
   results: SearchResult[],
   format: ResponseFormat,
 ): CallToolResult {
+  const enriched = withAglc4(results);
   switch (format) {
     case "json":
       return {
-        content: ensureContent(JSON.stringify(results, null, 2)),
+        content: ensureContent(JSON.stringify(enriched, null, 2)),
         structuredContent: {
           format: "json",
-          data: results,
+          data: enriched,
         },
       };
     case "html": {
-      const rows = results
+      const rows = enriched
         .map((result) => {
           const citation = result.citation ?? result.neutralCitation ?? "";
           const reported =
@@ -45,9 +59,12 @@ export function formatSearchResults(
               ? ` <span class="reported-citation">${escapeHtml(result.reportedCitation)}</span>`
               : "";
           const summary = result.summary ? `<p>${escapeHtml(result.summary)}</p>` : "";
+          const aglc4 = result.aglc4
+            ? ` <span class="aglc4">${escapeHtml(result.aglc4)}</span>`
+            : "";
           return `<li><a href="${escapeHtml(result.url)}">${escapeHtml(result.title)}</a>${
             citation ? ` (${escapeHtml(citation)})` : ""
-          }${reported}${summary}</li>`;
+          }${reported}${aglc4}${summary}</li>`;
         })
         .join("\n");
       return {
@@ -55,14 +72,9 @@ export function formatSearchResults(
       };
     }
     case "markdown": {
-      const lines = results.map((result) => {
-        const citation = result.citation ?? result.neutralCitation ?? "";
-        const reported =
-          result.reportedCitation && result.reportedCitation !== citation
-            ? ` ${result.reportedCitation}`
-            : "";
+      const lines = enriched.map((result) => {
         const summary = result.summary ? ` - ${result.summary}` : "";
-        return `- [${result.title}](${result.url})${citation ? ` (${citation})` : ""}${reported}${summary}`;
+        return `- [${result.title}](${result.url}) (\`${result.aglc4}\`)${summary}`;
       });
       return {
         content: ensureContent(lines.join("\n")),
@@ -70,14 +82,9 @@ export function formatSearchResults(
     }
     case "text":
     default: {
-      const lines = results.map((result, idx) => {
-        const citation = result.citation ?? result.neutralCitation ?? "";
-        const reported =
-          result.reportedCitation && result.reportedCitation !== citation
-            ? ` ${result.reportedCitation}`
-            : "";
+      const lines = enriched.map((result, idx) => {
         const summary = result.summary ? `\n  ${result.summary}` : "";
-        return `${idx + 1}. ${result.title}${citation ? ` (${citation})` : ""}${reported}\n   ${result.url}${summary}`;
+        return `${idx + 1}. ${result.aglc4}\n   ${result.url}${summary}`;
       });
       return {
         content: ensureContent(lines.join("\n")),

@@ -4,6 +4,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createServer } from "node:http";
 import { z } from "zod";
 
+import path from "node:path";
 import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii, type SearchResult } from "./services/austlii.js";
@@ -16,10 +17,21 @@ import {
 } from "./services/source.js";
 import {
   formatAGLC4,
+  formatShortForm,
   validateCitation,
   parseCitation,
   generatePinpoint,
 } from "./services/citation.js";
+import {
+  upsertCitation,
+  getCitation,
+  listCitations,
+  exportBib,
+  updateSourceFields,
+} from "./services/citation-cache.js";
+import { storeSource, checkSourceFreshness } from "./services/source-store.js";
+import { config } from "./config.js";
+import { AUSLAW_CACHE_DIR_NAME } from "./constants.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
 const jurisdictionEnum = z.enum([
@@ -132,6 +144,12 @@ function createMcpServer(): McpServer {
   const fetchDocumentShape = {
     url: z.string().url("URL must be valid."),
     format: formatEnum.optional(),
+    citeKey: z
+      .string()
+      .optional()
+      .describe(
+        "Cite key of an existing cache entry to associate with this fetch (updates source fields).",
+      ),
   };
   const fetchDocumentParser = z.object(fetchDocumentShape);
 
@@ -140,12 +158,31 @@ function createMcpServer(): McpServer {
     {
       title: "Fetch Document Text",
       description:
-        "Fetch full text for a legislation or case URL (AustLII or removed.invalid), with OCR fallback for scanned PDFs.",
+        "Fetch full text for a legislation or case URL (AustLII or removed.invalid), with OCR fallback for scanned PDFs. When a `citeKey` is supplied and AUSLAW_FETCH_SOURCES is not set to 'false', also saves a local markdown copy to the sources directory and updates the cache entry's HTTP freshness headers. Without `citeKey`, only the document text is returned.",
       inputSchema: fetchDocumentShape,
     },
     async (rawInput) => {
-      const { url, format } = fetchDocumentParser.parse(rawInput);
+      const { url, format, citeKey } = fetchDocumentParser.parse(rawInput);
       const response = await fetchDocumentText(url);
+
+      // Auto-store source when enabled and a citeKey is provided or fetchByDefault is on
+      if (config.sources.fetchByDefault && citeKey) {
+        try {
+          const existing = await getCitation(config.cache.dir, citeKey);
+          const storeResult = await storeSource(citeKey, url, existing, config.sources.dir);
+          const relPath = path.relative(config.cache.dir, storeResult.path);
+          await updateSourceFields(config.cache.dir, citeKey, {
+            sourceFile: relPath,
+            contentHash: storeResult.contentHash,
+            sourceFetchedAt: new Date().toISOString(),
+            sourceEtag: storeResult.etag,
+            sourceLastModified: storeResult.lastModified,
+          });
+        } catch {
+          // Source storage is best-effort — don't fail the fetch
+        }
+      }
+
       return formatFetchResponse(response, format ?? "json");
     },
   );
@@ -412,6 +449,427 @@ function createMcpServer(): McpServer {
         ),
       ];
       return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+    },
+  );
+
+  // ── cache_citation ────────────────────────────────────────────────────────
+  const cacheCitationShape = {
+    title: z.string().min(1).describe("Case name, e.g. 'Mabo v Queensland (No 2)'"),
+    neutralCitation: z.string().optional().describe("Neutral citation, e.g. '[1992] HCA 23'"),
+    reportedCitation: z.string().optional().describe("Reported citation, e.g. '(1992) 175 CLR 1'"),
+    url: z.string().url().describe("Primary source URL (AustLII or removed.invalid)"),
+    type: z
+      .enum(["case", "legislation", "secondary", "treaty"])
+      .default("case")
+      .describe("Source type"),
+    jurisdiction: z.string().optional(),
+    year: z.number().int().optional().describe("Decision year"),
+    court: z.string().optional().describe("Court code, e.g. 'HCA'"),
+    keywords: z.array(z.string()).optional(),
+    summary: z.string().optional().describe("Brief abstract of the source"),
+    document: z
+      .string()
+      .optional()
+      .describe("Logical document name this citation belongs to, e.g. 'essay-chapter-3'"),
+    footnoteNumber: z
+      .number()
+      .int()
+      .optional()
+      .describe("Footnote number where this citation first appears in `document`"),
+    pinpoint: z
+      .string()
+      .optional()
+      .describe("Pinpoint to include in the AGLC4 full form, e.g. '[20]' or '401 to 407'"),
+    style: z
+      .enum(["neutral", "reported", "combined"])
+      .default("combined")
+      .describe("Which citation components to include in aglc4Full"),
+  };
+  const cacheCitationParser = z.object(cacheCitationShape);
+
+  server.registerTool(
+    "cache_citation",
+    {
+      title: "Cache Citation",
+      description:
+        "Store or update a citation in the local project cache. Assigns a biblatex-compatible cite key on first use. Returns the cite key and canonical AGLC4 string.",
+      inputSchema: cacheCitationShape,
+    },
+    async (rawInput) => {
+      const {
+        title,
+        neutralCitation,
+        reportedCitation,
+        url,
+        type,
+        jurisdiction,
+        year,
+        court,
+        keywords,
+        summary,
+        document,
+        footnoteNumber,
+        pinpoint,
+        style,
+      } = cacheCitationParser.parse(rawInput);
+
+      const aglc4Full = formatAGLC4({
+        title,
+        neutralCitation: style !== "reported" ? neutralCitation : undefined,
+        reportedCitation: style !== "neutral" ? reportedCitation : undefined,
+        pinpoint,
+      });
+
+      const citeKey = await upsertCitation(config.cache.dir, {
+        title,
+        neutralCitation,
+        reportedCitation,
+        aglc4Full,
+        url,
+        type,
+        jurisdiction,
+        year,
+        court,
+        keywords,
+        summary,
+        document,
+        footnoteNumber,
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ citeKey, aglc4Full, cached: true }, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  // ── get_cached_citation ───────────────────────────────────────────────────
+  const getCachedCitationShape = {
+    query: z
+      .string()
+      .min(1)
+      .describe(
+        "Cite key (e.g. 'mabo1992'), AGLC4 citation string, neutral citation, or case title",
+      ),
+  };
+  const getCachedCitationParser = z.object(getCachedCitationShape);
+
+  server.registerTool(
+    "get_cached_citation",
+    {
+      title: "Get Cached Citation",
+      description:
+        "Retrieve a citation from the local cache without any network calls. Looks up by cite key, AGLC4 full string, neutral citation, or case title.",
+      inputSchema: getCachedCitationShape,
+    },
+    async (rawInput) => {
+      const { query } = getCachedCitationParser.parse(rawInput);
+      const entry = await getCitation(config.cache.dir, query);
+      if (!entry) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ found: false, query }) }],
+        };
+      }
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify({ found: true, ...entry }, null, 2) },
+        ],
+      };
+    },
+  );
+
+  // ── list_bibliography ─────────────────────────────────────────────────────
+  const listBibliographyShape = {
+    document: z
+      .string()
+      .optional()
+      .describe("Filter to citations used in this document. Omit for all project citations."),
+    format: formatEnum.optional(),
+  };
+  const listBibliographyParser = z.object(listBibliographyShape);
+
+  server.registerTool(
+    "list_bibliography",
+    {
+      title: "List Bibliography",
+      description:
+        "List all cached citations for this project, optionally filtered to a specific document.",
+      inputSchema: listBibliographyShape,
+    },
+    async (rawInput) => {
+      const { document, format } = listBibliographyParser.parse(rawInput);
+      const entries = await listCitations(config.cache.dir, document);
+      const fmt = format ?? "json";
+
+      if (fmt === "json") {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(entries, null, 2) }],
+          structuredContent: { format: "json", data: entries },
+        };
+      }
+      if (fmt === "markdown") {
+        const lines = entries.map((e) => `- **${e.citeKey}** — ${e.aglc4Full}`);
+        return { content: [{ type: "text" as const, text: lines.join("\n") || "(empty)" }] };
+      }
+      // text / html
+      const lines = entries.map((e, i) => `${i + 1}. [${e.citeKey}] ${e.aglc4Full}`);
+      return { content: [{ type: "text" as const, text: lines.join("\n") || "(empty)" }] };
+    },
+  );
+
+  // ── export_bibliography ───────────────────────────────────────────────────
+  const exportBibliographyShape = {
+    document: z
+      .string()
+      .optional()
+      .describe("Export only citations used in this document. Omit for all project citations."),
+    outputPath: z
+      .string()
+      .optional()
+      .describe(
+        "Write the .bib file to this absolute path. Defaults to <cacheDir>/<projectName>.bib",
+      ),
+  };
+  const exportBibliographyParser = z.object(exportBibliographyShape);
+
+  server.registerTool(
+    "export_bibliography",
+    {
+      title: "Export Bibliography (.bib)",
+      description:
+        "Export cached citations as a BibLaTeX .bib file. Returns the bib text and the path where it was written.",
+      inputSchema: exportBibliographyShape,
+    },
+    async (rawInput) => {
+      const { document, outputPath } = exportBibliographyParser.parse(rawInput);
+      const bibText = await exportBib(config.cache.dir, document);
+
+      if (!bibText) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ path: null, entries: 0, bib: "" }, null, 2),
+            },
+          ],
+        };
+      }
+
+      const defaultPath = path.join(
+        config.cache.dir,
+        AUSLAW_CACHE_DIR_NAME,
+        `${config.cache.projectName}.bib`,
+      );
+      const writePath = outputPath ?? defaultPath;
+
+      const { promises: fs } = await import("node:fs");
+      await fs.mkdir(path.dirname(writePath), { recursive: true });
+      await fs.writeFile(writePath, bibText, "utf-8");
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                path: writePath,
+                entries: bibText.split("\n\n").filter(Boolean).length,
+                bib: bibText,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
+
+  // ── format_short_citation ─────────────────────────────────────────────────
+  const formatShortCitationShape = {
+    title: z
+      .string()
+      .min(1)
+      .describe("The abbreviated case name chosen at first reference, e.g. 'Mabo'"),
+    mode: z
+      .enum(["short", "ibid", "subsequent"])
+      .default("short")
+      .describe(
+        "short = plain short form; ibid = Ibid (back-to-back same source); subsequent = title (n X)",
+      ),
+    footnoteRef: z
+      .number()
+      .int()
+      .optional()
+      .describe("Footnote number of first citation — required for 'subsequent' mode"),
+    pinpointPara: z.number().int().optional().describe("Paragraph pinpoint number, e.g. 20 → [20]"),
+    pinpointPage: z.number().int().optional().describe("Page pinpoint number, e.g. 401"),
+  };
+  const formatShortCitationParser = z.object(formatShortCitationShape);
+
+  server.registerTool(
+    "format_short_citation",
+    {
+      title: "Format Short-Form Citation",
+      description:
+        "Format an AGLC4-compliant short-form, Ibid, or subsequent reference. Use 'ibid' when citing the same source as the immediately preceding footnote; 'subsequent' for later references (requires footnoteRef).",
+      inputSchema: formatShortCitationShape,
+    },
+    async (rawInput) => {
+      const { title, mode, footnoteRef, pinpointPara, pinpointPage } =
+        formatShortCitationParser.parse(rawInput);
+
+      const pinpoint =
+        pinpointPara !== undefined
+          ? { type: "para" as const, n: pinpointPara }
+          : pinpointPage !== undefined
+            ? { type: "page" as const, n: pinpointPage }
+            : undefined;
+
+      const result = formatShortForm({ title, mode, footnoteRef, pinpoint });
+      return { content: [{ type: "text" as const, text: result }] };
+    },
+  );
+
+  // ── check_source_freshness ────────────────────────────────────────────────
+  const checkSourceFreshnessShape = {
+    citeKey: z.string().min(1).describe("Cite key of a cached citation, e.g. 'mabo1992'"),
+  };
+  const checkSourceFreshnessParser = z.object(checkSourceFreshnessShape);
+
+  server.registerTool(
+    "check_source_freshness",
+    {
+      title: "Check Source Freshness",
+      description:
+        "Check whether the locally cached source file for a citation is still current. Issues a conditional HEAD request using the stored ETag/Last-Modified. If the remote source is newer, downloads and updates the local copy automatically.",
+      inputSchema: checkSourceFreshnessShape,
+    },
+    async (rawInput) => {
+      const { citeKey } = checkSourceFreshnessParser.parse(rawInput);
+      const entry = await getCitation(config.cache.dir, citeKey);
+
+      if (!entry) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ error: `No cached citation found for key: ${citeKey}` }),
+            },
+          ],
+        };
+      }
+
+      if (!entry.sourceEtag && !entry.sourceLastModified && !entry.contentHash) {
+        // No source ever fetched — download now
+        try {
+          const storeResult = await storeSource(citeKey, entry.url, null, config.sources.dir);
+          const relPath = path.relative(config.cache.dir, storeResult.path);
+          await updateSourceFields(config.cache.dir, citeKey, {
+            sourceFile: relPath,
+            contentHash: storeResult.contentHash,
+            sourceFetchedAt: new Date().toISOString(),
+            sourceEtag: storeResult.etag,
+            sourceLastModified: storeResult.lastModified,
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    fresh: false,
+                    changed: true,
+                    sourceFile: relPath,
+                    note: "Source downloaded for the first time",
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        } catch (err) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  error: `Failed to download source: ${err instanceof Error ? err.message : String(err)}`,
+                }),
+              },
+            ],
+          };
+        }
+      }
+
+      const freshness = await checkSourceFreshness(
+        entry.url,
+        entry.sourceEtag,
+        entry.sourceLastModified,
+      );
+
+      if (!freshness.fresh) {
+        // Remote is newer — re-download
+        try {
+          const storeResult = await storeSource(citeKey, entry.url, entry, config.sources.dir);
+          const relPath = path.relative(config.cache.dir, storeResult.path);
+          await updateSourceFields(config.cache.dir, citeKey, {
+            sourceFile: relPath,
+            contentHash: storeResult.contentHash,
+            sourceFetchedAt: new Date().toISOString(),
+            sourceEtag: storeResult.etag,
+            sourceLastModified: storeResult.lastModified,
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  { fresh: false, changed: storeResult.changed, sourceFile: relPath },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        } catch (err) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  error: `Failed to refresh source: ${err instanceof Error ? err.message : String(err)}`,
+                }),
+              },
+            ],
+          };
+        }
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                fresh: true,
+                changed: false,
+                sourceFile: entry.sourceFile,
+                lastChecked: new Date().toISOString(),
+                etag: freshness.etag ?? entry.sourceEtag,
+                lastModified: freshness.lastModified ?? entry.sourceLastModified,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
     },
   );
 

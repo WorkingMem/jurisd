@@ -3,6 +3,8 @@
  * Loads configuration from environment variables with defaults
  */
 
+import path from "node:path";
+
 export interface Config {
   austlii: {
     searchBase: string;
@@ -27,6 +29,18 @@ export interface Config {
     outputFormat: string;
     sortBy: string;
   };
+  cache: {
+    /** Base directory for the .auslaw/ cache folder. Defaults to cwd. */
+    dir: string;
+    /** Project name used in bib exports and multi-doc tracking. Defaults to basename of dir. */
+    projectName: string;
+  };
+  sources: {
+    /** Directory where source markdown files are saved. */
+    dir: string;
+    /** When true, fetch_document_text automatically saves a local source copy. */
+    fetchByDefault: boolean;
+  };
 }
 
 /**
@@ -35,6 +49,10 @@ export interface Config {
  * @returns A fully-populated {@link Config} object
  */
 export function loadConfig(): Config {
+  const cacheDir = process.env.AUSLAW_CACHE_DIR ?? process.cwd();
+  const projectName = process.env.AUSLAW_PROJECT_NAME ?? path.basename(cacheDir);
+  const sourcesDir = process.env.AUSLAW_SOURCES_DIR ?? path.join(cacheDir, "sources");
+
   return {
     austlii: {
       searchBase:
@@ -61,6 +79,14 @@ export function loadConfig(): Config {
       maxSearchLimit: parseInt(process.env.MAX_SEARCH_LIMIT || "50", 10),
       outputFormat: process.env.DEFAULT_OUTPUT_FORMAT || "json",
       sortBy: process.env.DEFAULT_SORT_BY || "auto",
+    },
+    cache: {
+      dir: cacheDir,
+      projectName,
+    },
+    sources: {
+      dir: sourcesDir,
+      fetchByDefault: process.env.AUSLAW_FETCH_SOURCES !== "false",
     },
   };
 }

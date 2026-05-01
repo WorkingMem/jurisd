@@ -11,8 +11,8 @@ export const NEUTRAL_CITATION_PATTERN = /\[(\d{4})\]\s*([A-Za-z0-9]+)\s*(\d+)/;
 
 /** Regular expressions for reported citations */
 export const REPORTED_CITATION_PATTERNS = [
-  /\((\d{4})\)\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/, // (2024) 350 ALR 123
-  /\[(\d{4})\]\s+(\d+)\s+([A-Z]{2,6})\s+(\d+)/, // [2024] 1 NZLR 456
+  /\((\d{4})\)\s+(\d+)\s+([A-Za-z]{2,8})\s+(\d+)/, // (2024) 350 ALR 123 / (1992) 175 CLR 1 / (2010) 19 FamLR 1
+  /\[(\d{4})\]\s+(\d+)\s+([A-Za-z]{2,8})\s+(\d+)/, // [2024] 1 NZLR 456 / [1992] 1 QdR 1
 ] as const;
 
 export const REPORTERS: Record<string, string> = {
@@ -96,3 +96,9 @@ export const MAX_CONTENT_LENGTH = 50 * 1024 * 1024;
 
 /** Maximum number of removed.invalid articles to resolve concurrently during search */
 export const MAX_RESOLUTIONS = 5;
+
+/** Version of the local citation cache schema — increment on breaking changes */
+export const AUSLAW_CACHE_VERSION = 1;
+
+/** Subdirectory name for the local cache within the project directory */
+export const AUSLAW_CACHE_DIR_NAME = ".auslaw";
