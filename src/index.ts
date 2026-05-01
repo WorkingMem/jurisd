@@ -21,17 +21,25 @@ import {
   validateCitation,
   parseCitation,
   generatePinpoint,
+  normaliseCitation,
 } from "./services/citation.js";
+import {
+  NEUTRAL_CITATION_PATTERN,
+  COURT_TO_AUSTLII_PATH,
+  AUSLAW_CACHE_DIR_NAME,
+} from "./constants.js";
 import {
   upsertCitation,
   getCitation,
   listCitations,
   exportBib,
   updateSourceFields,
+  updateCitedBy,
+  updateCitedBySource,
+  type CitedByRef,
 } from "./services/citation-cache.js";
 import { storeSource, checkSourceFreshness } from "./services/source-store.js";
 import { config } from "./config.js";
-import { AUSLAW_CACHE_DIR_NAME } from "./constants.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
 const jurisdictionEnum = z.enum([
@@ -55,6 +63,34 @@ const caseMethodEnum = z
 const legislationMethodEnum = z
   .enum(["auto", "title", "phrase", "all", "any", "near", "legis", "boolean"])
   .default("auto");
+
+/**
+ * Derive an AustLII URL from a neutral citation without a network call.
+ * Returns undefined when the court code is not in COURT_TO_AUSTLII_PATH.
+ */
+function austliiUrlFromNeutral(neutralCitation: string): string | undefined {
+  const m = normaliseCitation(neutralCitation).match(NEUTRAL_CITATION_PATTERN);
+  if (!m) return undefined;
+  const [, year, court, num] = m;
+  const austliiPath = COURT_TO_AUSTLII_PATH[court!];
+  if (!austliiPath) return undefined;
+  return `https://www.austlii.edu.au/cgi-bin/viewdoc/${austliiPath}/${year}/${num}.html`;
+}
+
+/**
+ * Build a filesystem-safe key for a cited-by source file.
+ * e.g. parent "mabo1992" + "[2024] HCA 5" → "mabo1992_citing_2024_hca_5"
+ */
+function citedBySourceKey(parentCiteKey: string, neutralCitation: string): string {
+  const slug = neutralCitation
+    .replace(/[[\]]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9_]/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .toLowerCase();
+  return `${parentCiteKey}_citing_${slug}`;
+}
 
 /**
  * Build a fresh McpServer with all tools registered.
@@ -863,6 +899,248 @@ function createMcpServer(): McpServer {
                 lastChecked: new Date().toISOString(),
                 etag: freshness.etag ?? entry.sourceEtag,
                 lastModified: freshness.lastModified ?? entry.sourceLastModified,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
+
+  // ── cache_cited_by ────────────────────────────────────────────────────────
+  const cacheCitedByShape = {
+    citeKey: z
+      .string()
+      .min(1)
+      .describe("Cite key of the parent case whose citing cases should be fetched and cached"),
+  };
+  const cacheCitedByParser = z.object(cacheCitedByShape);
+
+  server.registerTool(
+    "cache_cited_by",
+    {
+      title: "Cache Cited-By Results",
+      description:
+        "Fetch citing cases for a cached citation from removed.invalid and store them locally. " +
+        "Metadata is saved for all results; source files are downloaded for the top N entries " +
+        "(controlled by AUSLAW_CITED_BY_DOWNLOAD_LIMIT, default 5). " +
+        "Requires SESSION_COOKIE. Can be disabled via AUSLAW_CACHE_CITED_BY=false.",
+      inputSchema: cacheCitedByShape,
+    },
+    async (rawInput) => {
+      const { citeKey } = cacheCitedByParser.parse(rawInput);
+
+      if (!config.citedBy.enabled) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error: "Cited-by caching is disabled (AUSLAW_CACHE_CITED_BY=false)",
+              }),
+            },
+          ],
+        };
+      }
+
+      const parent = await getCitation(config.cache.dir, citeKey);
+      if (!parent) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ error: `No cached citation found for key: ${citeKey}` }),
+            },
+          ],
+        };
+      }
+
+      if (!config.source.sessionCookie) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error: "SESSION_COOKIE is required to fetch cited-by data",
+              }),
+            },
+          ],
+        };
+      }
+
+      // Search removed.invalid for cases that cite this one
+      const query = parent.neutralCitation ?? parent.title;
+      const { results, totalCount } = await searchCitingCases(query);
+
+      // Guard: if the API returns nothing but we have prior data, treat this as
+      // a likely failure (bad/expired cookie, network error) rather than a
+      // genuine empty set — preserving existing cache instead of erasing it.
+      if (results.length === 0 && totalCount === 0 && (parent.citedBy?.length ?? 0) > 0) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error:
+                  "removed.invalid returned no results but existing cited-by data is present. " +
+                  "The session cookie may be expired. Existing cache preserved.",
+                existingCount: parent.citedBy!.length,
+              }),
+            },
+          ],
+        };
+      }
+
+      // Snapshot prior source fields so conditional GET (ETag/Last-Modified)
+      // works correctly when cache_cited_by is called a second time.
+      const priorSources = new Map(
+        (parent.citedBy ?? [])
+          .filter((r) => r.neutralCitation)
+          .map((r) => [r.neutralCitation!, r] as const),
+      );
+
+      // Build CitedByRef entries — prefer AustLII URL where derivable
+      const refs: CitedByRef[] = results.map((r) => {
+        const derivedUrl = r.neutralCitation ? austliiUrlFromNeutral(r.neutralCitation) : undefined;
+        const year = r.neutralCitation
+          ? parseInt(r.neutralCitation.match(/\[(\d{4})\]/)?.[1] ?? "", 10) || undefined
+          : undefined;
+        return {
+          title: r.caseName,
+          neutralCitation: r.neutralCitation || undefined,
+          aglc4Full: r.neutralCitation
+            ? formatAGLC4({ title: r.caseName, neutralCitation: r.neutralCitation })
+            : r.caseName,
+          url: derivedUrl ?? r.sourceUrl,
+          year,
+          court: r.court,
+        };
+      });
+
+      const now = new Date().toISOString();
+      await updateCitedBy(config.cache.dir, citeKey, refs, totalCount, now);
+
+      // Optionally download sources for the top-N refs
+      let sourcesDownloaded = 0;
+      if (config.citedBy.downloadSources) {
+        const toDownload = refs.slice(0, config.citedBy.downloadLimit);
+        for (const ref of toDownload) {
+          if (!ref.url || !ref.neutralCitation) continue;
+          try {
+            const fileKey = citedBySourceKey(citeKey, ref.neutralCitation);
+            const prior = priorSources.get(ref.neutralCitation) ?? null;
+            const storeResult = await storeSource(fileKey, ref.url, prior, config.sources.dir);
+            const relPath = path.relative(config.cache.dir, storeResult.path);
+            await updateCitedBySource(config.cache.dir, citeKey, ref.neutralCitation, {
+              sourceFile: relPath,
+              sourceFetchedAt: now,
+              contentHash: storeResult.contentHash,
+              sourceEtag: storeResult.etag,
+              sourceLastModified: storeResult.lastModified,
+            });
+            sourcesDownloaded++;
+          } catch {
+            // Best-effort — one failure should not abort the rest
+          }
+        }
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                citeKey,
+                totalCount,
+                cached: refs.length,
+                sourcesDownloaded,
+                citedByFetchedAt: now,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
+
+  // ── get_cited_by ──────────────────────────────────────────────────────────
+  const getCitedByShape = {
+    citeKey: z
+      .string()
+      .min(1)
+      .describe("Cite key of the case to retrieve cached cited-by data for"),
+    format: z.enum(["json", "markdown"]).default("json").optional(),
+  };
+  const getCitedByParser = z.object(getCitedByShape);
+
+  server.registerTool(
+    "get_cited_by",
+    {
+      title: "Get Cached Cited-By Data",
+      description:
+        "Return the locally cached cited-by list for a citation. Zero network calls. " +
+        "Use cache_cited_by first to populate the data.",
+      inputSchema: getCitedByShape,
+    },
+    async (rawInput) => {
+      const { citeKey, format } = getCitedByParser.parse(rawInput);
+      const entry = await getCitation(config.cache.dir, citeKey);
+
+      if (!entry) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ found: false, citeKey }),
+            },
+          ],
+        };
+      }
+
+      if (!entry.citedBy || entry.citedBy.length === 0) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                found: true,
+                citeKey,
+                citedByFetchedAt: entry.citedByFetchedAt ?? null,
+                totalCount: entry.citedByTotalCount ?? 0,
+                citedBy: [],
+                note: "No cited-by data cached. Run cache_cited_by to populate.",
+              }),
+            },
+          ],
+        };
+      }
+
+      const fmt = format ?? "json";
+      if (fmt === "markdown") {
+        const header = `**${entry.citedBy.length} of ${entry.citedByTotalCount ?? "?"} citing cases** (fetched ${entry.citedByFetchedAt ?? "unknown"})`;
+        const lines = entry.citedBy.map((r) => {
+          const source = r.sourceFile ? ` — source: \`${r.sourceFile}\`` : "";
+          return `- ${r.aglc4Full ?? r.title}${source}`;
+        });
+        return { content: [{ type: "text" as const, text: [header, "", ...lines].join("\n") }] };
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                found: true,
+                citeKey,
+                citedByFetchedAt: entry.citedByFetchedAt,
+                totalCount: entry.citedByTotalCount,
+                citedBy: entry.citedBy,
               },
               null,
               2,
