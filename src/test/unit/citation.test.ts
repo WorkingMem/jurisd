@@ -3,12 +3,15 @@ import axios from "axios";
 import {
   parseCitation,
   formatAGLC4,
+  formatPinpointRef,
+  formatShortForm,
   isValidNeutralCitation,
   isValidReportedCitation,
   shortFormAGLC4,
   normaliseCitation,
   validateCitation,
   generatePinpoint,
+  type Pinpoint,
 } from "../../services/citation.js";
 import type { ParagraphBlock } from "../../services/fetcher.js";
 
@@ -185,5 +188,123 @@ describe("generatePinpoint", () => {
   it("phrase match is case-insensitive", () => {
     const result = generatePinpoint(paragraphs, { phrase: "DUTY OF CARE" });
     expect(result?.paragraphNumber).toBe(2);
+  });
+});
+
+describe("formatPinpointRef", () => {
+  it("formats paragraph pinpoint", () => {
+    const p: Pinpoint = { type: "para", n: 20 };
+    expect(formatPinpointRef(p)).toBe("[20]");
+  });
+
+  it("formats page pinpoint", () => {
+    const p: Pinpoint = { type: "page", n: 401 };
+    expect(formatPinpointRef(p)).toBe("401");
+  });
+
+  it("formats paragraph range", () => {
+    const p: Pinpoint = { type: "paraRange", from: 64, to: 66 };
+    expect(formatPinpointRef(p)).toBe("[64] to [66]");
+  });
+
+  it("formats page range", () => {
+    const p: Pinpoint = { type: "pageRange", from: 401, to: 407 };
+    expect(formatPinpointRef(p)).toBe("401 to 407");
+  });
+
+  it("formats legislation pinpoint", () => {
+    const p: Pinpoint = { type: "legis", ref: "s 5(2)(a)" };
+    expect(formatPinpointRef(p)).toBe("s 5(2)(a)");
+  });
+});
+
+describe("formatShortForm", () => {
+  it("plain short form with no pinpoint", () => {
+    expect(formatShortForm({ title: "Mabo", mode: "short" })).toBe("Mabo");
+  });
+
+  it("plain short form with paragraph pinpoint", () => {
+    expect(
+      formatShortForm({ title: "Mabo", mode: "short", pinpoint: { type: "para", n: 20 } }),
+    ).toBe("Mabo [20]");
+  });
+
+  it("Ibid with no pinpoint", () => {
+    expect(formatShortForm({ title: "Mabo", mode: "ibid" })).toBe("Ibid");
+  });
+
+  it("Ibid with paragraph pinpoint", () => {
+    expect(
+      formatShortForm({ title: "Mabo", mode: "ibid", pinpoint: { type: "para", n: 20 } }),
+    ).toBe("Ibid [20]");
+  });
+
+  it("subsequent reference with footnote number", () => {
+    expect(formatShortForm({ title: "Mabo", mode: "subsequent", footnoteRef: 3 })).toBe(
+      "Mabo (n 3)",
+    );
+  });
+
+  it("subsequent reference with footnote number and pinpoint", () => {
+    expect(
+      formatShortForm({
+        title: "Mabo",
+        mode: "subsequent",
+        footnoteRef: 3,
+        pinpoint: { type: "para", n: 20 },
+      }),
+    ).toBe("Mabo (n 3) [20]");
+  });
+
+  it("subsequent reference without footnoteRef", () => {
+    expect(formatShortForm({ title: "Mabo", mode: "subsequent" })).toBe("Mabo");
+  });
+});
+
+describe("parseCitation – extended pinpoint shapes", () => {
+  it("parses paragraph range pinpoint", () => {
+    const result = parseCitation("Mabo [1992] HCA 23 at [64] to [66]");
+    expect(result?.pinpoint).toBe("[64] to [66]");
+  });
+
+  it("parses page pinpoint", () => {
+    const result = parseCitation("Bowrey (1992) 175 CLR 1 at 401");
+    expect(result?.pinpoint).toBe("401");
+  });
+
+  it("parses page range pinpoint", () => {
+    const result = parseCitation("Bowrey (1992) 175 CLR 1 at 401 to 407");
+    expect(result?.pinpoint).toBe("401 to 407");
+  });
+
+  it("parses legislation pinpoint with section reference", () => {
+    const result = parseCitation("[2022] HCA 5 at s 5(2)(a)");
+    expect(result?.pinpoint).toBe("s 5(2)(a)");
+  });
+});
+
+describe("parseCitation – mixed-case reporter fix", () => {
+  it("parses FamLR reporter (mixed case)", () => {
+    const result = parseCitation("(2010) 19 FamLR 1");
+    expect(result?.reportedCitations[0]).toBe("(2010) 19 FamLR 1");
+  });
+
+  it("parses QdR reporter (mixed case)", () => {
+    const result = parseCitation("[1992] 1 QdR 1");
+    expect(result?.reportedCitations[0]).toBe("[1992] 1 QdR 1");
+  });
+});
+
+describe("isValidReportedCitation – mixed-case reporters", () => {
+  it("accepts FamLR", () => {
+    expect(isValidReportedCitation("(2010) 19 FamLR 1")).toBe(true);
+  });
+
+  it("accepts QdR", () => {
+    expect(isValidReportedCitation("[1992] 1 QdR 1")).toBe(true);
+  });
+
+  it("rejects unknown mixed-case abbreviation", () => {
+    expect(isValidReportedCitation("(2010) 19 FooBar 1")).toBe(false);
   });
 });
