@@ -7,6 +7,7 @@ import { z } from "zod";
 import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii, type SearchResult } from "./services/austlii.js";
+import { mergeCaseSearchResults } from "./services/search-merge.js";
 import {
   resolveArticle,
   buildCitationLookupUrl,
@@ -122,13 +123,7 @@ function createMcpServer(): McpServer {
         searchUpstream(query, { type: "case", jurisdiction, limit }),
       ]);
 
-      // Merge with deduplication by neutral citation — source results preferred (richer data)
-      const seen = new Map<string, SearchResult>();
-      for (const r of [...upstreamResults, ...austliiResults]) {
-        const key = r.neutralCitation ?? r.url;
-        if (!seen.has(key)) seen.set(key, r);
-      }
-      const merged = limit ? [...seen.values()].slice(0, limit) : [...seen.values()];
+      const merged = mergeCaseSearchResults(austliiResults, upstreamResults, limit);
 
       return formatSearchResults(merged, format ?? "json");
     },

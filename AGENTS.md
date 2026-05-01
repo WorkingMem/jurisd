@@ -192,13 +192,9 @@ const [austliiResults, newResults] = await Promise.all([
   searchNewSource(query, options),
 ]);
 
-// 3. Deduplicate by citation
-const seen = new Map<string, SearchResult>();
-for (const r of [...austliiResults, ...newResults]) {
-  const key = r.neutralCitation ?? r.url;
-  if (!seen.has(key)) seen.set(key, r);
-}
-const merged = [...seen.values()];
+// 3. Deduplicate by citation (prefer non-AustLII source when collisions occur)
+import { mergeCaseSearchResults } from "./src/services/search-merge.js";
+const merged = mergeCaseSearchResults(austliiResults, newResults);
 
 // 4. Add tests
 it("should merge results from multiple sources", async () => {
