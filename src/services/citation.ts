@@ -96,20 +96,14 @@ export function formatShortForm(input: ShortFormInput): string {
   }
 }
 
-// Broad pinpoint patterns for parseCitation
-// Order matters — more specific patterns first
-const PINPOINT_PATTERNS = [
-  // Paragraph range: at [64] to [66]
-  /\bat\s+\[(\d+)\]\s+to\s+\[(\d+)\]/,
-  // Page range: at 401 to 407
-  /\bat\s+(\d+)\s+to\s+(\d+)(?!\])/,
-  // Paragraph: at [20]
-  /\bat\s+\[(\d+)\]/,
-  // Page number: at 401
-  /\bat\s+(\d+)(?!\])/,
-  // Legislation: at s 5(2)(a) / reg 12 / sch 1
-  /\bat\s+((?:ss?|reg|regs?|sch)\s+\S[^,;]*)/,
-] as const;
+// Broad pinpoint patterns for parseCitation — most specific first
+const PINPOINT_PATTERNS: ReadonlyArray<{ re: RegExp; extract: (m: RegExpMatchArray) => string }> = [
+  { re: /\bat\s+\[(\d+)\]\s+to\s+\[(\d+)\]/, extract: (m) => `[${m[1]!}] to [${m[2]!}]` },
+  { re: /\bat\s+(\d+)\s+to\s+(\d+)(?!\])/, extract: (m) => `${m[1]!} to ${m[2]!}` },
+  { re: /\bat\s+\[(\d+)\]/, extract: (m) => `[${m[1]!}]` },
+  { re: /\bat\s+(\d+)(?!\])/, extract: (m) => m[1]! },
+  { re: /\bat\s+((?:ss?|reg|regs?|sch)\s+\S[^,;]*)/, extract: (m) => m[1]!.trim() },
+];
 
 export function parseCitation(text: string): ParsedCitation | null {
   const neutralMatch = text.match(NEUTRAL_CITATION_PATTERN);
@@ -129,30 +123,13 @@ export function parseCitation(text: string): ParsedCitation | null {
     return null;
   }
 
-  // Try each pinpoint pattern in order
+  // Try each pinpoint pattern in priority order
   let pinpoint: string | undefined;
-  const paraRangeMatch = text.match(PINPOINT_PATTERNS[0]);
-  if (paraRangeMatch?.[1] && paraRangeMatch[2]) {
-    pinpoint = `[${paraRangeMatch[1]}] to [${paraRangeMatch[2]}]`;
-  } else {
-    const pageRangeMatch = text.match(PINPOINT_PATTERNS[1]);
-    if (pageRangeMatch?.[1] && pageRangeMatch[2]) {
-      pinpoint = `${pageRangeMatch[1]} to ${pageRangeMatch[2]}`;
-    } else {
-      const paraMatch = text.match(PINPOINT_PATTERNS[2]);
-      if (paraMatch?.[1]) {
-        pinpoint = `[${paraMatch[1]}]`;
-      } else {
-        const pageMatch = text.match(PINPOINT_PATTERNS[3]);
-        if (pageMatch?.[1]) {
-          pinpoint = pageMatch[1];
-        } else {
-          const legisMatch = text.match(PINPOINT_PATTERNS[4]);
-          if (legisMatch?.[1]) {
-            pinpoint = legisMatch[1].trim();
-          }
-        }
-      }
+  for (const { re, extract } of PINPOINT_PATTERNS) {
+    const m = text.match(re);
+    if (m) {
+      pinpoint = extract(m);
+      break;
     }
   }
 
