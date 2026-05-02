@@ -860,7 +860,12 @@ function createMcpServer(): McpServer {
       if (!freshness.fresh) {
         // Remote is newer — re-download
         try {
-          const storeResult = await storeSource(citeKey, entry.url, entry, config.sources.dir);
+          const storeResult = await storeSource(
+            citeKey,
+            entry.url,
+            { contentHash: entry.contentHash },
+            config.sources.dir,
+          );
           const relPath = path.relative(config.cache.dir, storeResult.path);
           await updateSourceFields(config.cache.dir, citeKey, {
             sourceFile: relPath,
