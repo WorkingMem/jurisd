@@ -13,7 +13,7 @@ export enum LogLevel {
   ERROR = 3,
 }
 
-class Logger {
+export class Logger {
   private level: LogLevel;
 
   constructor(level: LogLevel = LogLevel.INFO) {
@@ -74,7 +74,7 @@ class Logger {
  * Parse the LOG_LEVEL environment variable into a {@link LogLevel}.
  * Falls back to `INFO` if unset or invalid.
  */
-function parseLogLevel(): LogLevel {
+export function parseLogLevel(): LogLevel {
   const raw = process.env.LOG_LEVEL;
   if (raw === undefined) return LogLevel.INFO;
   const parsed = parseInt(raw, 10);

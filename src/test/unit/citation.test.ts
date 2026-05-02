@@ -40,6 +40,12 @@ describe("parseCitation", () => {
   it("returns null for non-citation text", () => {
     expect(parseCitation("hello world")).toBeNull();
   });
+
+  it("accepts uppercase-only reporter not in REPORTERS table (line 124)", () => {
+    // "WLR" matches /^[A-Z]{2,8}$/ but is not in the REPORTERS constant
+    const result = parseCitation("(2024) 1 WLR 100");
+    expect(result?.reportedCitations[0]).toBe("(2024) 1 WLR 100");
+  });
 });
 
 describe("formatAGLC4", () => {
@@ -135,6 +141,12 @@ describe("validateCitation", () => {
   it("returns valid=false for unknown court code", async () => {
     const result = await validateCitation("[2024] UNKNOWN 1");
     expect(result.valid).toBe(false);
+  });
+
+  it("returns invalid with message when citation has no neutral citation pattern (line 258)", async () => {
+    const result = await validateCitation("not a citation at all");
+    expect(result.valid).toBe(false);
+    expect(result.message).toContain("Not a recognised neutral citation format");
   });
 
   it("returns valid=false on 404 (mocked)", async () => {

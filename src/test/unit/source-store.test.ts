@@ -83,6 +83,19 @@ describe("checkSourceFreshness", () => {
     const result = await checkSourceFreshness(TEST_URL);
     expect(result.fresh).toBe(false);
   });
+
+  it("validateStatus callback accepts 200 and 304, rejects other codes", async () => {
+    vi.mocked(axios.head).mockResolvedValueOnce({ status: 200, headers: {} });
+    await checkSourceFreshness(TEST_URL, '"etag"');
+
+    const headConfig = vi.mocked(axios.head).mock.calls[0]?.[1];
+    const validateStatus = headConfig?.validateStatus;
+    expect(validateStatus).toBeDefined();
+    expect(validateStatus!(200)).toBe(true);
+    expect(validateStatus!(304)).toBe(true);
+    expect(validateStatus!(404)).toBe(false);
+    expect(validateStatus!(500)).toBe(false);
+  });
 });
 
 describe("storeSource", () => {
@@ -172,5 +185,29 @@ describe("storeSource", () => {
   it("captures etag from HEAD response", async () => {
     const result = await storeSource("mabo1992", TEST_URL, null, SOURCES_DIR);
     expect(result.etag).toBe('"etag-1"');
+  });
+
+  it("etag is undefined when HEAD response has no etag header (line 128 ?? false branch)", async () => {
+    // HEAD returns no etag header
+    vi.mocked(axios.head).mockResolvedValueOnce({ status: 200, headers: {} });
+
+    const result = await storeSource("mabo1992", TEST_URL, null, SOURCES_DIR);
+    expect(result.etag).toBeUndefined();
+  });
+
+  it("falls back to cached.sourceEtag when 304 response has no etag (line 102 ?? false branch)", async () => {
+    // 304 response with no etag header → freshness.etag is undefined
+    vi.mocked(axios.head).mockResolvedValueOnce({ status: 304, headers: {} });
+
+    const result = await storeSource(
+      "mabo1992",
+      TEST_URL,
+      { contentHash: "knowngoodhash", sourceEtag: '"cached-etag"' },
+      SOURCES_DIR,
+    );
+
+    expect(result.changed).toBe(false);
+    // freshness.etag is undefined → falls back to cached.sourceEtag
+    expect(result.etag).toBe('"cached-etag"');
   });
 });

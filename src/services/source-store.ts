@@ -89,6 +89,7 @@ export async function storeSource(
     sourceLastModified?: string;
   } | null,
   sourcesDir: string,
+  prefetchedDoc?: { text: string; etag?: string; lastModified?: string },
 ): Promise<StoreSourceResult> {
   const filePath = path.join(sourcesDir, `${citeKey}.md`);
 
@@ -106,9 +107,8 @@ export async function storeSource(
     }
   }
 
-  // Full content fetch
-  const doc = await fetchDocumentText(url);
-  const text = doc.text;
+  // Full content fetch — reuse pre-fetched doc when available to avoid double fetch
+  const text = prefetchedDoc?.text ?? (await fetchDocumentText(url)).text;
   const contentHash = crypto.createHash("sha256").update(text, "utf-8").digest("hex");
   const changed = cached?.contentHash !== contentHash;
 
@@ -118,17 +118,19 @@ export async function storeSource(
     await fs.writeFile(filePath, markdown, "utf-8");
   }
 
-  // Attempt HEAD to capture ETag/Last-Modified for future freshness checks.
-  // Non-fatal — many AustLII responses do not carry these headers.
-  let etag: string | undefined;
-  let lastModified: string | undefined;
-  try {
-    assertFetchableUrl(url);
-    const headResp = await axios.head(url, { timeout: 10_000 });
-    etag = (headResp.headers["etag"] as string) ?? undefined;
-    lastModified = (headResp.headers["last-modified"] as string) ?? undefined;
-  } catch {
-    // Non-fatal
+  // Use ETag/Last-Modified from the pre-fetched response when available;
+  // otherwise attempt a HEAD request (non-fatal, many servers omit these headers).
+  let etag: string | undefined = prefetchedDoc?.etag;
+  let lastModified: string | undefined = prefetchedDoc?.lastModified;
+  if (!etag && !lastModified) {
+    try {
+      assertFetchableUrl(url);
+      const headResp = await axios.head(url, { timeout: 10_000 });
+      etag = (headResp.headers["etag"] as string) ?? undefined;
+      lastModified = (headResp.headers["last-modified"] as string) ?? undefined;
+    } catch {
+      // Non-fatal
+    }
   }
 
   return { path: filePath, changed, etag, lastModified, contentHash };

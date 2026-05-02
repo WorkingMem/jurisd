@@ -94,6 +94,66 @@ describe("formatSearchResults", () => {
     expect(text).not.toContain("<script>");
     expect(text).toContain("&lt;script&gt;");
   });
+
+  it("html format omits aglc4 span when formatted AGLC4 string is empty (line 62 false branch)", () => {
+    // When title is empty string, formatAGLC4 returns "" which is falsy
+    const results: SearchResult[] = [
+      {
+        title: "",
+        url: "https://www.austlii.edu.au/test",
+        source: "austlii",
+        type: "case",
+      },
+    ];
+    const result = formatSearchResults(results, "html");
+    const text = getText(result.content);
+    expect(text).not.toContain('class="aglc4"');
+  });
+});
+
+it("ensureContent returns empty-text content item when given empty string", () => {
+  // formatFetchResponse with empty text triggers the false branch of ensureContent
+  const response = {
+    text: "",
+    contentType: "text/plain",
+    sourceUrl: "https://example.com",
+    ocrUsed: false,
+  };
+  const result = formatFetchResponse(response as Parameters<typeof formatFetchResponse>[0], "text");
+  expect(result.content).toHaveLength(1);
+  expect(result.content[0]).toMatchObject({ type: "text", text: "" });
+});
+
+it("html format includes summary span when result has summary", () => {
+  const results: SearchResult[] = [
+    {
+      title: "Test Case",
+      url: "https://www.austlii.edu.au/test",
+      source: "austlii",
+      type: "case",
+      neutralCitation: "[2024] HCA 1",
+      summary: "High Court of Australia - 1 Jan 2024",
+    },
+  ];
+  const result = formatSearchResults(results, "html");
+  const text = getText(result.content);
+  expect(text).toContain("High Court of Australia");
+});
+
+it("text format includes summary when result has summary", () => {
+  const results: SearchResult[] = [
+    {
+      title: "Test Case",
+      url: "https://www.austlii.edu.au/test",
+      source: "austlii",
+      type: "case",
+      neutralCitation: "[2024] HCA 1",
+      summary: "Federal Court of Australia",
+    },
+  ];
+  const result = formatSearchResults(results, "text");
+  const text = getText(result.content);
+  expect(text).toContain("Federal Court of Australia");
 });
 
 it("text format includes reportedCitation when present", () => {

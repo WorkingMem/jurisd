@@ -120,6 +120,10 @@ describe("isCaseNameQuery", () => {
     expect(isCaseNameQuery('"Donoghue v Stevenson"')).toBe(true);
   });
 
+  it("detects quoted query with no v pattern (line 133)", () => {
+    expect(isCaseNameQuery('"Privacy Act 1988"')).toBe(true);
+  });
+
   it("returns false for topic query", () => {
     expect(isCaseNameQuery("negligence duty of care")).toBe(false);
   });
@@ -159,6 +163,11 @@ describe("determineSortMode", () => {
     const opts: SearchOptions = { type: "case" };
     expect(determineSortMode("negligence", opts)).toBe("date");
   });
+
+  it("unknown sortBy value falls through to date (line 161)", () => {
+    const opts = { type: "case", sortBy: "unknown" } as unknown as SearchOptions;
+    expect(determineSortMode("test", opts)).toBe("date");
+  });
 });
 
 describe("buildSearchParams", () => {
@@ -185,6 +194,13 @@ describe("buildSearchParams", () => {
     const params = buildSearchParams("test", opts);
     expect(params.meta).toBe("/austlii");
     expect(params.mask_path).toBe("nz/cases");
+  });
+
+  it("sets nz/legis mask_path for NZ legislation type (line 190)", () => {
+    const opts: SearchOptions = { type: "legislation", jurisdiction: "nz" };
+    const params = buildSearchParams("test", opts);
+    expect(params.meta).toBe("/austlii");
+    expect(params.mask_path).toBe("nz/legis");
   });
 
   it("uses au/cases mask_path when no jurisdiction specified", () => {
