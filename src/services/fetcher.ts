@@ -139,8 +139,15 @@ function extractTextFromHtml(html: string, url?: string): string {
   const $ = cheerio.load(html);
 
   // Check if this is removed.invalid
-  if (url && url.includes("removed.invalid")) {
-    return extractTextFromHtml(html);
+  if (url) {
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      if (hostname === "removed.invalid" || hostname.endsWith(".removed.invalid")) {
+        return extractTextFromHtml(html);
+      }
+    } catch {
+      // If URL parsing fails, fall through to generic extraction.
+    }
   }
 
   // Remove script and style elements
