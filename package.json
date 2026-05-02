@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Model Context Protocol server for Australian legislation and case law search with OCR fallbacks.",
   "main": "dist/index.js",
+  "bin": {
+    "auslaw-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
@@ -17,7 +25,7 @@
     "format:check": "prettier --check \"src/**/*.ts\"",
     "docs": "typedoc",
     "docs:serve": "npx serve docs/api",
-    "prepare": "husky"
+    "prepare": "(husky || exit 0) && node -e \"const p=require('path'),cp=require('child_process');if(process.env.INIT_CWD&&p.resolve(process.env.INIT_CWD)!==process.cwd())cp.execSync('npm run build',{stdio:'inherit'})\""
   },
   "keywords": [
     "model-context-protocol",

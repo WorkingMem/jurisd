@@ -7,6 +7,7 @@ Model Context Protocol (MCP) server for Australian and New Zealand legal researc
 ## Features
 
 ### Current Capabilities
+
 - ✅ **Case law search**: Natural language queries across all Australian and NZ jurisdictions
 - ✅ **All jurisdictions**: Commonwealth, all States/Territories (VIC, NSW, QLD, SA, WA, TAS, NT, ACT), and New Zealand
 - ✅ **Intelligent search relevance**: Auto-detects case name queries vs topic searches
@@ -37,16 +38,26 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full development history and futu
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, deployment topology, CI/CD pipeline, production patterns |
-| [DECISIONS.md](docs/DECISIONS.md) | Architectural decision records (ADRs) with context and consequences |
-| [AGENT-GUIDE.md](docs/AGENT-GUIDE.md) | Agent-facing usage guide with tool catalog and examples |
-| [DOCKER.md](docs/DOCKER.md) | Docker deployment guide |
-| [ROADMAP.md](docs/ROADMAP.md) | Development history and future plans |
-| [source-rpc-protocol.md](docs/source-rpc-protocol.md) | removed.invalid RPC reverse-engineering details |
+| Document                                          | Description                                                                   |
+| ------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)           | System architecture, deployment topology, CI/CD pipeline, production patterns |
+| [DECISIONS.md](docs/DECISIONS.md)                 | Architectural decision records (ADRs) with context and consequences           |
+| [AGENT-GUIDE.md](docs/AGENT-GUIDE.md)             | Agent-facing usage guide with tool catalog and examples                       |
+| [DOCKER.md](docs/DOCKER.md)                       | Docker deployment guide                                                       |
+| [ROADMAP.md](docs/ROADMAP.md)                     | Development history and future plans                                          |
+| [source-rpc-protocol.md](docs/source-rpc-protocol.md) | removed.invalid RPC reverse-engineering details                                   |
 
 ## Quick Start
+
+### Run with npx (no local clone required)
+
+```bash
+npx -y github:russellbrenner/auslaw-mcp
+```
+
+`npx` clones the repository, installs dependencies, builds, and launches the
+MCP server over stdio in one step. Use this for the simplest install path or
+when configuring an MCP-compatible client (see [MCP Registration](#mcp-registration)).
 
 ### Local Development
 
@@ -58,6 +69,7 @@ npm run dev  # hot reload for local development
 ```
 
 To build for production:
+
 ```bash
 npm run build
 npm start
@@ -92,9 +104,31 @@ kubectl apply -f k8s/
 See [k8s/README.md](k8s/README.md) for complete Kubernetes deployment guide.
 
 ## MCP Registration
-Configure your MCP-compatible client (eg. Claude Desktop, Cursor) to launch the compiled server.
+
+Configure your MCP-compatible client (eg. Claude Desktop, Cursor, Claude Code)
+to launch the server.
+
+### Option A — npx (no clone required)
+
+```json
+{
+  "mcpServers": {
+    "auslaw-mcp": {
+      "command": "npx",
+      "args": ["-y", "github:russellbrenner/auslaw-mcp"]
+    }
+  }
+}
+```
+
+The first invocation clones the repo, installs deps, and builds. Subsequent
+launches reuse the cached install. To pin to a specific commit or branch,
+append `#<ref>` to the URL — eg. `github:russellbrenner/auslaw-mcp#main`.
+
+### Option B — Local clone
 
 For Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
 ```json
 {
   "mcpServers": {
@@ -179,6 +213,7 @@ Once the MCP is connected, you can ask an AI assistant like Claude natural langu
 ## Available Tools
 
 ### search_cases
+
 Search Australian and New Zealand case law.
 
 **Parameters:**
@@ -206,6 +241,7 @@ Search Australian and New Zealand case law.
 **Examples:**
 
 Find a specific case:
+
 ```json
 {
   "query": "Donoghue v Stevenson",
@@ -215,6 +251,7 @@ Find a specific case:
 ```
 
 Recent NSW cases on a topic:
+
 ```json
 {
   "query": "adverse possession",
@@ -225,6 +262,7 @@ Recent NSW cases on a topic:
 ```
 
 Exact phrase search:
+
 ```json
 {
   "query": "duty of care",
@@ -235,6 +273,7 @@ Exact phrase search:
 ```
 
 Pagination (get results 51-100):
+
 ```json
 {
   "query": "contract breach",
@@ -244,6 +283,7 @@ Pagination (get results 51-100):
 ```
 
 ### search_legislation
+
 Search Australian and New Zealand legislation.
 
 **Parameters:**
@@ -258,6 +298,7 @@ Search Australian and New Zealand legislation.
 | `format` | No | `json` (default), `text`, `markdown`, `html` |
 
 **Example:**
+
 ```json
 {
   "query": "Privacy Act",
@@ -268,6 +309,7 @@ Search Australian and New Zealand legislation.
 ```
 
 ### fetch_document_text
+
 Fetch full text from a case or legislation URL. Supports AustLII HTML, PDF with OCR fallback, and removed.invalid authenticated fetch via RPC (requires `SESSION_COOKIE`).
 
 **Parameters:**
@@ -277,6 +319,7 @@ Fetch full text from a case or legislation URL. Supports AustLII HTML, PDF with 
 | `format` | No | `json` (default), `text`, `markdown`, `html` |
 
 **Example:**
+
 ```json
 {
   "url": "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html"
@@ -284,6 +327,7 @@ Fetch full text from a case or legislation URL. Supports AustLII HTML, PDF with 
 ```
 
 ### format_citation
+
 Format an Australian case citation per AGLC4 rules.
 
 **Parameters:**
@@ -296,6 +340,7 @@ Format an Australian case citation per AGLC4 rules.
 | `style` | No | `combined` (default), `neutral`, or `reported` |
 
 **Example:**
+
 ```json
 {
   "title": "Mabo v Queensland (No 2)",
@@ -308,6 +353,7 @@ Format an Australian case citation per AGLC4 rules.
 **Output:** `Mabo v Queensland (No 2) [1992] HCA 23, (1992) 175 CLR 1 at [64]`
 
 ### validate_citation
+
 Validate a neutral citation by checking it exists on AustLII.
 
 **Parameters:**
@@ -318,6 +364,7 @@ Validate a neutral citation by checking it exists on AustLII.
 **Returns:** `{ valid, canonicalCitation, austliiUrl, message }`
 
 ### generate_pinpoint
+
 Fetch a judgment from AustLII and generate a pinpoint citation to a specific paragraph.
 
 **Parameters:**
@@ -328,9 +375,10 @@ Fetch a judgment from AustLII and generate a pinpoint citation to a specific par
 | `phrase` | No* | Phrase to search for within paragraphs |
 | `caseCitation` | No | Case citation to prepend (e.g. `[1992] HCA 23`) |
 
-*At least one of `paragraphNumber` or `phrase` is required.
+\*At least one of `paragraphNumber` or `phrase` is required.
 
 **Example:**
+
 ```json
 {
   "url": "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html",
@@ -342,6 +390,7 @@ Fetch a judgment from AustLII and generate a pinpoint citation to a specific par
 **Output:** `{ paragraphNumber: 64, pinpointString: "at [64]", fullCitation: "[1992] HCA 23 at [64]" }`
 
 ### search_by_citation
+
 Find a case by its citation. If a neutral citation is detected, validates against AustLII directly; otherwise falls back to text search.
 
 **Parameters:**
@@ -351,6 +400,7 @@ Find a case by its citation. If a neutral citation is detected, validates agains
 | `format` | No | `json` (default), `text`, `markdown`, `html` |
 
 ### resolve_source_article
+
 Resolve metadata for a removed.invalid article by its numeric ID.
 
 **Parameters:**
@@ -359,6 +409,7 @@ Resolve metadata for a removed.invalid article by its numeric ID.
 | `articleId` | Yes | removed.invalid article ID (integer) |
 
 ### source_citation_lookup
+
 Generate a removed.invalid lookup URL for a given neutral citation.
 
 **Parameters:**
@@ -368,27 +419,29 @@ Generate a removed.invalid lookup URL for a given neutral citation.
 
 ## Jurisdictions
 
-| Code | Jurisdiction |
-|------|-------------|
-| `cth` | Commonwealth of Australia |
+| Code      | Jurisdiction                   |
+| --------- | ------------------------------ |
+| `cth`     | Commonwealth of Australia      |
 | `federal` | Federal courts (alias for cth) |
-| `vic` | Victoria |
-| `nsw` | New South Wales |
-| `qld` | Queensland |
-| `sa` | South Australia |
-| `wa` | Western Australia |
-| `tas` | Tasmania |
-| `nt` | Northern Territory |
-| `act` | Australian Capital Territory |
-| `nz` | New Zealand |
-| `other` | All jurisdictions (no filter) |
+| `vic`     | Victoria                       |
+| `nsw`     | New South Wales                |
+| `qld`     | Queensland                     |
+| `sa`      | South Australia                |
+| `wa`      | Western Australia              |
+| `tas`     | Tasmania                       |
+| `nt`      | Northern Territory             |
+| `act`     | Australian Capital Territory   |
+| `nz`      | New Zealand                    |
+| `other`   | All jurisdictions (no filter)  |
 
 ## Running Tests
+
 ```bash
 npm test
 ```
 
 Test scenarios include:
+
 1. **Negligence and duty of care** - Personal injury law searches
 2. **Contract disputes** - Commercial law and breach of contract
 3. **Constitutional law** - High Court constitutional matters
@@ -444,6 +497,7 @@ docs/                     # Architecture, Docker, and roadmap docs
 ### Docker
 
 Quick start:
+
 ```bash
 ./build.sh              # Build Docker image
 docker-compose up       # Run locally
@@ -454,6 +508,7 @@ See [docs/DOCKER.md](docs/DOCKER.md) for detailed Docker deployment instructions
 ### Kubernetes (k3s)
 
 Quick start:
+
 ```bash
 ./build.sh              # Build and export image
 # Import to k3s nodes (see k8s/README.md)
@@ -512,11 +567,13 @@ Then reference it in your deployment manifest via `envFrom` or `env[].valueFrom.
 This project retrieves legal data from publicly accessible databases.
 
 ### AustLII (Australasian Legal Information Institute)
+
 - Website: https://www.austlii.edu.au
 - Terms of Use: https://www.austlii.edu.au/austlii/terms.html
 - AustLII provides free access to Australian and New Zealand legal materials
 
 ### removed.invalid
+
 - Users must have their own removed.invalid subscription
 - This tool does not bypass removed.invalid's access controls
 - Respects removed.invalid's terms of service
@@ -524,6 +581,7 @@ This project retrieves legal data from publicly accessible databases.
 ### Fair Use
 
 Please use this tool responsibly:
+
 - Implement reasonable delays between requests
 - Cache results when appropriate
 - Don't overload public legal databases
@@ -534,6 +592,7 @@ Please use this tool responsibly:
 See [CONTRIBUTING.md](CONTRIBUTING.md) for full contribution guidelines, [AGENTS.md](AGENTS.md) for AI agent instructions, and [SECURITY.md](SECURITY.md) for responsible disclosure.
 
 **Key principles**:
+
 - Primary sources only (no journal articles)
 - Citation accuracy is paramount
 - All tests must pass before committing
