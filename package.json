@@ -55,7 +55,7 @@
     "@types/cheerio": "^1.0.0",
     "@types/node": "^24.12.2",
     "@types/tmp": "^0.2.6",
-    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.1",
     "@typescript-eslint/parser": "^8.55.0",
     "@vitest/coverage-v8": "^4.1.5",
     "eslint": "^9.39.4",
