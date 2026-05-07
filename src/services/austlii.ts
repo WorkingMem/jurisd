@@ -112,11 +112,13 @@ export function austliiCloudflareErrorMessage(
   }
   return (
     `AustLII returned ${status} on ${context}. This is almost certainly Cloudflare's ` +
-    `bot challenge. AUSTLII_COOKIE ${cookieState}. The server attempts to auto-refresh ` +
-    `cookies from Chrome's cookie store on 403; if you're seeing this message, the ` +
-    `auto-refresh wasn't able to run (refresh script missing or Keychain access denied). ` +
-    `Check that scripts/refresh-austlii-cookie.mjs exists and that the Keychain prompt ` +
-    `has been approved.`
+    `bot challenge. AUSTLII_COOKIE ${cookieState}. The server tried to auto-refresh ` +
+    `cookies from Chrome's cookie store on 403 but the refresh failed — most likely ` +
+    `causes: (a) scripts/refresh-austlii-cookie.mjs is missing from the server's ` +
+    `project directory, (b) the macOS Keychain prompt for Chrome Safe Storage was ` +
+    `denied (run \`node scripts/refresh-austlii-cookie.mjs\` manually from a terminal ` +
+    `and click "Always Allow"), or (c) Chrome isn't installed / has no cookies for ` +
+    `austlii.edu.au yet (visit https://www.austlii.edu.au/ in Chrome first).`
   );
 }
 

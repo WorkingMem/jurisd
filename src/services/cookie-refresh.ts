@@ -35,29 +35,22 @@ const SCRIPT_PATH = path.join(PROJECT_ROOT, "scripts", "refresh-austlii-cookie.m
 const ENV_PATH = path.join(PROJECT_ROOT, ".env");
 
 // Coalesce concurrent refresh requests — many tool calls may all 403 at once
-// during expiry, but we only want to run the script once.
+// during expiry, but we only want to run the script once. Note: deliberately
+// no time-based throttle. The script is fast (~1s) and idempotent; if the
+// user has just submitted a search in Chrome to refresh cookies, we want the
+// next 403 to run the script again immediately, not be silently throttled.
 let refreshInFlight: Promise<boolean> | null = null;
-
-// Throttle floor between successful refreshes. After a successful refresh,
-// further refreshes within this window return false — letting the wrapper
-// throw AustliiPersistentAuthError so the user can intervene rather than
-// thrashing on a stale Chrome cookie store.
-const REFRESH_THROTTLE_MS = 30_000;
-let lastSuccessfulRefreshAt = 0;
 
 /**
  * Run the script to decrypt+write the cookies Chrome currently holds, and
  * reload .env into process.env.
  *
  * @returns `true` if the script ran successfully and process.env was updated;
- *          `false` if the script is missing, exited non-zero, threw, was
- *          throttled, or .env became unparsable.
+ *          `false` if the script is missing, exited non-zero, threw, or
+ *          .env became unparsable.
  */
 export async function tryRefreshAustliiCookie(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
-  if (Date.now() - lastSuccessfulRefreshAt < REFRESH_THROTTLE_MS) {
-    return false;
-  }
   refreshInFlight = doRefresh();
   try {
     return await refreshInFlight;
@@ -88,7 +81,6 @@ async function doRefresh(): Promise<boolean> {
       return false;
     }
   }
-  lastSuccessfulRefreshAt = Date.now();
   return true;
 }
 
