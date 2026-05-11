@@ -44,6 +44,11 @@ import {
   type CitedByRef,
 } from "./services/citation-cache.js";
 import { storeSource, checkSourceFreshness } from "./services/source-store.js";
+import {
+  setAustliiCookieValue,
+  reloadEnv,
+  tryRefreshAustliiCookie,
+} from "./services/cookie-refresh.js";
 import { config } from "./config.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
@@ -1157,6 +1162,112 @@ function createMcpServer(): McpServer {
                 citedByFetchedAt: entry.citedByFetchedAt,
                 totalCount: entry.citedByTotalCount,
                 citedBy: entry.citedBy,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  );
+
+  // ── refresh_austlii_cookie ────────────────────────────────────────────────
+  const refreshCookieShape = {
+    cookie: z
+      .string()
+      .optional()
+      .describe(
+        "Optional Cookie header value (e.g. `cf_clearance=...; __cf_bm=...`) " +
+          "captured from a real browser session at https://www.austlii.edu.au/. " +
+          "When provided, the server writes it to .env and updates process.env " +
+          "immediately. When omitted, the server attempts to run the local refresh " +
+          "script (which decrypts cookies from Chrome's cookie store on macOS) and " +
+          "falls back to reloading .env from disk.",
+      ),
+  };
+  const refreshCookieParser = z.object(refreshCookieShape);
+
+  server.registerTool(
+    "refresh_austlii_cookie",
+    {
+      title: "Refresh AustLII Cookie",
+      description:
+        "Refresh the AUSTLII_COOKIE used by this server. Use this when AustLII " +
+        "calls return 403 (Cloudflare bot challenge) and the user has just rotated " +
+        "cookies by submitting a search in their Chrome at https://www.austlii.edu.au/. " +
+        "Two modes: (1) call with `cookie` set to a value extracted from any source " +
+        "— a paste from DevTools, the output of running scripts/refresh-austlii-cookie.mjs " +
+        "via Bash, etc. — and the server applies it directly. (2) call with no arguments " +
+        "and the server tries its own refresh: runs the local extraction script, then " +
+        "reloads .env. Mode (1) is the most reliable across sandboxed environments " +
+        "because it doesn't require the server to have filesystem or Keychain access " +
+        "to Chrome.",
+      inputSchema: refreshCookieShape,
+    },
+    async (rawInput) => {
+      const { cookie } = refreshCookieParser.parse(rawInput);
+
+      if (cookie !== undefined) {
+        // Explicit paste: apply directly to .env (all worktrees) and process.env.
+        try {
+          const written = setAustliiCookieValue(cookie);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    mode: "explicit",
+                    applied: true,
+                    cookieLength: cookie.length,
+                    writtenTo: written,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        } catch (err) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    mode: "explicit",
+                    applied: false,
+                    error: err instanceof Error ? err.message : String(err),
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        }
+      }
+
+      // No cookie provided: try the script-based refresh, then fall back to
+      // reloading .env (in case the caller has already updated it externally).
+      const scriptRan = await tryRefreshAustliiCookie();
+      const reloadedPath = reloadEnv();
+      const cookiePresent = !!process.env.AUSTLII_COOKIE;
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                mode: "auto",
+                scriptRan,
+                reloadedEnvFrom: reloadedPath,
+                cookiePresent,
+                cookieLength: process.env.AUSTLII_COOKIE?.length ?? 0,
+                hint: cookiePresent
+                  ? "Cookie is in process.env. Retry the original AustLII tool call."
+                  : "No cookie present. Pass `cookie` parameter with a value pasted from DevTools.",
               },
               null,
               2,

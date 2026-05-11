@@ -95,19 +95,29 @@ export function austliiCloudflareErrorMessage(
 ): string {
   const cookieState = process.env.AUSTLII_COOKIE ? "may have expired" : "is not set";
   if (variant === "afterRefresh") {
-    // The server's auto-refresh ran but the retried request still 401/403'd.
-    // This means Chrome's stored cookies are also stale, OR Cloudflare has
-    // flagged this machine's IP and is rejecting cookies regardless of
-    // freshness. Recovery is a small user action: run a real search in
-    // Chrome (the form submission triggers a fresh Cloudflare challenge
-    // more reliably than direct URL navigation).
+    // Recovery recipe: user does a Chrome search to mint fresh cookies, then
+    // the AI either passes the cookie via the explicit MCP tool (works in any
+    // sandbox) or relies on the server's auto-refresh on retry (works when the
+    // server has filesystem + Keychain access to Chrome). The tool path is
+    // bulletproof — we recommend it first.
     return (
       `AustLII returned ${status} on ${context} even after the server refreshed ` +
-      `cookies from Chrome's cookie store. To recover: open ` +
-      `https://www.austlii.edu.au/ in Chrome, type any query into the search ` +
-      `box, and submit it. That triggers Cloudflare to issue fresh cookies. ` +
-      `Once you see the search results page, retry the original request — the ` +
-      `server will pick up the freshly-issued cookies on the next call.`
+      `cookies from Chrome's cookie store. To recover:\n\n` +
+      `1. Ask the user to open https://www.austlii.edu.au/ in Chrome, type any ` +
+      `query into the search box, and submit it. That triggers Cloudflare to ` +
+      `issue fresh cookies and stores them in Chrome.\n\n` +
+      `2. Once the user confirms the search results have loaded, retrieve the ` +
+      `fresh cookie and pass it to the server via the \`refresh_austlii_cookie\` ` +
+      `tool. The most reliable way is to ask the user to copy the cf_clearance ` +
+      `value from Chrome DevTools (Application → Cookies → www.austlii.edu.au → ` +
+      `cf_clearance) and call \`refresh_austlii_cookie\` with ` +
+      `\`cookie="cf_clearance=<value>"\`. If you have a Bash tool that can ` +
+      `access the host filesystem you may instead run ` +
+      `\`node /Users/JaamaeHB/auslaw-mcp/scripts/refresh-austlii-cookie.mjs\` and ` +
+      `then call \`refresh_austlii_cookie\` with no arguments to reload — but ` +
+      `the explicit-cookie path works even in sandboxed environments where ` +
+      `Bash can't reach Chrome's cookie store.\n\n` +
+      `3. Retry the original request — it should succeed.`
     );
   }
   return (

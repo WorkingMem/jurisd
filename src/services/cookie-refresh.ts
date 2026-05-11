@@ -19,9 +19,9 @@
  * extracts the freshly-issued cookies from Chrome's DB and proceeds normally.
  */
 
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { parse as parseEnv } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -136,4 +136,84 @@ function isAustliiAuthError(err: unknown): boolean {
 
 function extractStatus(err: unknown): number {
   return (err as { response?: { status?: number } }).response?.status ?? 403;
+}
+
+/**
+ * Apply a cookie value the AI has obtained from any source — paste from
+ * DevTools, output of a Bash-run refresh script, etc. Writes it to every
+ * .env in scope (main repo + every worktree, discovered via
+ * `git worktree list`) and updates `process.env` immediately so subsequent
+ * requests pick up the new value with no server restart.
+ *
+ * Used by the `refresh_austlii_cookie` MCP tool. This is the fallback path
+ * when the server's auto-refresh (which depends on the script having
+ * filesystem + Keychain access) doesn't work — for example, when the MCP
+ * server runs in a sandbox that can't read Chrome's cookie store.
+ *
+ * @param cookie  The full Cookie header value (e.g.
+ *                `cf_clearance=...; __cf_bm=...`). Whitespace and surrounding
+ *                quotes are trimmed.
+ * @returns The list of .env file paths written.
+ */
+export function setAustliiCookieValue(cookie: string): string[] {
+  const cleaned = cookie.trim().replace(/^["']|["']$/g, "");
+  if (!cleaned) {
+    throw new Error("Cookie value cannot be empty");
+  }
+  const roots = discoverProjectRoots();
+  const written: string[] = [];
+  for (const root of roots) {
+    const envPath = path.join(root, ".env");
+    const env = existsSync(envPath) ? readFileSync(envPath, "utf8") : "";
+    let next: string;
+    if (/^AUSTLII_COOKIE=.*/m.test(env)) {
+      next = env.replace(/^AUSTLII_COOKIE=.*/m, `AUSTLII_COOKIE="${cleaned}"`);
+    } else {
+      next = env + (env.endsWith("\n") || env === "" ? "" : "\n") + `AUSTLII_COOKIE="${cleaned}"\n`;
+    }
+    writeFileSync(envPath, next);
+    written.push(envPath);
+  }
+  // Update in-memory env so the next request picks it up without a restart.
+  process.env.AUSTLII_COOKIE = cleaned;
+  return written;
+}
+
+/**
+ * Re-parse the project's `.env` and update `process.env`. Used when an
+ * external party (e.g. the AI running the refresh script via Bash) has
+ * updated `.env` and wants the MCP server to pick up the new value
+ * without restarting.
+ *
+ * @returns The path of the .env file that was loaded, or `null` if no
+ *          .env was found.
+ */
+export function reloadEnv(): string | null {
+  if (!existsSync(ENV_PATH)) return null;
+  try {
+    const parsed = parseEnv(readFileSync(ENV_PATH, "utf8"));
+    for (const [key, value] of Object.entries(parsed)) {
+      process.env[key] = value;
+    }
+    return ENV_PATH;
+  } catch {
+    return null;
+  }
+}
+
+function discoverProjectRoots(): string[] {
+  const roots = new Set([PROJECT_ROOT]);
+  try {
+    const out = execFileSync("git", ["-C", PROJECT_ROOT, "worktree", "list", "--porcelain"], {
+      encoding: "utf8",
+    });
+    for (const line of out.split("\n")) {
+      if (line.startsWith("worktree ")) {
+        roots.add(line.slice("worktree ".length));
+      }
+    }
+  } catch {
+    // not a git checkout (or git unavailable) — fall through, return main only
+  }
+  return [...roots];
 }
