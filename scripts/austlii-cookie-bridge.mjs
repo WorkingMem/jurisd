@@ -61,6 +61,7 @@ function handleCookieRequest(_req, res) {
       cookie: result.cookie,
       cf_clearance_length: result.cf_clearance.length,
       __cf_bm_length: result.__cf_bm.length,
+      __cflb_length: result.__cflb?.length ?? 0,
       ts: Date.now(),
     });
     res.writeHead(200, {
@@ -69,7 +70,7 @@ function handleCookieRequest(_req, res) {
     });
     res.end(body);
     log(
-      `OK /cookie → cf_clearance(${result.cf_clearance.length}) __cf_bm(${result.__cf_bm.length})`,
+      `OK /cookie → cf_clearance(${result.cf_clearance.length}) __cf_bm(${result.__cf_bm.length}) __cflb(${result.__cflb?.length ?? 0})`,
     );
   } catch (err) {
     const code = err instanceof DecryptError ? err.code : "unknown_error";
