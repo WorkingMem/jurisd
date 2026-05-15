@@ -20,37 +20,53 @@ npm run lint:fix       # Auto-fix lint issues
 
 ## When auslaw-mcp returns a Cloudflare 403
 
-The server self-heals in the common case. On 401/403 from an AustLII endpoint it runs `scripts/refresh-austlii-cookie.mjs`, which decrypts the cookies the user's Chrome holds for `.austlii.edu.au` (Chrome's SQLite cookie store), writes them to `.env`, reloads `process.env`, and retries the failing request once. Whenever the server has filesystem + Keychain access to Chrome and Chrome's cookies are fresher than `.env`, the retry succeeds and the model never sees the 403.
+The server self-heals via a small chain of refresh paths, tried in order:
+
+1. **Host-side cookie bridge** (preferred — sandbox-proof). If `AUSTLII_COOKIE_BRIDGE_URL` is set in the server's env (typically `http://127.0.0.1:8765`), the server GETs `/cookie` from that URL on 401/403. The bridge is a separate process running on the user's host (started via `scripts/austlii-cookie-bridge.mjs` or the launchd plist in `scripts/launchd/`). It has filesystem + Keychain access to Chrome and serves whatever cookies Chrome currently has. Works regardless of where the MCP server runs.
+
+2. **Local script** (fallback for host installs). If the bridge isn't available or returns nothing, the server runs `scripts/refresh-austlii-cookie.mjs` directly. Requires filesystem + Keychain access to Chrome — works when the MCP server is on the host but typically fails in Cowork sandboxes.
+
+3. **Explicit cookie paste** via the `refresh_austlii_cookie` MCP tool. If both auto paths fail, the model can call this tool with a `cookie` parameter the user has copied from DevTools.
+
+After any path succeeds, `process.env.AUSTLII_COOKIE` is updated and the failing request is retried once. Whenever Chrome's stored cookies are fresher than the server's view, the retry succeeds and the model never sees the 403.
 
 ### Recovery when the model *does* see the 403
 
-The visible failure is the *afterRefresh* error. Reaching it means either Chrome's stored cookies are also stale, OR the server can't read Chrome (sandboxed environment), OR Cloudflare has flagged the machine's IP.
+This means Chrome's stored cookies are stale (the user hasn't visited AustLII recently, or Cloudflare invalidated them). The error message is the *afterRefresh* one. Procedure:
 
-**Recovery procedure (follow exactly):**
+1. **Ask the user to open https://www.austlii.edu.au/ in their Chrome and submit any search via the search box.** A real form submission consistently triggers Cloudflare to mint fresh cookies; direct URL navigation usually doesn't. Wait for the user to confirm the search results have loaded.
 
-1. **Ask the user to open https://www.austlii.edu.au/ in their Chrome and submit any search via the search box.** A real form submission triggers Cloudflare's challenge reliably; direct URL navigation usually doesn't. Wait for the user to confirm the search results have loaded.
+2. **Retry the original failing tool call.** If the bridge or local-script path is configured and working, the retry should succeed automatically — the refresh will pick up Chrome's freshly-issued cookies. No further action needed.
 
-2. **Retrieve the fresh cookie and apply it via the `refresh_austlii_cookie` MCP tool.** This tool has two modes:
+3. **Only if step 2 fails**, fall back to the paste path:
+   - Ask the user to copy the `cf_clearance` value from Chrome DevTools (⌘+⌥+I → Application → Cookies → www.austlii.edu.au → cf_clearance, copy the Value column).
+   - Call `mcp__auslaw-mcp__refresh_austlii_cookie(cookie="cf_clearance=<value>")`.
+   - Retry the original tool.
 
-   - **Paste mode (works in any environment, including sandboxes):** ask the user to open DevTools (⌘+⌥+I) → Application tab → Storage → Cookies → `https://www.austlii.edu.au` → copy the **Value** of the `cf_clearance` row. Optionally also copy `__cf_bm`. Then:
-     ```
-     mcp__auslaw-mcp__refresh_austlii_cookie(cookie="cf_clearance=<value>; __cf_bm=<value>")
-     ```
-     This is the **most reliable** path — it doesn't depend on the server having access to Chrome's cookie store. Use this first if you have any doubt about sandbox permissions.
+### Setting up the cookie bridge (one-time, host-side)
 
-   - **Auto mode (works if the MCP server has host filesystem + Keychain access):**
-     ```
-     mcp__auslaw-mcp__refresh_austlii_cookie()
-     ```
-     The server runs `scripts/refresh-austlii-cookie.mjs` itself. If it returns `cookiePresent: true`, retry the original tool. If it returns `cookiePresent: false`, fall back to paste mode.
+For sandboxed setups (Cowork, etc.), this is the recommended setup:
 
-3. **Retry the original failing tool call.** It should succeed.
+```bash
+# Start it foreground (^C to stop):
+node scripts/austlii-cookie-bridge.mjs
+
+# Or load it as a launchd agent that auto-starts on login:
+sed "s|PATH_TO_REPO|$HOME/auslaw-mcp|g" scripts/launchd/com.auslaw.cookie-bridge.plist \
+  > ~/Library/LaunchAgents/com.auslaw.cookie-bridge.plist
+launchctl load ~/Library/LaunchAgents/com.auslaw.cookie-bridge.plist
+
+# Set in auslaw-mcp's env (in .env, .mcp.json, or wherever the server reads from):
+AUSTLII_COOKIE_BRIDGE_URL=http://127.0.0.1:8765
+```
+
+The bridge logs each request to stderr, so you can `tail /tmp/austlii-cookie-bridge.out.log` (or wherever you redirected) to confirm the MCP server is reaching it.
 
 ### Don't
 
 - Don't try `chrome-devtools` MCP — it spawns an isolated Chrome with no fingerprint, Cloudflare loops indefinitely.
 - Don't drive Chrome to a `/cgi-bin/sinosrch.cgi` URL via `open` or `mcp__Claude_in_Chrome__navigate` and expect cookies to refresh. They typically won't (`/cgi-bin/sinosrch.cgi` returns 410 Gone for direct navigation, and Cloudflare's silent-pass behaviour means no fresh cookies get issued). Have the user submit a search through the form.
-- Don't fall back to manual cookie pasting *unless* you've already tried `refresh_austlii_cookie` and it failed. The tool exists precisely so this isn't manual.
+- Don't fall back to manual cookie pasting *unless* the bridge / script paths have both failed for this user. Pasting is a fallback, not the first option.
 
 ### The `AUSTLII_USER_AGENT`
 
@@ -58,7 +74,7 @@ The User-Agent does **not** need refreshing on each cookie rotation as long as t
 
 ### Architectural note (background only)
 
-We previously experimented with auto-nudging Chrome via `open -a "Google Chrome"` to force a fresh Cloudflare challenge. It doesn't reliably work: Cloudflare scores Chrome's existing fingerprint highly enough to pass without issuing fresh cookies. A real form submission from the user's hand is the only path that consistently mints fresh cookies. The `refresh_austlii_cookie` tool exists to bridge from "user has fresh cookies in Chrome" to "MCP server has those cookies in process.env" — regardless of how the MCP server is sandboxed.
+We previously experimented with auto-nudging Chrome via `open -a "Google Chrome"` to force a fresh Cloudflare challenge. It doesn't reliably work: Cloudflare scores Chrome's existing fingerprint highly enough to pass without issuing fresh cookies. A real form submission from the user's hand is the only path that consistently mints fresh cookies. The bridge + paste tool exist to bridge from "user has fresh cookies in Chrome" to "MCP server has those cookies in process.env" — regardless of how the MCP server is sandboxed.
 
 ## Key Architecture
 

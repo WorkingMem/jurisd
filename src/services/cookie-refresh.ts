@@ -1,22 +1,30 @@
 /**
- * Self-healing AUSTLII_COOKIE refresh.
+ * Self-healing AUSTLII_COOKIE refresh. Two refresh paths, tried in order:
  *
- * On AustLII 401/403, run scripts/refresh-austlii-cookie.mjs to decrypt
- * whatever cookies the user's Chrome currently has cached for `.austlii.edu.au`
- * and write them to `.env`. Reload `.env` into `process.env` so the new
- * cookie takes effect immediately and retry the failing request.
+ *   1. Bridge fetch (preferred for sandboxed MCP servers).
+ *      If AUSTLII_COOKIE_BRIDGE_URL is set, GET {url}/cookie to receive a
+ *      fresh cookie from a host-side service (scripts/austlii-cookie-bridge.mjs).
+ *      This is the only path that works when the MCP server is sandboxed and
+ *      can't access Chrome's cookie store directly.
  *
- * Works whenever Chrome's stored cookies are fresher than the server's
- * `.env` — the common case, since Chrome rotates cookies in the background
- * as the user browses.
+ *   2. Local script.
+ *      Run scripts/refresh-austlii-cookie.mjs to decrypt cookies from Chrome's
+ *      SQLite store. Requires filesystem + Keychain access — works when the
+ *      MCP server is on the host but typically fails in Cowork sandboxes.
  *
- * If Chrome's stored cookies are also stale (or Cloudflare has flagged the
- * machine's IP and isn't accepting our cookies even when fresh), the retry
- * also 401/403s and we throw {@link AustliiPersistentAuthError}. Recovery
- * is then a manual step: the user opens AustLII in Chrome and runs a search
- * (Cloudflare's challenge fires reliably from a real form submission, less
- * reliably from direct URL navigation). On the next tool call, the server
- * extracts the freshly-issued cookies from Chrome's DB and proceeds normally.
+ * On AustLII 401/403, the wrapper tries the refresh paths, updates
+ * process.env, and retries once. Whenever Chrome's stored cookies are
+ * fresher than the server's last view, the retry succeeds.
+ *
+ * If both refresh paths fail or the retried request still 401/403s, the
+ * wrapper throws AustliiPersistentAuthError. Recovery: the user opens AustLII
+ * in Chrome and runs a real search (the form-submission path consistently
+ * triggers Cloudflare to issue fresh cookies). The next tool call's refresh
+ * picks them up.
+ *
+ * For environments where the bridge isn't running and the script can't run,
+ * callers can also explicitly apply a cookie via the refresh_austlii_cookie
+ * MCP tool (paste mode) — see setAustliiCookieValue below.
  */
 
 import { execFile, execFileSync } from "node:child_process";
@@ -42,24 +50,32 @@ const ENV_PATH = path.join(PROJECT_ROOT, ".env");
 let refreshInFlight: Promise<boolean> | null = null;
 
 /**
- * Run the script to decrypt+write the cookies Chrome currently holds, and
- * reload .env into process.env.
- *
- * @returns `true` if the script ran successfully and process.env was updated;
- *          `false` if the script is missing, exited non-zero, threw, or
- *          .env became unparsable.
+ * Try the bridge HTTP service if AUSTLII_COOKIE_BRIDGE_URL is configured.
+ * Returns true if a fresh cookie was retrieved and applied to process.env.
  */
-export async function tryRefreshAustliiCookie(): Promise<boolean> {
-  if (refreshInFlight) return refreshInFlight;
-  refreshInFlight = doRefresh();
+async function tryRefreshViaBridge(): Promise<boolean> {
+  const bridgeBase = process.env.AUSTLII_COOKIE_BRIDGE_URL?.trim().replace(/\/+$/, "");
+  if (!bridgeBase) return false;
   try {
-    return await refreshInFlight;
-  } finally {
-    refreshInFlight = null;
+    const res = await fetch(`${bridgeBase}/cookie`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return false;
+    const body = (await res.json()) as { cookie?: string; error?: string };
+    if (!body.cookie) return false;
+    process.env.AUSTLII_COOKIE = body.cookie;
+    return true;
+  } catch {
+    return false;
   }
 }
 
-async function doRefresh(): Promise<boolean> {
+/**
+ * Try the local refresh script. Requires the server to have filesystem +
+ * Keychain access to Chrome — works on host installs, typically fails in
+ * sandboxes.
+ */
+async function tryRefreshViaScript(): Promise<boolean> {
   if (!existsSync(SCRIPT_PATH)) {
     return false;
   }
@@ -82,6 +98,29 @@ async function doRefresh(): Promise<boolean> {
     }
   }
   return true;
+}
+
+/**
+ * Refresh AUSTLII_COOKIE by trying the bridge first, then falling back to
+ * the local script. Returns true if either path succeeded and process.env
+ * was updated with a new cookie value.
+ *
+ * Concurrent callers share one in-flight refresh.
+ */
+export async function tryRefreshAustliiCookie(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = doRefresh();
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
+}
+
+async function doRefresh(): Promise<boolean> {
+  if (await tryRefreshViaBridge()) return true;
+  if (await tryRefreshViaScript()) return true;
+  return false;
 }
 
 /**

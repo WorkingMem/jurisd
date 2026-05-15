@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd plist for the AustLII cookie bridge.
+
+  Install:
+    1. Copy this file to ~/Library/LaunchAgents/, replacing PATH_TO_REPO with the
+       absolute path to your auslaw-mcp checkout. From a terminal:
+
+       sed "s|PATH_TO_REPO|$HOME/auslaw-mcp|g" \
+         scripts/launchd/com.auslaw.cookie-bridge.plist \
+         > ~/Library/LaunchAgents/com.auslaw.cookie-bridge.plist
+
+    2. Load it:
+
+       launchctl load ~/Library/LaunchAgents/com.auslaw.cookie-bridge.plist
+
+    3. Verify it's running:
+
+       curl http://127.0.0.1:8765/healthz   # should print "ok"
+
+  The bridge will now start automatically on login and serve fresh AustLII
+  cookies to auslaw-mcp regardless of where (or how sandboxed) auslaw-mcp is.
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.auslaw.cookie-bridge.plist
+    rm ~/Library/LaunchAgents/com.auslaw.cookie-bridge.plist
+
+  Change port: edit the AUSTLII_COOKIE_BRIDGE_PORT value below, then reload.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.auslaw.cookie-bridge</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>node</string>
+        <string>PATH_TO_REPO/scripts/austlii-cookie-bridge.mjs</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>AUSTLII_COOKIE_BRIDGE_PORT</key>
+        <string>8765</string>
+    </dict>
+
+    <!-- Run at login and keep alive if it crashes. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Throttle restarts to one every 10 seconds so a crash loop doesn't
+         burn CPU. -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- stdout/stderr go to the user's home so launchd doesn't drop them. -->
+    <key>StandardOutPath</key>
+    <string>/tmp/austlii-cookie-bridge.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/austlii-cookie-bridge.err.log</string>
+</dict>
+</plist>
