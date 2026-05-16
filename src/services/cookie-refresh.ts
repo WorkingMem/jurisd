@@ -61,9 +61,21 @@ async function tryRefreshViaBridge(): Promise<boolean> {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return false;
-    const body = (await res.json()) as { cookie?: string; error?: string };
+    const body = (await res.json()) as {
+      cookie?: string;
+      userAgent?: string;
+      error?: string;
+    };
     if (!body.cookie) return false;
     process.env.AUSTLII_COOKIE = body.cookie;
+    // The bridge also reports Chrome's currently-installed UA. Apply it so
+    // we stay in sync when Chrome auto-updates (e.g. 147→148). cf_clearance
+    // is bound to the UA Chrome was advertising when it was issued; if .env
+    // has stale UA, Cloudflare invalidates the cookie even though we've just
+    // pulled it fresh from Chrome's store.
+    if (body.userAgent) {
+      process.env.AUSTLII_USER_AGENT = body.userAgent;
+    }
     return true;
   } catch {
     return false;

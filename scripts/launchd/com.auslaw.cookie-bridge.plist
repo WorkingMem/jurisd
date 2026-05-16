@@ -3,18 +3,24 @@
   launchd plist for the AustLII cookie bridge.
 
   Install:
-    1. Copy this file to ~/Library/LaunchAgents/, replacing PATH_TO_REPO with the
-       absolute path to your auslaw-mcp checkout. From a terminal:
+    1. Find your node binary's full path (launchd uses minimal PATH so /usr/bin/env
+       node tends not to work):
 
-       sed "s|PATH_TO_REPO|$HOME/auslaw-mcp|g" \
-         scripts/launchd/com.auslaw.cookie-bridge.plist \
-         > ~/Library/LaunchAgents/com.auslaw.cookie-bridge.plist
+       which node           # e.g. /opt/homebrew/bin/node
 
-    2. Load it:
+    2. Substitute both PATH_TO_REPO and PATH_TO_NODE, write to LaunchAgents:
+
+       NODE_BIN=$(which node)
+       sed -e "s|PATH_TO_REPO|$HOME/auslaw-mcp|g" \
+           -e "s|PATH_TO_NODE|$NODE_BIN|g" \
+           scripts/launchd/com.auslaw.cookie-bridge.plist \
+           > ~/Library/LaunchAgents/com.auslaw.cookie-bridge.plist
+
+    3. Load it:
 
        launchctl load ~/Library/LaunchAgents/com.auslaw.cookie-bridge.plist
 
-    3. Verify it's running:
+    4. Verify it's running:
 
        curl http://127.0.0.1:8765/healthz   # should print "ok"
 
@@ -35,8 +41,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/env</string>
-        <string>node</string>
+        <string>PATH_TO_NODE</string>
         <string>PATH_TO_REPO/scripts/austlii-cookie-bridge.mjs</string>
     </array>
 

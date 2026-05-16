@@ -45,7 +45,11 @@
  */
 
 import http from "node:http";
-import { decryptAustliiCookies, DecryptError } from "./lib/decrypt-chrome-cookies.mjs";
+import {
+  decryptAustliiCookies,
+  detectChromeUserAgent,
+  DecryptError,
+} from "./lib/decrypt-chrome-cookies.mjs";
 
 const PORT = parseInt(process.env.AUSTLII_COOKIE_BRIDGE_PORT || "8765", 10);
 const HOST = "127.0.0.1";
@@ -57,8 +61,10 @@ function log(msg) {
 function handleCookieRequest(_req, res) {
   try {
     const result = decryptAustliiCookies();
+    const userAgent = detectChromeUserAgent();
     const body = JSON.stringify({
       cookie: result.cookie,
+      userAgent,
       cf_clearance_length: result.cf_clearance.length,
       __cf_bm_length: result.__cf_bm.length,
       __cflb_length: result.__cflb?.length ?? 0,
@@ -70,7 +76,9 @@ function handleCookieRequest(_req, res) {
     });
     res.end(body);
     log(
-      `OK /cookie → cf_clearance(${result.cf_clearance.length}) __cf_bm(${result.__cf_bm.length}) __cflb(${result.__cflb?.length ?? 0})`,
+      `OK /cookie → cf_clearance(${result.cf_clearance.length}) ` +
+        `__cf_bm(${result.__cf_bm.length}) __cflb(${result.__cflb?.length ?? 0}) ` +
+        `UA(${userAgent ? userAgent.match(/Chrome\/(\d+)/)?.[1] ?? "?" : "unknown"})`,
     );
   } catch (err) {
     const code = err instanceof DecryptError ? err.code : "unknown_error";

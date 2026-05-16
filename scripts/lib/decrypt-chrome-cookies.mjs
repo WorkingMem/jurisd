@@ -143,6 +143,42 @@ function stripIntegrityPrefix(plain, hostKey) {
 }
 
 /**
+ * Detect Chrome's installed major version from the .app bundle and construct
+ * the User-Agent string Chrome would send. Returns `null` if Chrome isn't
+ * found or its version can't be parsed.
+ *
+ * Used by the bridge so it can serve the User-Agent alongside the cookie —
+ * eliminating the silent breakage where Chrome auto-updates (e.g. 147→148)
+ * and Cloudflare invalidates the cookie because the saved `.env` UA still
+ * advertises the old major version.
+ *
+ * macOS Chrome's UA format: privacy-rounded "Chrome/<MAJOR>.0.0.0" since
+ * Chrome reduced-UA rollout (Chrome 100+). We follow the same format.
+ *
+ * @returns {string | null}
+ */
+export function detectChromeUserAgent() {
+  try {
+    // mdls reads the .app's Info.plist via Spotlight metadata. Fast and
+    // doesn't require launching Chrome.
+    const out = execFileSync(
+      "mdls",
+      ["-name", "kMDItemVersion", "-raw", "/Applications/Google Chrome.app"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    );
+    const m = out.match(/^(\d+)\./);
+    if (!m) return null;
+    const major = m[1];
+    return (
+      `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ` +
+      `AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Decrypt the user's Chrome cookies for AustLII.
  *
  * Returns the Cookie header value (e.g. `cf_clearance=...; __cf_bm=...; __cflb=...`)
