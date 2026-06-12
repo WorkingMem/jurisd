@@ -58,6 +58,27 @@ export function isCloudflareBotBlock(statusCode: number): boolean {
 }
 
 /**
+ * Returns true when an HTTP response (status + body) is a Cloudflare challenge
+ * rather than a real document.
+ *
+ * A response is treated as a challenge when either:
+ *   - the body matches the challenge-page fingerprint (≥2 markers), regardless
+ *     of status (CF sometimes serves the JS challenge with HTTP 200); or
+ *   - the status is a CF bot-block code (403/503) **and** the body also looks
+ *     like a challenge page — a bare 403 with a real error body is left alone
+ *     so legitimate not-authorised responses are not misclassified.
+ *
+ * @param status - HTTP status code.
+ * @param body - Response body decoded as a UTF-8 string.
+ */
+export function isCloudflareChallenge(status: number, body: string): boolean {
+  if (isCloudflareChallengeHtml(body)) {
+    return true;
+  }
+  return isCloudflareBotBlock(status) && isCloudflareChallengeHtml(body);
+}
+
+/**
  * Returns a user-facing message describing a Cloudflare block, suitable
  * for inclusion in a typed error.
  */

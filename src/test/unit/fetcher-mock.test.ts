@@ -1,163 +1,221 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import axios from "axios";
 import { fetchDocumentText } from "../../services/fetcher.js";
-import { config } from "../../config.js";
-import { AUSTLII_JUDGMENT_HTML } from "../fixtures/index.js";
+import { AUSTLII_CLASSIC_JUDGMENT_HTML } from "../fixtures/index.js";
+import { CloudflareBlockedError } from "../../errors.js";
 
-vi.mock("axios");
+// Mock the TRANSPORT SEAM (not axios) for AustLII paths, plus the OALC fallback
+// and the CF detector, so the routing branches are deterministic and offline.
+const { getMock, fetcherForUrlMock, lookupByCitationMock, isCloudflareChallengeMock } = vi.hoisted(
+  () => {
+    const getMock = vi.fn();
+    const fetcherForUrlMock = vi.fn(() => ({ get: getMock }));
+    const lookupByCitationMock = vi.fn();
+    const isCloudflareChallengeMock = vi.fn().mockReturnValue(false);
+    return { getMock, fetcherForUrlMock, lookupByCitationMock, isCloudflareChallengeMock };
+  },
+);
+
+vi.mock("../../services/transport.js", () => ({
+  fetcherForUrl: fetcherForUrlMock,
+}));
+
+vi.mock("../../services/oalc.js", () => ({
+  lookupByCitation: lookupByCitationMock,
+}));
+
+vi.mock("../../services/cloudflare.js", () => ({
+  isCloudflareChallenge: isCloudflareChallengeMock,
+}));
+
 vi.mock("file-type", () => ({
   fileTypeFromBuffer: vi.fn().mockResolvedValue(undefined),
 }));
 
-const mockedAxios = vi.mocked(axios, true);
+// Stub config explicitly. The ambient SESSION_COOKIE (and any AUSTLII_*
+// env) on this machine would otherwise be captured by the config singleton.
+const mockConfig = vi.hoisted(() => ({
+  austlii: {
+    userAgent: "test-austlii-ua/1.0",
+    referer: "https://www.austlii.edu.au/forms/search1.html",
+    timeout: 5000,
+    transport: "auto" as const,
+    classicRewrite: true,
+    cfClearance: undefined as string | undefined,
+    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    acceptLanguage: "en-AU,en;q=0.9",
+  },
+  source: {
+    userAgent: "auslaw-mcp-test",
+    timeout: 5000,
+    sessionCookie: undefined as string | undefined,
+    baseUrl: "https://removed.invalid",
+  },
+  oalc: { enabled: true, source: "/tmp/fixture.jsonl" },
+  ocr: { language: "eng", oem: 1, psm: 3 },
+}));
 
-describe("fetchDocumentText (mocked)", () => {
+vi.mock("../../config.js", () => ({ config: mockConfig }));
+
+function htmlResponse(html: string) {
+  return {
+    status: 200,
+    headers: { "content-type": "text/html" },
+    body: Buffer.from(html, "utf-8"),
+    finalUrl: "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+    via: "impit" as const,
+  };
+}
+
+const MABO_URL = "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html";
+
+describe("fetchDocumentText AustLII routing (transport seam)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedAxios.isAxiosError.mockReturnValue(false);
+    isCloudflareChallengeMock.mockReturnValue(false);
+    mockConfig.austlii.transport = "auto";
+    mockConfig.austlii.classicRewrite = true;
+    mockConfig.austlii.cfClearance = undefined;
+    mockConfig.oalc.enabled = true;
   });
 
-  it("should throw a descriptive error for removed.invalid URLs instead of returning empty content", async () => {
-    // removed.invalid is a RPC SPA — HTTP fetch returns a JS bootstrap shell, not judgment text.
-    // Silently returning empty content is misleading; we want a clear, actionable error.
-    // The config singleton captures any ambient SESSION_COOKIE at import time,
-    // which would route this down the authenticated RPC path; force the no-cookie branch.
-    const savedCookie = config.source.sessionCookie;
-    config.source.sessionCookie = undefined;
-    try {
-      await expect(fetchDocumentText("https://removed.invalid/article/67401")).rejects.toThrow(
-        /source\.io.*not supported|fetch_document_text.*source\.io/i,
-      );
-    } finally {
-      config.source.sessionCookie = savedCookie;
-    }
-  });
-
-  it("should extract text from HTML content", async () => {
-    mockedAxios.get.mockResolvedValue({
-      data: Buffer.from(AUSTLII_JUDGMENT_HTML),
-      status: 200,
-      headers: { "content-type": "text/html" },
-    });
-
-    const result = await fetchDocumentText(
-      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/1.html",
+  it("throws a descriptive error for removed.invalid URLs with no session cookie", async () => {
+    mockConfig.source.sessionCookie = undefined;
+    await expect(fetchDocumentText("https://removed.invalid/article/67401")).rejects.toThrow(
+      /fetch_document_text.*source\.io/i,
     );
-    expect(result.text).toBeTruthy();
-    expect(result.text).toContain("Smith v Jones");
   });
 
-  it("should preserve paragraph numbers [N] in extracted text", async () => {
-    mockedAxios.get.mockResolvedValue({
-      data: Buffer.from(AUSTLII_JUDGMENT_HTML),
-      status: 200,
-      headers: { "content-type": "text/html" },
-    });
-
-    const result = await fetchDocumentText(
-      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/1.html",
-    );
-    expect(result.text).toMatch(/\[1\]/);
-    expect(result.text).toMatch(/\[4\]/);
+  it("applies the classic-doc rewrite before fetching", async () => {
+    getMock.mockResolvedValue(htmlResponse(AUSTLII_CLASSIC_JUDGMENT_HTML));
+    await fetchDocumentText(MABO_URL);
+    expect(getMock).toHaveBeenCalledTimes(1);
+    const target = String(getMock.mock.calls[0]?.[0] ?? "");
+    expect(target).toBe("https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html");
   });
 
-  it("should set correct metadata fields", async () => {
-    mockedAxios.get.mockResolvedValue({
-      data: Buffer.from(AUSTLII_JUDGMENT_HTML),
-      status: 200,
-      headers: { "content-type": "text/html" },
-    });
+  it("sends the User-Agent from config.austlii (fixes the v1 UA bug)", async () => {
+    getMock.mockResolvedValue(htmlResponse(AUSTLII_CLASSIC_JUDGMENT_HTML));
+    await fetchDocumentText(MABO_URL);
+    const opts = getMock.mock.calls[0]?.[1] as { headers: Record<string, string> };
+    expect(opts.headers["User-Agent"]).toBe("test-austlii-ua/1.0");
+    // Must NOT be the source UA (the precise v1 defect).
+    expect(opts.headers["User-Agent"]).not.toBe("auslaw-mcp-test");
+    expect(opts.headers["Accept-Language"]).toBe("en-AU,en;q=0.9");
+  });
 
-    const result = await fetchDocumentText(
-      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/1.html",
-    );
+  it("attaches the cf_clearance cookie only when configured", async () => {
+    getMock.mockResolvedValue(htmlResponse(AUSTLII_CLASSIC_JUDGMENT_HTML));
+    mockConfig.austlii.cfClearance = "SECRET_CLEARANCE_TOKEN";
+    await fetchDocumentText(MABO_URL);
+    const opts = getMock.mock.calls[0]?.[1] as { headers: Record<string, string> };
+    expect(opts.headers["Cookie"]).toBe("cf_clearance=SECRET_CLEARANCE_TOKEN");
+  });
+
+  it("parses a clean AustLII response exactly as today", async () => {
+    getMock.mockResolvedValue(htmlResponse(AUSTLII_CLASSIC_JUDGMENT_HTML));
+    const result = await fetchDocumentText(MABO_URL);
+    expect(result.text).toContain("Mabo");
     expect(result.contentType).toBe("text/html");
-    expect(result.sourceUrl).toBe("https://www.austlii.edu.au/au/cases/cth/HCA/2024/1.html");
-    expect(result.metadata).toBeDefined();
-    expect(result.metadata!.contentLength).toBeDefined();
-    expect(result.metadata!.contentType).toBe("text/html");
+    expect(result.sourceUrl).toBe(MABO_URL);
+    expect(result.metadata!.source).toBeUndefined();
   });
 
-  it("should set ocrUsed to false for HTML content", async () => {
-    mockedAxios.get.mockResolvedValue({
-      data: Buffer.from(AUSTLII_JUDGMENT_HTML),
-      status: 200,
+  it("on CF challenge: consults OALC and returns oalc-fallback on a hit", async () => {
+    getMock.mockResolvedValue({
+      status: 403,
       headers: { "content-type": "text/html" },
+      body: Buffer.from("Just a moment...", "utf-8"),
+      finalUrl: MABO_URL,
+      via: "impit" as const,
+    });
+    isCloudflareChallengeMock.mockReturnValue(true);
+    lookupByCitationMock.mockResolvedValue({
+      version_id: "x",
+      type: "decision",
+      jurisdiction: "commonwealth",
+      source: "high_court_of_australia",
+      mime: "text/html",
+      date: "1992-06-03",
+      citation: "Mabo v Queensland (No 2) [1992] HCA 23",
+      url: "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+      when_scraped: "2024-09-01",
+      text: "Mabo v Queensland (No 2) [1992] HCA 23 — native title recognised.",
     });
 
-    const result = await fetchDocumentText(
-      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/1.html",
-    );
-    expect(result.ocrUsed).toBe(false);
+    const result = await fetchDocumentText(MABO_URL);
+    expect(lookupByCitationMock).toHaveBeenCalledWith("[1992] HCA 23", false);
+    expect(result.metadata!.source).toBe("oalc-fallback");
+    expect(result.sourceUrl).toBe(MABO_URL);
+    expect(result.text).toContain("native title");
   });
 
-  it("should handle plain text content type", async () => {
-    const plainText = "This is a plain text legal document.";
-    mockedAxios.get.mockResolvedValue({
-      data: Buffer.from(plainText),
-      status: 200,
-      headers: { "content-type": "text/plain" },
-    });
-
-    const result = await fetchDocumentText(
-      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/doc.txt",
-    );
-    expect(result.text).toBe(plainText);
-    expect(result.contentType).toBe("text/plain");
-    expect(result.ocrUsed).toBe(false);
-  });
-
-  it("should throw on axios failure", async () => {
-    const axiosError = new Error("Connection refused");
-    mockedAxios.get.mockRejectedValue(axiosError);
-    mockedAxios.isAxiosError.mockReturnValue(true);
-
-    await expect(
-      fetchDocumentText("https://www.austlii.edu.au/au/cases/cth/HCA/2024/1.html"),
-    ).rejects.toThrow();
-  });
-
-  it("should preserve cleaned HTML in response.html for HTML content", async () => {
-    mockedAxios.get.mockResolvedValue({
-      data: Buffer.from(AUSTLII_JUDGMENT_HTML),
-      status: 200,
+  it("on CF challenge with OALC miss: throws CloudflareBlockedError(fallbackTried=true)", async () => {
+    getMock.mockResolvedValue({
+      status: 403,
       headers: { "content-type": "text/html" },
+      body: Buffer.from("Just a moment...", "utf-8"),
+      finalUrl: MABO_URL,
+      via: "impit" as const,
     });
+    isCloudflareChallengeMock.mockReturnValue(true);
+    lookupByCitationMock.mockResolvedValue(null);
 
-    const result = await fetchDocumentText(
-      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/1.html",
-    );
-    expect(result.html).toBeDefined();
-    expect(result.html).toContain("<h1>");
-    expect(result.html).toContain("Smith v Jones");
-    expect(result.html).not.toContain("<script");
-    expect(result.html).not.toContain("<style");
-    expect(result.html).not.toContain("<nav");
+    const err = await fetchDocumentText(MABO_URL).catch((e) => e);
+    expect(err).toBeInstanceOf(CloudflareBlockedError);
+    expect((err as CloudflareBlockedError).fallbackTried).toBe(true);
+    expect((err as CloudflareBlockedError).resourceUrl).toBe(MABO_URL);
   });
 
-  it("should not set html field for plain text content", async () => {
-    const plainText = "This is a plain text legal document.";
-    mockedAxios.get.mockResolvedValue({
-      data: Buffer.from(plainText),
-      status: 200,
-      headers: { "content-type": "text/plain" },
+  it("on CF challenge with OALC disabled: throws CloudflareBlockedError(fallbackTried=false)", async () => {
+    getMock.mockResolvedValue({
+      status: 403,
+      headers: { "content-type": "text/html" },
+      body: Buffer.from("Just a moment...", "utf-8"),
+      finalUrl: MABO_URL,
+      via: "impit" as const,
     });
+    isCloudflareChallengeMock.mockReturnValue(true);
+    mockConfig.oalc.enabled = false;
 
-    const result = await fetchDocumentText(
-      "https://www.austlii.edu.au/au/cases/cth/HCA/2024/doc.txt",
-    );
-    expect(result.html).toBeUndefined();
+    const err = await fetchDocumentText(MABO_URL).catch((e) => e);
+    expect(err).toBeInstanceOf(CloudflareBlockedError);
+    expect((err as CloudflareBlockedError).fallbackTried).toBe(false);
+    expect(lookupByCitationMock).not.toHaveBeenCalled();
   });
 
-  it("should throw for unsupported content type", async () => {
-    mockedAxios.get.mockResolvedValue({
-      data: Buffer.from("binary data"),
-      status: 200,
-      headers: { "content-type": "application/octet-stream" },
+  it("never leaks the cf_clearance cookie in a CloudflareBlockedError", async () => {
+    getMock.mockResolvedValue({
+      status: 403,
+      headers: { "content-type": "text/html" },
+      body: Buffer.from("Just a moment...", "utf-8"),
+      finalUrl: MABO_URL,
+      via: "impit" as const,
     });
+    isCloudflareChallengeMock.mockReturnValue(true);
+    mockConfig.austlii.cfClearance = "SECRET_CLEARANCE_TOKEN";
+    mockConfig.oalc.enabled = false;
 
-    await expect(
-      fetchDocumentText("https://www.austlii.edu.au/au/cases/cth/HCA/2024/file.bin"),
-    ).rejects.toThrow();
+    const err = await fetchDocumentText(MABO_URL).catch((e) => e);
+    expect((err as Error).message).not.toContain("SECRET_CLEARANCE_TOKEN");
+    expect((err as Error).message).not.toMatch(/cf_clearance=/);
+  });
+
+  it("CF challenge on a non-case (legislation) URL throws fallbackTried=true when no citation", async () => {
+    const legisUrl = "https://www.austlii.edu.au/au/legis/cth/consol_act/paa1988125.html";
+    getMock.mockResolvedValue({
+      status: 403,
+      headers: { "content-type": "text/html" },
+      body: Buffer.from("Just a moment...", "utf-8"),
+      finalUrl: legisUrl,
+      via: "impit" as const,
+    });
+    isCloudflareChallengeMock.mockReturnValue(true);
+
+    const err = await fetchDocumentText(legisUrl).catch((e) => e);
+    // No neutral citation derivable from a /legis/ URL -> no OALC lookup, but
+    // OALC is enabled so fallbackTried is true.
+    expect(err).toBeInstanceOf(CloudflareBlockedError);
+    expect((err as CloudflareBlockedError).fallbackTried).toBe(true);
+    expect(lookupByCitationMock).not.toHaveBeenCalled();
   });
 });

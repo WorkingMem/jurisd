@@ -1,16 +1,54 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import axios from "axios";
 import { searchAustLii } from "../../services/austlii.js";
-import { AUSTLII_SEARCH_HTML } from "../fixtures/index.js";
+import { AUSTLII_SEARCH_HTML, AUSTLII_CLOUDFLARE_CHALLENGE_HTML } from "../fixtures/index.js";
+import { CloudflareBlockedError, AustLiiError } from "../../errors.js";
 
-vi.mock("axios");
-const mockedAxios = vi.mocked(axios, true);
+// Mock the TRANSPORT SEAM rather than axios. searchAustLii routes its request
+// through fetcherForUrl(); we capture the URL and headers it builds and return
+// fixture bytes so the parse path runs deterministically with no network.
+const { getMock, fetcherForUrlMock } = vi.hoisted(() => {
+  const getMock = vi.fn();
+  const fetcherForUrlMock = vi.fn(() => ({ get: getMock }));
+  return { getMock, fetcherForUrlMock };
+});
 
-describe("searchAustLii (mocked)", () => {
+vi.mock("../../services/transport.js", () => ({
+  fetcherForUrl: fetcherForUrlMock,
+}));
+
+// Config singleton would capture ambient AUSTLII_* / cf_clearance env at import.
+// Stub it explicitly so the headers assertions are deterministic regardless of
+// this machine's environment.
+vi.mock("../../config.js", () => ({
+  config: {
+    austlii: {
+      searchBase: "https://www.austlii.edu.au/cgi-bin/sinosrch.cgi",
+      referer: "https://www.austlii.edu.au/forms/search1.html",
+      userAgent: "test-austlii-ua/1.0",
+      timeout: 5000,
+      transport: "auto",
+      classicRewrite: true,
+      cfClearance: undefined as string | undefined,
+      accept: "text/html",
+      acceptLanguage: "en-AU,en;q=0.9",
+    },
+  },
+}));
+
+function okResponse(html: string) {
+  return {
+    status: 200,
+    headers: { "content-type": "text/html" },
+    body: Buffer.from(html, "utf-8"),
+    finalUrl: "https://www.austlii.edu.au/cgi-bin/sinosrch.cgi",
+    via: "axios" as const,
+  };
+}
+
+describe("searchAustLii (transport seam)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedAxios.get.mockResolvedValue({ data: AUSTLII_SEARCH_HTML, status: 200 });
-    mockedAxios.isAxiosError.mockReturnValue(false);
+    getMock.mockResolvedValue(okResponse(AUSTLII_SEARCH_HTML));
   });
 
   it("should parse case results from HTML correctly", async () => {
@@ -63,25 +101,63 @@ describe("searchAustLii (mocked)", () => {
     }
   });
 
-  it("should throw on network failure", async () => {
-    const axiosError = new Error("Network Error");
-    mockedAxios.get.mockRejectedValue(axiosError);
-    mockedAxios.isAxiosError.mockReturnValue(true);
+  it("wires AUSTLII_HEADERS from config.austlii (fixes v1 defect 2)", async () => {
+    await searchAustLii("negligence", { type: "case" });
+    expect(getMock).toHaveBeenCalledTimes(1);
+    const opts = getMock.mock.calls[0]?.[1] as { headers: Record<string, string> };
+    expect(opts.headers["User-Agent"]).toBe("test-austlii-ua/1.0");
+    expect(opts.headers["Accept"]).toBe("text/html");
+    expect(opts.headers["Accept-Language"]).toBe("en-AU,en;q=0.9");
+    expect(opts.headers["Referer"]).toBe("https://www.austlii.edu.au/forms/search1.html");
+  });
 
-    await expect(searchAustLii("negligence", { type: "case" })).rejects.toThrow(
-      "AustLII search failed",
-    );
+  it("never includes a cookie header when cfClearance is unset", async () => {
+    await searchAustLii("negligence", { type: "case" });
+    const opts = getMock.mock.calls[0]?.[1] as { headers: Record<string, string> };
+    expect(opts.headers["Cookie"]).toBeUndefined();
+  });
+
+  it("throws a typed CloudflareBlockedError on a CF challenge response", async () => {
+    getMock.mockResolvedValueOnce({
+      status: 403,
+      headers: { "content-type": "text/html" },
+      body: Buffer.from(AUSTLII_CLOUDFLARE_CHALLENGE_HTML, "utf-8"),
+      finalUrl: "https://www.austlii.edu.au/cgi-bin/sinosrch.cgi",
+      via: "impit" as const,
+    });
+
+    const err = await searchAustLii("negligence", { type: "case" }).catch((e) => e);
+    expect(err).toBeInstanceOf(CloudflareBlockedError);
+    expect(err).toBeInstanceOf(AustLiiError);
+    expect((err as CloudflareBlockedError).statusCode).toBe(403);
+    // The error message must never leak a cookie.
+    expect((err as Error).message).not.toMatch(/cf_clearance|Cookie/);
+  });
+
+  it("wraps transport failures as a typed AustLiiError", async () => {
+    getMock.mockRejectedValueOnce(new Error("Network Error"));
+
+    const err = await searchAustLii("negligence", { type: "case" }).catch((e) => e);
+    expect(err).toBeInstanceOf(AustLiiError);
+    expect((err as Error).message).toContain("AustLII search failed");
+  });
+
+  it("rethrows a typed AustLiiError without re-wrapping", async () => {
+    getMock.mockRejectedValueOnce(new AustLiiError("already typed", 500));
+
+    const err = await searchAustLii("negligence", { type: "case" }).catch((e) => e);
+    expect(err).toBeInstanceOf(AustLiiError);
+    expect((err as Error).message).toBe("already typed");
   });
 
   it("should build correct search URL with jurisdiction filter", async () => {
     await searchAustLii("negligence", { type: "case", jurisdiction: "vic" });
-    expect(mockedAxios.get).toHaveBeenCalledTimes(1);
-    const calledUrl = String(mockedAxios.get.mock.calls[0]?.[0] ?? "");
+    expect(getMock).toHaveBeenCalledTimes(1);
+    const calledUrl = String(getMock.mock.calls[0]?.[0] ?? "");
     expect(calledUrl).toContain("mask_path=au%2Fcases%2Fvic");
   });
 
   it("filters out non-legislation URLs when searching for legislation", async () => {
-    // Use HTML that includes a relative URL pointing to a /cases/ path (not /legis/)
     const legislationHtml = `
       <html><body>
         <ul><li data-count="1." class="multi">
@@ -93,7 +169,7 @@ describe("searchAustLii (mocked)", () => {
           <p class="meta"><a>High Court</a></p>
         </li></ul>
       </body></html>`;
-    mockedAxios.get.mockResolvedValueOnce({ data: legislationHtml, status: 200 });
+    getMock.mockResolvedValueOnce(okResponse(legislationHtml));
 
     const results = await searchAustLii("Privacy Act", { type: "legislation" });
     for (const r of results) {
@@ -102,7 +178,6 @@ describe("searchAustLii (mocked)", () => {
   });
 
   it("processes relative URLs with query parameters correctly", async () => {
-    // Simulate AustLII returning a relative URL with search-decoration query params
     const htmlWithRelativeUrl = `
       <html><body>
         <ul><li data-count="1." class="multi">
@@ -110,34 +185,25 @@ describe("searchAustLii (mocked)", () => {
           <p class="meta"><a>High Court</a></p>
         </li></ul>
       </body></html>`;
-    mockedAxios.get.mockResolvedValueOnce({ data: htmlWithRelativeUrl, status: 200 });
+    getMock.mockResolvedValueOnce(okResponse(htmlWithRelativeUrl));
 
     const results = await searchAustLii("mabo", { type: "case" });
     expect(results.length).toBeGreaterThan(0);
-    // Search decoration params (stem, synonyms, query) should be stripped
     expect(results[0]!.url).not.toContain("stem=0");
     expect(results[0]!.url).not.toContain("synonyms=0");
     expect(results[0]!.url).toContain("austlii.edu.au");
   });
 
-  it("rethrows non-AxiosError exceptions from network requests", async () => {
-    const typeError = new TypeError("Failed to fetch");
-    mockedAxios.get.mockRejectedValueOnce(typeError);
-    mockedAxios.isAxiosError.mockReturnValue(false);
-
-    await expect(searchAustLii("negligence", { type: "case" })).rejects.toThrow("Failed to fetch");
-  });
-
-  it("includes offset parameter in search URL when provided (line 270)", async () => {
-    mockedAxios.get.mockResolvedValueOnce({ data: AUSTLII_SEARCH_HTML, status: 200 });
+  it("includes offset parameter in search URL when provided", async () => {
+    getMock.mockResolvedValueOnce(okResponse(AUSTLII_SEARCH_HTML));
 
     await searchAustLii("negligence", { type: "case", offset: 10 });
 
-    const calledUrl = String(mockedAxios.get.mock.calls[0]?.[0] ?? "");
+    const calledUrl = String(getMock.mock.calls[0]?.[0] ?? "");
     expect(calledUrl).toContain("offset=10");
   });
 
-  it("preserves non-decoration query params in relative result URLs (lines 315, 320)", async () => {
+  it("preserves non-decoration query params in relative result URLs", async () => {
     const htmlWithCustomParam = `
       <html><body>
         <ul><li data-count="1." class="multi">
@@ -145,11 +211,10 @@ describe("searchAustLii (mocked)", () => {
           <p class="meta"><a>High Court</a></p>
         </li></ul>
       </body></html>`;
-    mockedAxios.get.mockResolvedValueOnce({ data: htmlWithCustomParam, status: 200 });
+    getMock.mockResolvedValueOnce(okResponse(htmlWithCustomParam));
 
     const results = await searchAustLii("mabo", { type: "case" });
     expect(results.length).toBeGreaterThan(0);
-    // stem (decoration) should be stripped; customparam should be preserved
     expect(results[0]!.url).not.toContain("stem=0");
     expect(results[0]!.url).toContain("customparam=kept");
   });

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isCloudflareChallengeHtml,
   isCloudflareBotBlock,
+  isCloudflareChallenge,
   cfBlockMessage,
 } from "../../services/cloudflare.js";
 import {
@@ -58,6 +59,30 @@ describe("isCloudflareBotBlock", () => {
 
   it("returns false for 500", () => {
     expect(isCloudflareBotBlock(500)).toBe(false);
+  });
+});
+
+describe("isCloudflareChallenge", () => {
+  const challengeBody = "<title>Just a moment...</title><script>window._cf_chl_opt = {};</script>";
+
+  it("returns true when the body is a challenge page, regardless of a 200 status", () => {
+    expect(isCloudflareChallenge(200, challengeBody)).toBe(true);
+  });
+
+  it("returns true for a 403 with a challenge body", () => {
+    expect(isCloudflareChallenge(403, challengeBody)).toBe(true);
+  });
+
+  it("returns true on the real challenge fixture", () => {
+    expect(isCloudflareChallenge(403, AUSTLII_CLOUDFLARE_CHALLENGE_HTML)).toBe(true);
+  });
+
+  it("returns false for a bare 403 with a non-challenge body", () => {
+    expect(isCloudflareChallenge(403, "<html><body>Forbidden</body></html>")).toBe(false);
+  });
+
+  it("returns false for a clean 200 judgment", () => {
+    expect(isCloudflareChallenge(200, AUSTLII_CLASSIC_JUDGMENT_HTML)).toBe(false);
   });
 });
 

@@ -18,6 +18,7 @@
 
 import { config } from "../config.js";
 import { isCloudflareChallengeHtml, isCloudflareBotBlock, cfBlockMessage } from "./cloudflare.js";
+import { isAustliiUrl } from "./austlii-url.js";
 
 export interface TransportResponse {
   body: string;
@@ -156,4 +157,96 @@ export async function fetchWithTransport(
   }
 
   return fetchWithImpit(url, options);
+}
+
+/**
+ * Raw byte-level fetch result. Unlike {@link TransportResponse}, the body is a
+ * Buffer (so PDF/binary documents survive intact) and Cloudflare-challenge
+ * responses are **not** thrown — the caller inspects {@link FetcherResult.body}
+ * and {@link FetcherResult.status} itself so it can route to the OALC fallback.
+ */
+export interface FetcherResult {
+  status: number;
+  headers: Record<string, string>;
+  body: Buffer;
+  finalUrl: string;
+  via: "impit" | "axios";
+}
+
+/** Per-request options for {@link HttpFetcher.get}. */
+export interface FetcherOptions {
+  headers: Record<string, string>;
+  timeoutMs: number;
+}
+
+/** A host-routed HTTP fetcher returning raw bytes. */
+export interface HttpFetcher {
+  get(url: string, opts: FetcherOptions): Promise<FetcherResult>;
+}
+
+class ImpitFetcher implements HttpFetcher {
+  async get(url: string, opts: FetcherOptions): Promise<FetcherResult> {
+    const mod = await tryLoadImpit();
+    if (!mod) {
+      throw new Error(
+        "impit is not installed. Run: npm install impit\n" +
+          "impit is required to bypass Cloudflare TLS fingerprinting on AustLII.",
+      );
+    }
+    const browser = (config.transport.imitBrowser as import("impit").Browser) ?? "chrome";
+    const client = new mod.Impit({ browser });
+    const response = await client.fetch(url, {
+      method: "GET",
+      headers: opts.headers,
+    });
+    const headers: Record<string, string> = {};
+    response.headers.forEach((value: string, key: string) => {
+      headers[key] = value;
+    });
+    const body = Buffer.from(await response.bytes());
+    return { status: response.status, headers, body, finalUrl: url, via: "impit" };
+  }
+}
+
+class AxiosFetcher implements HttpFetcher {
+  async get(url: string, opts: FetcherOptions): Promise<FetcherResult> {
+    const { default: axios } = await import("axios");
+    const response = await axios.get<ArrayBuffer>(url, {
+      responseType: "arraybuffer",
+      headers: opts.headers,
+      timeout: opts.timeoutMs,
+    });
+    const headers: Record<string, string> = {};
+    for (const [k, v] of Object.entries(response.headers)) {
+      if (typeof v === "string") {
+        headers[k] = v;
+      }
+    }
+    const body = Buffer.from(response.data);
+    return { status: response.status, headers, body, finalUrl: url, via: "axios" };
+  }
+}
+
+/**
+ * Selects the byte-level fetcher for a URL.
+ *
+ * AustLII URLs use {@link ImpitFetcher} (TLS impersonation) unless the caller
+ * forces `"axios"`; non-AustLII URLs always use {@link AxiosFetcher}. When the
+ * transport mode is `"impit"`, impit is forced even for non-AustLII URLs.
+ *
+ * @param url - The target URL.
+ * @param transport - The configured AustLII transport mode ("auto"|"impit"|"axios").
+ */
+export function fetcherForUrl(
+  url: string,
+  transport: "auto" | "impit" | "axios" = "auto",
+): HttpFetcher {
+  if (transport === "axios") {
+    return new AxiosFetcher();
+  }
+  if (transport === "impit") {
+    return new ImpitFetcher();
+  }
+  // auto: impit for AustLII, axios otherwise.
+  return isAustliiUrl(url) ? new ImpitFetcher() : new AxiosFetcher();
 }

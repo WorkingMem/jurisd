@@ -16,6 +16,16 @@ import { MAX_CONTENT_LENGTH } from "../constants.js";
 import { isSourceUrl, extractArticleId, fetchSourceArticleContent } from "./source.js";
 import { assertFetchableUrl } from "../utils/url-guard.js";
 import { austliiRateLimiter, upstreamRateLimiter } from "../utils/rate-limiter.js";
+import {
+  isAustliiUrl,
+  toClassicDocUrl,
+  austliiUrlToNeutralCitation,
+  austliiUrlIsLegislation,
+} from "./austlii-url.js";
+import { fetcherForUrl } from "./transport.js";
+import { isCloudflareChallenge } from "./cloudflare.js";
+import { lookupByCitation } from "./oalc.js";
+import { CloudflareBlockedError } from "../errors.js";
 
 export interface ParagraphBlock {
   number: number;
@@ -242,10 +252,143 @@ function extractParagraphBlocks(html: string): ParagraphBlock[] {
 }
 
 /**
+ * Parses a fetched document body (Buffer + content-type) into a
+ * {@link FetchResponse}, driving the PDF/OCR, HTML and plain-text paths off the
+ * detected content type. Shared by the AustLII (impit) and generic (axios)
+ * fetch paths so both parse identically.
+ *
+ * @param buffer - Raw response bytes.
+ * @param rawContentType - The `content-type` response header (may be undefined).
+ * @param url - The source URL (used for source-specific HTML extraction + metadata).
+ * @param extra - Optional `etag`/`lastModified`/`source` to fold into the result.
+ */
+async function parseDocumentBuffer(
+  buffer: Buffer,
+  rawContentType: string | undefined,
+  url: string,
+  extra?: { etag?: string; lastModified?: string; source?: string },
+): Promise<FetchResponse> {
+  const contentType = typeof rawContentType === "string" ? rawContentType : "";
+
+  // Detect file type from buffer
+  const detectedType = await fileTypeFromBuffer(buffer);
+
+  let text: string;
+  let cleanedHtml: string | undefined;
+  let ocrUsed = false;
+  let paragraphs: ParagraphBlock[] | undefined;
+
+  // Handle PDF documents
+  if (contentType.includes("application/pdf") || detectedType?.mime === "application/pdf") {
+    const result = await extractTextFromPdf(buffer, url);
+    text = result.text;
+    ocrUsed = result.ocrUsed;
+  }
+  // Handle HTML documents
+  else if (contentType.includes("text/html") || detectedType?.mime === "text/html") {
+    const rawHtml = buffer.toString("utf-8");
+    text = extractTextFromHtml(rawHtml, url);
+    paragraphs = extractParagraphBlocks(rawHtml);
+    cleanedHtml = cleanHtmlForOutput(rawHtml);
+  }
+  // Handle plain text
+  else if (contentType.includes("text/plain")) {
+    text = buffer.toString("utf-8");
+  }
+  // Unsupported format
+  else {
+    throw new Error(
+      `Unsupported content type: ${contentType}${detectedType ? ` (detected: ${detectedType.mime})` : ""}`,
+    );
+  }
+
+  const metadata: Record<string, string> = {
+    contentLength: String(buffer.length),
+    contentType: contentType || detectedType?.mime || "unknown",
+  };
+  if (extra?.source) {
+    metadata.source = extra.source;
+  }
+
+  return {
+    text,
+    html: cleanedHtml,
+    contentType: contentType || detectedType?.mime || "unknown",
+    sourceUrl: url,
+    ocrUsed,
+    metadata,
+    paragraphs,
+    etag: extra?.etag,
+    lastModified: extra?.lastModified,
+  };
+}
+
+/**
+ * Fetches an AustLII document through the impit TLS-impersonating transport,
+ * detecting Cloudflare challenges and falling back to the local OALC corpus.
+ *
+ * Flow (per the C0 routing contract, live-AustLII layer + OALC fallback):
+ *   1. Optionally rewrite to the classic direct-document URL.
+ *   2. Build headers from config.austlii; attach cf_clearance cookie if set.
+ *   3. Fetch via the host-routed fetcher (impit for AustLII).
+ *   4. If the response is a Cloudflare challenge: when OALC is enabled, join on
+ *      the neutral citation and return the corpus text (source='oalc-fallback');
+ *      otherwise throw a typed {@link CloudflareBlockedError}.
+ *   5. Otherwise parse the body exactly as the generic path does.
+ */
+async function fetchAustliiDocument(url: string): Promise<FetchResponse> {
+  await austliiRateLimiter.throttle();
+
+  const target = config.austlii.classicRewrite ? toClassicDocUrl(url) : url;
+
+  const headers: Record<string, string> = {
+    "User-Agent": config.austlii.userAgent,
+    Accept: config.austlii.accept,
+    "Accept-Language": config.austlii.acceptLanguage,
+  };
+  if (config.austlii.referer) {
+    headers["Referer"] = config.austlii.referer;
+  }
+  if (config.austlii.cfClearance) {
+    headers["Cookie"] = `cf_clearance=${config.austlii.cfClearance}`;
+  }
+
+  const fetcher = fetcherForUrl(target, config.austlii.transport);
+  const r = await fetcher.get(target, { headers, timeoutMs: config.austlii.timeout });
+
+  const bodyText = r.body.toString("utf-8");
+  if (isCloudflareChallenge(r.status, bodyText)) {
+    if (config.oalc.enabled) {
+      const cite = austliiUrlToNeutralCitation(url);
+      if (cite) {
+        const isLegis = austliiUrlIsLegislation(url);
+        const hit = await lookupByCitation(cite, isLegis);
+        if (hit) {
+          return parseDocumentBuffer(Buffer.from(hit.text, "utf-8"), hit.mime, url, {
+            source: "oalc-fallback",
+          });
+        }
+      }
+      throw new CloudflareBlockedError(url, true);
+    }
+    throw new CloudflareBlockedError(url, false);
+  }
+
+  return parseDocumentBuffer(r.body, r.headers["content-type"], url, {
+    etag: r.headers["etag"],
+    lastModified: r.headers["last-modified"],
+  });
+}
+
+/**
  * Fetches a legal document from a URL and extracts its text content.
  *
  * Supports HTML pages, PDF documents, and plain text. For scanned PDFs
  * with minimal extractable text the function falls back to Tesseract OCR.
+ *
+ * AustLII URLs are routed through the impit transport with Cloudflare-challenge
+ * detection and an OALC corpus fallback; removed.invalid and all other URLs are
+ * unchanged.
  *
  * @param url - Absolute URL of the document to fetch
  * @returns Promise resolving to a {@link FetchResponse} with extracted text
@@ -308,6 +451,12 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
     };
   }
 
+  // AustLII: route through the impit TLS-impersonating transport with
+  // Cloudflare-challenge detection and OALC corpus fallback.
+  if (isAustliiUrl(url)) {
+    return fetchAustliiDocument(url);
+  }
+
   try {
     await austliiRateLimiter.throttle();
 
@@ -324,57 +473,16 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
 
     const buffer = Buffer.from(response.data);
     const rawContentType = response.headers["content-type"];
-    const contentType = typeof rawContentType === "string" ? rawContentType : "";
 
-    // Detect file type from buffer
-    const detectedType = await fileTypeFromBuffer(buffer);
-
-    let text: string;
-    let cleanedHtml: string | undefined;
-    let ocrUsed = false;
-    let paragraphs: ParagraphBlock[] | undefined;
-
-    // Handle PDF documents
-    if (contentType.includes("application/pdf") || detectedType?.mime === "application/pdf") {
-      const result = await extractTextFromPdf(buffer, url);
-      text = result.text;
-      ocrUsed = result.ocrUsed;
-    }
-    // Handle HTML documents
-    else if (contentType.includes("text/html") || detectedType?.mime === "text/html") {
-      const rawHtml = buffer.toString("utf-8");
-      text = extractTextFromHtml(rawHtml, url);
-      paragraphs = extractParagraphBlocks(rawHtml);
-      cleanedHtml = cleanHtmlForOutput(rawHtml);
-    }
-    // Handle plain text
-    else if (contentType.includes("text/plain")) {
-      text = buffer.toString("utf-8");
-    }
-    // Unsupported format
-    else {
-      throw new Error(
-        `Unsupported content type: ${contentType}${detectedType ? ` (detected: ${detectedType.mime})` : ""}`,
-      );
-    }
-
-    // Extract basic metadata
-    const metadata: Record<string, string> = {
-      contentLength: String(buffer.length),
-      contentType: contentType || detectedType?.mime || "unknown",
-    };
-
-    return {
-      text,
-      html: cleanedHtml,
-      contentType: contentType || detectedType?.mime || "unknown",
-      sourceUrl: url,
-      ocrUsed,
-      metadata,
-      paragraphs,
-      etag: (response.headers["etag"] as string) ?? undefined,
-      lastModified: (response.headers["last-modified"] as string) ?? undefined,
-    };
+    return parseDocumentBuffer(
+      buffer,
+      typeof rawContentType === "string" ? rawContentType : undefined,
+      url,
+      {
+        etag: (response.headers["etag"] as string) ?? undefined,
+        lastModified: (response.headers["last-modified"] as string) ?? undefined,
+      },
+    );
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (isSourceUrl(url) && (error.response?.status === 401 || error.response?.status === 403)) {

@@ -3,8 +3,19 @@
  * Requires mocking child_process (Tesseract), pdf-parse, tmp, and fs/promises.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import axios from "axios";
 import { fileTypeFromBuffer } from "file-type";
+
+// AustLII PDFs route through the impit transport seam. Mock that seam (not
+// axios) to return the PDF bytes so the shared PDF/OCR parse path runs offline.
+const { getMock, fetcherForUrlMock } = vi.hoisted(() => {
+  const getMock = vi.fn();
+  const fetcherForUrlMock = vi.fn(() => ({ get: getMock }));
+  return { getMock, fetcherForUrlMock };
+});
+vi.mock("../../services/transport.js", () => ({ fetcherForUrl: fetcherForUrlMock }));
+vi.mock("../../services/cloudflare.js", () => ({
+  isCloudflareChallenge: vi.fn().mockReturnValue(false),
+}));
 
 // ── Hoisted mock references ────────────────────────────────────────────────
 
@@ -43,7 +54,6 @@ vi.mock("pdf-parse", () => ({
 }));
 
 vi.mock("file-type");
-vi.mock("axios");
 vi.mock("../../config.js", () => ({
   config: {
     source: {
@@ -53,7 +63,19 @@ vi.mock("../../config.js", () => ({
       baseUrl: "https://removed.invalid",
     },
     ocr: { language: "eng", oem: 1, psm: 3 },
-    austlii: { searchBase: "", referer: "", userAgent: "", timeout: 5000 },
+    austlii: {
+      searchBase: "",
+      referer: "",
+      userAgent: "test-austlii-ua",
+      timeout: 5000,
+      transport: "auto",
+      classicRewrite: true,
+      cfClearance: undefined,
+      accept: "text/html",
+      acceptLanguage: "en-AU,en;q=0.9",
+    },
+    oalc: { enabled: true, source: "/tmp/fixture.jsonl" },
+    transport: { useImpit: false, imitBrowser: "chrome" },
     defaults: { searchLimit: 10, maxSearchLimit: 50, outputFormat: "json", sortBy: "auto" },
   },
 }));
@@ -67,13 +89,14 @@ import { fetchDocumentText } from "../../services/fetcher.js";
 const PDF_URL = "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.pdf";
 
 function mockPdfAxiosResponse() {
-  vi.mocked(axios.get).mockResolvedValueOnce({
-    data: Buffer.from("fake pdf binary"),
-    headers: { "content-type": "application/pdf" },
+  getMock.mockResolvedValueOnce({
     status: 200,
+    headers: { "content-type": "application/pdf" },
+    body: Buffer.from("fake pdf binary"),
+    finalUrl: PDF_URL,
+    via: "impit" as const,
   });
   vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
-  vi.mocked(axios.isAxiosError).mockReturnValue(false);
 }
 
 describe("fetchDocumentText — PDF content type", () => {

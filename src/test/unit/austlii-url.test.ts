@@ -3,10 +3,14 @@ import {
   isAustliiUrl,
   toWwwUrl,
   toClassicUrl,
+  toClassicDocUrl,
+  austliiUrlToNeutralCitation,
+  austliiUrlIsLegislation,
   normaliseAustliiPath,
   AUSTLII_WWW_HOST,
   AUSTLII_CLASSIC_HOST,
 } from "../../services/austlii-url.js";
+import { COURT_TO_AUSTLII_PATH } from "../../constants.js";
 
 describe("isAustliiUrl", () => {
   it("returns true for www.austlii.edu.au URLs", () => {
@@ -86,6 +90,103 @@ describe("toClassicUrl", () => {
   it("returns the input unchanged for malformed URLs", () => {
     const bad = "not a url";
     expect(toClassicUrl(bad)).toBe(bad);
+  });
+});
+
+describe("toClassicDocUrl", () => {
+  it("rewrites www to classic and strips the /cgi-bin/viewdoc/ viewer prefix", () => {
+    const www = "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html";
+    expect(toClassicDocUrl(www)).toBe(
+      "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+    );
+  });
+
+  it("rewrites a direct www path to classic without altering the path", () => {
+    const www = "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html";
+    expect(toClassicDocUrl(www)).toBe(
+      "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+    );
+  });
+
+  it("strips the viewer prefix on a classic URL", () => {
+    const classic = "https://classic.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html";
+    expect(toClassicDocUrl(classic)).toBe(
+      "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+    );
+  });
+
+  it("leaves non-AustLII URLs unchanged", () => {
+    const external = "https://removed.invalid/article/12345";
+    expect(toClassicDocUrl(external)).toBe(external);
+  });
+
+  it("returns the input unchanged for malformed URLs", () => {
+    expect(toClassicDocUrl("not a url")).toBe("not a url");
+  });
+});
+
+describe("austliiUrlToNeutralCitation", () => {
+  it("derives a neutral citation from a direct case URL", () => {
+    expect(
+      austliiUrlToNeutralCitation("https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html"),
+    ).toBe("[1992] HCA 23");
+  });
+
+  it("derives from a /cgi-bin/viewdoc/ case URL", () => {
+    expect(
+      austliiUrlToNeutralCitation(
+        "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html",
+      ),
+    ).toBe("[1992] HCA 23");
+  });
+
+  it("derives from an NZ case URL", () => {
+    expect(
+      austliiUrlToNeutralCitation("https://www.austlii.edu.au/nz/cases/NZSC/2020/5.html"),
+    ).toBe("[2020] NZSC 5");
+  });
+
+  it("round-trips every court in COURT_TO_AUSTLII_PATH", () => {
+    for (const [court, path] of Object.entries(COURT_TO_AUSTLII_PATH)) {
+      const url = `https://www.austlii.edu.au/${path}/2021/7.html`;
+      expect(austliiUrlToNeutralCitation(url)).toBe(`[2021] ${court} 7`);
+    }
+  });
+
+  it("returns null for a legislation URL", () => {
+    expect(
+      austliiUrlToNeutralCitation(
+        "https://www.austlii.edu.au/au/legis/cth/consol_act/paa1988125.html",
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null for an unknown court code", () => {
+    expect(
+      austliiUrlToNeutralCitation("https://www.austlii.edu.au/au/cases/cth/XYZ/2021/1.html"),
+    ).toBeNull();
+  });
+
+  it("returns null for a malformed URL", () => {
+    expect(austliiUrlToNeutralCitation("not a url")).toBeNull();
+  });
+});
+
+describe("austliiUrlIsLegislation", () => {
+  it("returns true for a /legis/ URL", () => {
+    expect(
+      austliiUrlIsLegislation("https://www.austlii.edu.au/au/legis/cth/consol_act/paa1988125.html"),
+    ).toBe(true);
+  });
+
+  it("returns false for a /cases/ URL", () => {
+    expect(
+      austliiUrlIsLegislation("https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html"),
+    ).toBe(false);
+  });
+
+  it("returns false for a malformed URL", () => {
+    expect(austliiUrlIsLegislation("not a url")).toBe(false);
   });
 });
 

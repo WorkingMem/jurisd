@@ -79,4 +79,47 @@ describe("loadConfig", () => {
     const cfg = loadConfig();
     expect(cfg.oalc.source).toContain("oalc-data/corpus_published.jsonl");
   });
+
+  // austlii section (A3/B2)
+  it("austlii.classicRewrite defaults to true when env var absent", () => {
+    vi.stubEnv("AUSTLII_CLASSIC_REWRITE", undefined);
+    expect(loadConfig().austlii.classicRewrite).toBe(true);
+  });
+
+  it("austlii.classicRewrite is false when AUSTLII_CLASSIC_REWRITE=false", () => {
+    vi.stubEnv("AUSTLII_CLASSIC_REWRITE", "false");
+    expect(loadConfig().austlii.classicRewrite).toBe(false);
+  });
+
+  it("austlii.transport defaults to auto when env var absent", () => {
+    vi.stubEnv("AUSTLII_TRANSPORT", undefined);
+    expect(loadConfig().austlii.transport).toBe("auto");
+  });
+
+  it("austlii.transport reads impit/axios but rejects unknown values to auto", () => {
+    vi.stubEnv("AUSTLII_TRANSPORT", "impit");
+    expect(loadConfig().austlii.transport).toBe("impit");
+    vi.stubEnv("AUSTLII_TRANSPORT", "axios");
+    expect(loadConfig().austlii.transport).toBe("axios");
+    vi.stubEnv("AUSTLII_TRANSPORT", "garbage");
+    expect(loadConfig().austlii.transport).toBe("auto");
+  });
+
+  it("austlii.cfClearance is undefined when env var absent", () => {
+    vi.stubEnv("AUSTLII_CF_CLEARANCE", undefined);
+    expect(loadConfig().austlii.cfClearance).toBeUndefined();
+  });
+
+  it("austlii.cfClearance reads AUSTLII_CF_CLEARANCE env var", () => {
+    vi.stubEnv("AUSTLII_CF_CLEARANCE", "abc123");
+    expect(loadConfig().austlii.cfClearance).toBe("abc123");
+  });
+
+  it("austlii.accept and acceptLanguage have sensible defaults", () => {
+    vi.stubEnv("AUSTLII_ACCEPT", undefined);
+    vi.stubEnv("AUSTLII_ACCEPT_LANGUAGE", undefined);
+    const cfg = loadConfig();
+    expect(cfg.austlii.accept).toContain("text/html");
+    expect(cfg.austlii.acceptLanguage).toContain("en-AU");
+  });
 });

@@ -11,6 +11,27 @@ export interface Config {
     referer: string;
     userAgent: string;
     timeout: number;
+    /**
+     * Per-request transport override for AustLII fetches.
+     * "auto" defers to transport.useImpit; "impit" forces TLS impersonation;
+     * "axios" forces the plain HTTP path.
+     */
+    transport: "auto" | "impit" | "axios";
+    /**
+     * When true (default), AustLII document URLs are rewritten to the classic
+     * hostname + direct document path before fetching.
+     */
+    classicRewrite: boolean;
+    /**
+     * Optional user-supplied `cf_clearance` cookie value, attached to AustLII
+     * requests so an already-solved Cloudflare challenge can be reused.
+     * Never logged or echoed in error messages.
+     */
+    cfClearance?: string;
+    /** Accept header sent on AustLII requests. */
+    accept: string;
+    /** Accept-Language header sent on AustLII requests. */
+    acceptLanguage: string;
   };
   source: {
     baseUrl: string;
@@ -96,6 +117,16 @@ export function loadConfig(): Config {
         process.env.AUSTLII_USER_AGENT ||
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       timeout: parseInt(process.env.AUSTLII_TIMEOUT || "60000", 10), // AustLII can be slow
+      transport: ((): "auto" | "impit" | "axios" => {
+        const t = process.env.AUSTLII_TRANSPORT;
+        return t === "impit" || t === "axios" ? t : "auto";
+      })(),
+      classicRewrite: process.env.AUSTLII_CLASSIC_REWRITE !== "false",
+      cfClearance: process.env.AUSTLII_CF_CLEARANCE || undefined,
+      accept:
+        process.env.AUSTLII_ACCEPT ||
+        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      acceptLanguage: process.env.AUSTLII_ACCEPT_LANGUAGE || "en-AU,en;q=0.9",
     },
     source: {
       baseUrl: process.env.SOURCE_BASE_URL || "https://removed.invalid",

@@ -83,6 +83,31 @@ describe("OALC corpus lookup", () => {
       expect(doc).not.toBeNull();
       expect(doc!.type).toBe("primary_legislation");
     });
+
+    it("matches a neutral-citation token via substring when isLegis=false", async () => {
+      const doc = await lookupByCitation("[1992] HCA 23", false);
+      expect(doc).not.toBeNull();
+      expect(doc!.citation).toBe("Mabo v Queensland (No 2) [1992] HCA 23");
+      expect(doc!.type).toBe("decision");
+    });
+
+    it("constrains a decision substring match to type='decision'", async () => {
+      // The legislation row's citation does not contain a neutral citation, so
+      // a decision-token lookup must not return it.
+      const doc = await lookupByCitation("[1992] HCA 23", false);
+      expect(doc!.type).toBe("decision");
+    });
+
+    it("returns null for a neutral-citation token not in the corpus", async () => {
+      const doc = await lookupByCitation("[9999] XYZ 1", false);
+      expect(doc).toBeNull();
+    });
+
+    it("matches legislation via substring when isLegis=true (no decision type guard)", async () => {
+      const doc = await lookupByCitation("Competition and Consumer Act 2010", true);
+      expect(doc).not.toBeNull();
+      expect(doc!.type).toBe("primary_legislation");
+    });
   });
 
   describe("disabled state", () => {

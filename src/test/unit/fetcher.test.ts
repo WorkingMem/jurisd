@@ -5,6 +5,16 @@ import { fileTypeFromBuffer } from "file-type";
 vi.mock("file-type");
 vi.mock("axios");
 
+// AustLII routes through the impit transport seam; mock it so these tests stay
+// offline and don't touch the impit native binary.
+const { austliiGetMock } = vi.hoisted(() => ({ austliiGetMock: vi.fn() }));
+vi.mock("../../services/transport.js", () => ({
+  fetcherForUrl: vi.fn(() => ({ get: austliiGetMock })),
+}));
+vi.mock("../../services/cloudflare.js", () => ({
+  isCloudflareChallenge: vi.fn().mockReturnValue(false),
+}));
+
 const mockConfig = vi.hoisted(() => ({
   source: {
     userAgent: "test-agent",
@@ -13,7 +23,19 @@ const mockConfig = vi.hoisted(() => ({
     baseUrl: "https://removed.invalid",
   },
   ocr: { language: "eng", oem: 1, psm: 3 },
-  austlii: { searchBase: "", referer: "", userAgent: "", timeout: 5000 },
+  austlii: {
+    searchBase: "",
+    referer: "",
+    userAgent: "test-austlii-ua",
+    timeout: 5000,
+    transport: "auto" as const,
+    classicRewrite: true,
+    cfClearance: undefined as string | undefined,
+    accept: "text/html",
+    acceptLanguage: "en-AU,en;q=0.9",
+  },
+  oalc: { enabled: true, source: "/tmp/fixture.jsonl" },
+  transport: { useImpit: false, imitBrowser: "chrome" },
   defaults: {
     searchLimit: 10,
     maxSearchLimit: 50,
@@ -144,10 +166,12 @@ describe("fetchDocumentText", () => {
     // Regression: old url.includes("removed.invalid") would misroute this to source extraction.
     // assertFetchableUrl permits www.austlii.edu.au; hostname != removed.invalid so generic path is used.
     const html = "<html><body><p>AustLII generic content</p></body></html>";
-    vi.mocked(axios.get).mockResolvedValueOnce({
-      data: Buffer.from(html),
-      headers: { "content-type": "text/html" },
+    austliiGetMock.mockResolvedValueOnce({
       status: 200,
+      headers: { "content-type": "text/html" },
+      body: Buffer.from(html),
+      finalUrl: "https://www.austlii.edu.au/cgi-bin/viewdoc?ref=removed.invalid",
+      via: "impit",
     });
 
     const result = await fetchDocumentText(
@@ -163,10 +187,12 @@ describe("fetchDocumentText", () => {
       <p>[3] Third paragraph concluding.</p>
     </body></html>`;
 
-    vi.mocked(axios.get).mockResolvedValueOnce({
-      data: Buffer.from(html),
-      headers: { "content-type": "text/html" },
+    austliiGetMock.mockResolvedValueOnce({
       status: 200,
+      headers: { "content-type": "text/html" },
+      body: Buffer.from(html),
+      finalUrl: "https://www.austlii.edu.au/case",
+      via: "impit",
     });
 
     const result = await fetchDocumentText("https://www.austlii.edu.au/case");

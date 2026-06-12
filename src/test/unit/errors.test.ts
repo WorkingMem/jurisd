@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { AustLiiError, NetworkError, ParseError, OcrError } from "../../errors.js";
+import {
+  AustLiiError,
+  CloudflareBlockedError,
+  NetworkError,
+  ParseError,
+  OcrError,
+} from "../../errors.js";
 
 describe("Custom error classes", () => {
   describe("AustLiiError", () => {
@@ -19,6 +25,48 @@ describe("Custom error classes", () => {
       const cause = new Error("network timeout");
       const err = new AustLiiError("search failed", 500, cause);
       expect(err.cause).toBe(cause);
+    });
+  });
+
+  describe("CloudflareBlockedError", () => {
+    const url = "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html";
+
+    it("extends AustLiiError and is an Error", () => {
+      const err = new CloudflareBlockedError(url, true);
+      expect(err).toBeInstanceOf(AustLiiError);
+      expect(err).toBeInstanceOf(Error);
+      expect(err.name).toBe("CloudflareBlockedError");
+    });
+
+    it("has statusCode 403", () => {
+      const err = new CloudflareBlockedError(url, true);
+      expect(err.statusCode).toBe(403);
+    });
+
+    it("carries resourceUrl and fallbackTried", () => {
+      const err = new CloudflareBlockedError(url, false);
+      expect(err.resourceUrl).toBe(url);
+      expect(err.fallbackTried).toBe(false);
+    });
+
+    it("has an actionable message mentioning AUSTLII_CF_CLEARANCE and primary registers", () => {
+      const err = new CloudflareBlockedError(url, true);
+      expect(err.message).toContain("AUSTLII_CF_CLEARANCE");
+      expect(err.message).toContain("legislation.gov.au");
+      expect(err.message).toContain(url);
+    });
+
+    it("message mentions the corpus fallback only when fallbackTried is true", () => {
+      const tried = new CloudflareBlockedError(url, true);
+      const notTried = new CloudflareBlockedError(url, false);
+      expect(tried.message).toContain("Open Australian Legal Corpus");
+      expect(notTried.message).not.toContain("Open Australian Legal Corpus");
+    });
+
+    it("never includes a cookie or cf_clearance value in the message", () => {
+      const err = new CloudflareBlockedError(url, true);
+      expect(err.message).not.toMatch(/cf_clearance=/);
+      expect(err.message).not.toMatch(/Cookie:/);
     });
   });
 

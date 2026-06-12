@@ -1,8 +1,10 @@
-import axios from "axios";
 import * as cheerio from "cheerio";
 import { config } from "../config.js";
 import { REPORTED_CITATION_PATTERNS } from "../constants.js";
 import { austliiRateLimiter } from "../utils/rate-limiter.js";
+import { fetcherForUrl } from "./transport.js";
+import { isCloudflareChallenge } from "./cloudflare.js";
+import { AustLiiError, CloudflareBlockedError } from "../errors.js";
 
 export interface SearchResult {
   title: string;
@@ -49,14 +51,25 @@ export interface SearchOptions {
   offset?: number; // For pagination - skip first N results
 }
 
-// Browser-like headers required by AustLII
-const AUSTLII_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  Referer: "https://www.austlii.edu.au/forms/search1.html",
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "Accept-Language": "en-AU,en;q=0.9",
-};
+/**
+ * Browser-like headers for AustLII search requests, sourced from
+ * `config.austlii` (fixes the v1 defect where these were hardcoded and the
+ * configurable userAgent/referer/accept fields were dead).
+ */
+function austliiHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "User-Agent": config.austlii.userAgent,
+    Accept: config.austlii.accept,
+    "Accept-Language": config.austlii.acceptLanguage,
+  };
+  if (config.austlii.referer) {
+    headers["Referer"] = config.austlii.referer;
+  }
+  if (config.austlii.cfClearance) {
+    headers["Cookie"] = `cf_clearance=${config.austlii.cfClearance}`;
+  }
+  return headers;
+}
 
 export interface SearchParams {
   query: string;
@@ -278,12 +291,17 @@ export async function searchAustLii(
     }
 
     await austliiRateLimiter.throttle();
-    const response = await axios.get(searchUrl.toString(), {
-      headers: AUSTLII_HEADERS,
-      timeout: config.austlii.timeout,
+    const fetcher = fetcherForUrl(searchUrl.toString(), config.austlii.transport);
+    const response = await fetcher.get(searchUrl.toString(), {
+      headers: austliiHeaders(),
+      timeoutMs: config.austlii.timeout,
     });
 
-    const html = response.data;
+    const html = response.body.toString("utf-8");
+    if (isCloudflareChallenge(response.status, html)) {
+      throw new CloudflareBlockedError(searchUrl.toString(), false);
+    }
+
     const $ = cheerio.load(html);
     const results: SearchResult[] = [];
 
@@ -398,10 +416,18 @@ export async function searchAustLii(
 
     return finalResults.slice(0, limit);
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      throw new Error(`AustLII search failed: ${error.message}`);
+    // Preserve typed errors (CloudflareBlockedError extends AustLiiError).
+    if (error instanceof AustLiiError) {
+      throw error;
     }
-    throw error;
+    // Wrap any transport/parse failure as a typed AustLiiError. The cause
+    // message never contains request headers (and therefore never a cookie).
+    const message = error instanceof Error ? error.message : String(error);
+    throw new AustLiiError(
+      `AustLII search failed: ${message}`,
+      undefined,
+      error instanceof Error ? error : undefined,
+    );
   }
 }
 

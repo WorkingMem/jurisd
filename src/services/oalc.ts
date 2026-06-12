@@ -163,23 +163,52 @@ export async function lookupByUrl(url: string): Promise<OalcDocument | null> {
 /**
  * Look up a document in the OALC corpus by its citation string.
  *
- * The match is exact (case-sensitive). For case-insensitive matching
- * callers should normalise the citation before passing it in.
+ * Two modes:
+ *   - Full citation (default): exact, case-sensitive match. Callers should
+ *     normalise the citation before passing it in for case-insensitive matching.
+ *   - Neutral-citation token (e.g. `"[1992] HCA 23"`): when `isLegis` is
+ *     supplied the match is a substring (`citation LIKE '%<token>%'`), because
+ *     the corpus stores decisions as `"Case Name [1992] HCA 23"`. The neutral
+ *     citation is the only stable join key from an AustLII URL. For decisions
+ *     the result is further constrained to `type = 'decision'` to guard against
+ *     a wrong-type match; legislation passes `isLegis = true` to drop that
+ *     constraint.
  *
- * @param citation - Citation string (e.g. "Mabo v Queensland (No 2) [1992] HCA 23").
+ * @param citation - Full citation string or a neutral-citation token.
+ * @param isLegis - When provided, switches to substring matching and tunes the
+ *                  `type` filter (true = legislation, false = decision).
  * @returns The matching {@link OalcDocument} or null when not found or DuckDB
  *          is unavailable.
  */
-export async function lookupByCitation(citation: string): Promise<OalcDocument | null> {
+export async function lookupByCitation(
+  citation: string,
+  isLegis?: boolean,
+): Promise<OalcDocument | null> {
   const state = await getConnection();
   if (!state) return null;
 
   const escaped = sqlEscapeString(citation);
+  const src = sqlEscapeString(state.corpusPath);
+
+  if (isLegis === undefined) {
+    // Exact full-citation match.
+    const sql = `
+      SELECT version_id, type, jurisdiction, source, mime, date,
+             citation, url, when_scraped, text
+      FROM read_json_auto('${src}')
+      WHERE citation = '${escaped}'
+      LIMIT 1
+    `;
+    return queryFirst(sql);
+  }
+
+  // Neutral-citation substring match with a type guard.
+  const typeClause = isLegis ? "" : "AND type = 'decision'";
   const sql = `
     SELECT version_id, type, jurisdiction, source, mime, date,
            citation, url, when_scraped, text
-    FROM read_json_auto('${sqlEscapeString(state.corpusPath)}')
-    WHERE citation = '${escaped}'
+    FROM read_json_auto('${src}')
+    WHERE citation LIKE '%${escaped}%' ${typeClause}
     LIMIT 1
   `;
   return queryFirst(sql);
