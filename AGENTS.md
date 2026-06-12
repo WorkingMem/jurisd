@@ -13,7 +13,8 @@ This document provides guidance for AI agents (Claude Code, Warp/Oz, Cursor, etc
 
 ```
 src/
-├── index.ts              # MCP server setup & tool registration (9 tools)
+├── index.ts              # Entry point: transport wiring (stdio / streamable HTTP)
+├── server.ts             # createMcpServer(): 10 tool registrations (mode/op/action/by dispatch)
 ├── config.ts             # Configuration management (env vars with defaults)
 ├── constants.ts          # Citation patterns, court codes, reporters, timeouts
 ├── errors.ts             # Custom error classes (AustLiiError, NetworkError, ParseError, OcrError)

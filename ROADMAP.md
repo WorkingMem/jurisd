@@ -7,8 +7,8 @@
 | `search_cases`                     | AustLII                    | Working                                                         |
 | `search_legislation`               | AustLII                    | Working                                                         |
 | `fetch_document_text`              | AustLII (HTML, PDF)        | Working                                                         |
-| `resolve_source_article`             | removed.invalid (title metadata)   | Working                                                         |
-| `source_citation_lookup`             | removed.invalid (URL construction) | Working                                                         |
+| `source_lookup` (`by: article_id`)   | removed.invalid (title metadata)   | Working                                                         |
+| `source_lookup` (`by: citation`)     | removed.invalid (URL construction) | Working                                                         |
 | `fetch_document_text`              | removed.invalid                    | Implemented via RPC when `SESSION_COOKIE` is available |
 | Tavily-backed search/extract/fetch | Tavily + public web        | Planned investigation                                           |
 
@@ -52,7 +52,7 @@ Use Tavily search/extract/fetch capabilities to make AustLII discovery and extra
 ### Candidate tools / parameters
 
 - Add `source_strategy?: "direct" | "tavily" | "auto"` to search/fetch tools.
-- Add `resolve_citation(citation, jurisdiction?, source_strategy?)` for one-shot citation resolution.
+- Extend `resolve_citation` (landed in the R5 consolidation) with `jurisdiction?` and `source_strategy?` parameters for one-shot citation resolution.
 - Add `extract_citation_context(url, citation?, pinpoint?)` for targeted extraction from a resolved page.
 - Add `fetch_legislation_section(act, section, jurisdiction?, as_at?, source_strategy?)` for section-level extraction.
 
@@ -88,7 +88,7 @@ Does removed.invalid still provide unique value now that Tavily can search and e
 
 ### Investigation tasks
 
-- Compare Tavily search results against `resolve_source_article` for known neutral and reported citations.
+- Compare Tavily search results against `source_lookup` (`by: article_id`) for known neutral and reported citations.
 - Compare Tavily extraction against Source RPC full-text extraction for a small set of judgments.
 - Test whether Tavily can discover cited-by references for cases where Source's citator has known results.
 - Decide whether Source remains a primary source, a fallback source, or only a citator provider.
@@ -262,7 +262,8 @@ Option C (Chrome MCP bridge): Useful for investigation but too fragile for produ
 
 ### `resolve_citation` tool
 
-Add a single entry point for citation resolution:
+A base `resolve_citation(citation, mode?)` tool now exists (R5 consolidation;
+see `docs/decisions/tool-surface.md`). Remaining candidate work extends it:
 
 ```text
 resolve_citation(citation, jurisdiction?, source_strategy?)

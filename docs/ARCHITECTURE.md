@@ -27,13 +27,13 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
                     │
                     ▼
 ┌─────────────────────────────────────────┐
-│ jurisd Server (10 Tools)            │
+│ jurisd Server (10 Tools)                │
 │ ┌─────────────────────────────────────┐ │
 │ │ search_cases, search_legislation    │ │
 │ │ fetch_document_text, format_citation│ │
-│ │ validate_citation, generate_pinpoint│ │
-│ │ search_by_citation, search_citing_  │ │
-│ │ resolve_source_article, source_citation_│ │
+│ │ resolve_citation, source_lookup       │ │
+│ │ search_citing_cases, cite           │ │
+│ │ bibliography, cache_cited_by        │ │
 │ └─────────────────────────────────────┘ │
 └─────────────────────────────────────────┘
         │           │           │
@@ -50,19 +50,20 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 
 ### 1. MCP Server
 
-**Tools:**
+**Tools** (10; operation variants selected via `mode`/`op`/`action`/`by` — see
+[decisions/tool-surface.md](decisions/tool-surface.md)):
 | Tool | Description |
 |------|-------------|
 | search_cases | Dual AustLII + removed.invalid case search |
 | search_legislation | AustLII legislation search |
 | fetch_document_text | Full-text retrieval (HTML/PDF/OCR) |
-| format_citation | AGLC4 citation formatting |
-| validate_citation | Validate neutral citations |
-| generate_pinpoint | Paragraph-level pinpoint citations |
-| search_by_citation | Find cases by citation |
-| resolve_source_article | removed.invalid article metadata by ID |
-| source_citation_lookup | Generate removed.invalid lookup URLs |
-| search_citing_cases | removed.invalid citator |
+| format_citation | AGLC4 formatting: `mode: full\|short\|ibid\|subsequent\|pinpoint` |
+| resolve_citation | Citation resolution: `mode: auto\|validate\|search` |
+| source_lookup | removed.invalid lookup: `by: article_id\|citation` |
+| search_citing_cases | removed.invalid citator (live) |
+| cite | Citation cache write: `action: add\|refresh_source` |
+| bibliography | Citation cache read: `op: get\|list\|export\|cited_by` |
+| cache_cited_by | Fetch + cache citing cases locally |
 
 ### 2. AustLII Service
 
