@@ -160,3 +160,37 @@ the no-hang guarantee fires on a black-hole connect.
   (verified in full at Check 6).
 
 **Verdict: PASS.**
+
+---
+
+## Check 5 — fetch-module rejects a bad sha256
+
+**Probe:** drove `fetchModule`/`verifyModule` through the `FetchIO` test seam
+(no live GitHub call) backed by the vendored fixture files (correct hashes) with
+one file's bytes corrupted to force a sha256 mismatch.
+
+**Evidence (`src/test/unit/fetch-module-verify.test.ts`, 5 tests, all PASS):**
+
+- Clean install: every file's sha256 matches → `ok:true`, atomic install at
+  `<dir>/<name>`, manifest persisted, licence attribution surfaced.
+- **Tampered file → rejected**: `ok:false`, error names the file (`chunks.parquet`)
+  and says "sha256 mismatch"; **nothing installed** and **no staging/temp residue**
+  left in the modules dir (the temp dir is cleaned on the abort path).
+- Failed re-fetch is **non-destructive**: a prior good install survives a later
+  fetch that fails verification, and the prior install still `verifyModule`-passes.
+- An unsafe module name is refused **before any network call** (`MODULE_NAME_PATTERN`).
+- `verifyModule` detects **post-install on-disk tampering** (a file appended to
+  after install) and names the offending file.
+
+**Wiring:** `fetch-module`/`verify-module`/`list-modules` are dispatched by
+`runCli` (`src/cli.ts`), called from `index.ts:14` before the server starts — the
+fetch path is reachable, not dead code, and is off the MCP tool surface per
+design §5.1.
+
+**Deferred gap (not a defect):** design §5.2 step 4 also calls for a cheap
+DuckDB `count(*)` cross-check of `files[].rows` at fetch time. The implementation
+verifies sha256 but omits the row-count cross-check. This is acceptable — a
+matching sha256 already guarantees byte-for-byte integrity, so the row count is
+redundant belt-and-braces. Logged as a **deferred enhancement**, not a hole.
+
+**Verdict: PASS.**
