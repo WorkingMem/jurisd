@@ -70,6 +70,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and documentation. Configuration env vars (`AUSLAW_*`) and the `.auslaw/` cache directory
   are unchanged.
 
+### Documentation
+
+- Day-0 front-door docs overhaul for public release: rewrote `README.md` around the
+  local-first three-layer story (local data modules → live AustLII → OALC fallback), a
+  grouped 15-tool table, the data-module / `fetch-module` / baseline-vs-domain-specialised /
+  BYOK-adapter sections, an honest quality section linking the `jurisd-data` gold-set eval
+  (strict + aligned metrics), and per-source licensing notes (code MIT; module data per-source,
+  AustLII excluded, VIC/NT recipe-only). Added `docs/INSTALL.md` with day-0 install paths
+  (npx-from-GitHub, local clone, Claude Code config), the all-optional env-var reference, the
+  `fetch-module` install flow, and the offline/baseline guarantee.
+- Terminology audit across all docs: neutralised freemium-flavoured "premium" framing of the
+  removed.invalid source to subscription/open-access wording; confirmed no stale `auslaw` prose
+  references remain.
+
 ## [0.1.0] - 2026-06-12
 
 First tagged release: a snapshot of the server as it stands. 18 MCP tools for Australian and NZ
