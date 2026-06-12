@@ -7,119 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-12
+
+First tagged release: a snapshot of the server as it stands. 18 MCP tools for Australian and NZ
+legal research across AustLII and removed.invalid.
+
+### Tools
+
+- **Search**: `search_cases`, `search_legislation` (AustLII + removed.invalid results merged and
+  deduplicated by neutral citation; smart query detection, jurisdiction filtering, relevance/date
+  sort selection, title-match boosting), `search_by_citation`
+- **Documents**: `fetch_document_text` (HTML, PDF, OCR via Tesseract; removed.invalid via RPC when a
+  session cookie is configured), `check_source_freshness`
+- **removed.invalid**: `resolve_source_article`, `source_citation_lookup`, `search_citing_cases` (citator via
+  reverse-engineered RPC; see `docs/source-rpc-protocol.md`)
+- **Citations (AGLC4)**: `format_citation`, `format_short_citation`, `validate_citation`,
+  `generate_pinpoint`
+- **Caching and bibliography**: `cache_citation`, `get_cached_citation`, `cache_cited_by`,
+  `get_cited_by`, `list_bibliography`, `export_bibliography`
+
 ### Added
 
-- removed.invalid search integration via AustLII cross-referencing (no API access required)
-  - `search_source` MCP tool for searching removed.invalid cases/legislation
-  - `search_source_by_citation` MCP tool for finding removed.invalid articles by neutral citation
-  - `searchUpstream()` function: searches by cross-referencing AustLII results with removed.invalid metadata
-  - `searchUpstreamByCitation()` function: resolves removed.invalid articles by neutral citation
-  - `deduplicateResults()` function: deduplicates by neutral citation, preferring removed.invalid
-  - `mergeSearchResults()` function: merges results from AustLII and removed.invalid
-- `includeSource` parameter on `search_cases` and `search_legislation` tools for multi-source merging
-- Maximum 5 concurrent removed.invalid article resolutions to avoid overwhelming the server
-- Graceful fallback: if removed.invalid resolution fails, AustLII results are still returned
-- ESLint and Prettier for code quality enforcement
-- SECURITY.md for responsible vulnerability disclosure
-- CONTRIBUTING.md with development guidelines
-- CHANGELOG.md for tracking changes
-- Comprehensive project improvement documentation
-- Linting and formatting scripts in package.json
-- Test coverage support configuration
-- Unit tests for AustLII search internals (isCaseNameQuery, determineSortMode, boostTitleMatches, extractReportedCitation)
-- Unit tests for configuration module
-
-### Changed
-
-- Updated dependencies to address security vulnerabilities
-- Enhanced documentation structure
-- Migrated ESLint configuration from `.eslintrc.json` to `eslint.config.mjs` for ESLint v9 compatibility
-- Services now use custom error classes (AustLiiError, NetworkError, ParseError, OcrError) instead of generic Error
-- Document fetcher now uses structured logger instead of console.warn/error
-- Document fetcher now uses config and constants modules instead of hardcoded values
-- Exported internal AustLII functions for testability
+- AustLII search with authority-based ranking, pagination, and multiple search methods
+- removed.invalid search integration via AustLII cross-referencing inside `search_cases` /
+  `search_legislation` (`searchUpstream()`, `mergeSearchResults()`, `deduplicateResults()`); graceful
+  fallback to AustLII-only results when removed.invalid resolution fails
+- removed.invalid RPC protocol implementation (`resolveRecords` search, `fetchRequest` fetch,
+  `RemoteService` citator)
+- Citation extraction and AGLC4 formatting (neutral and reported formats, paragraph-number
+  preservation for pinpoints)
+- Source store and citation cache with bibliography export
+- SSRF URL allowlist guard, per-host rate limiting, and cookie-scrubbing in error paths
+- Structured logging, typed error classes (`AustLiiError`, `NetworkError`, `ParseError`,
+  `OcrError`), config and constants modules
+- CI: lint + typecheck + Node 20/22 test matrix + npm audit; Docker build; TypeDoc docs sync;
+  tag-triggered release workflow
+- Unit, integration (live-service), and performance test suites; ESLint v9 flat config; Prettier
+- SECURITY.md, CONTRIBUTING.md, architecture documentation
 
 ### Security
 
-- Fixed 3 HIGH severity vulnerabilities in dependencies
-- Added npm audit to development workflow
-
-## [0.1.0] - 2024-12-01
-
-### Added
-
-- Initial MVP release
-- AustLII search integration for Australian and NZ legal research
-- Intelligent search relevance with auto-detection
-- Case law search with jurisdiction filtering
-- Legislation search capabilities
-- Smart query detection (case names vs topic searches)
-- Automatic sort mode selection (relevance vs date)
-- Title matching boost for case name queries
-- Full-text document retrieval (HTML and PDF)
-- OCR support for scanned PDFs using Tesseract
-- removed.invalid URL support for document fetching
-- Citation extraction (neutral and reported formats)
-- Paragraph number preservation for pinpoint citations
-- Multiple output formats (JSON, text, markdown, HTML)
-- Pagination support with offset parameter
-- Multiple search methods (title, phrase, boolean, etc.)
-- Comprehensive documentation (README, AGENTS, ROADMAP)
-- Real-world integration tests (18 test scenarios)
-- GitHub Actions CI/CD workflows
-- TypeScript strict mode configuration
-- MIT License
-
-### Features
-
-- **Search Tools**:
-  - `search_cases` - Search Australian and NZ case law
-  - `search_legislation` - Search legislation
-  - `fetch_document_text` - Retrieve full text with OCR fallback
-
-- **Jurisdictions Supported**:
-  - Commonwealth (cth/federal)
-  - All Australian states and territories (VIC, NSW, QLD, SA, WA, TAS, NT, ACT)
-  - New Zealand (nz)
-
-- **Smart Search**:
-  - Auto-detects case name queries vs topic searches
-  - Relevance sorting for specific case lookups
-  - Date sorting for recent case research
-  - Title matching boost for better results
-
-- **Citation Support**:
-  - Neutral citations: `[2024] HCA 26`
-  - Reported citations: `(2024) 350 ALR 123`
-  - Paragraph numbers: `[N]` format preservation
-
-### Technical
-
-- Node.js 18+ required
-- TypeScript 5.9+ with strict mode
-- Model Context Protocol (MCP) SDK 1.19+
-- Vitest for testing
-- Cheerio for HTML parsing
-- Axios for HTTP requests
-- Tesseract OCR for scanned PDFs
-
-### Documentation
-
-- Comprehensive README with usage examples
-- AGENTS.md for AI-assisted development
-- ROADMAP.md for planned features
-- Architecture documentation
-
-### Testing
-
-- 18 integration test scenarios
-- Real-world API testing against AustLII
-- Coverage of main use cases:
-  - Negligence and duty of care
-  - Contract disputes
-  - Constitutional law
-  - Employment law
-  - Property and land law
+- Source-store citeKey hardening against path traversal (#108)
+- Dependency updates resolving known HIGH severity advisories; npm audit in CI
 
 [Unreleased]: https://github.com/russellbrenner/auslaw-mcp/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/russellbrenner/auslaw-mcp/releases/tag/v0.1.0
