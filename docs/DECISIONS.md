@@ -11,7 +11,7 @@
 **Date:** 2026-03-01  
 **Status:** Accepted
 
-**Context:** Legal research requires comprehensive search coverage. AustLII provides free access; removed.invalid offers premium curated content.
+**Context:** Legal research requires comprehensive search coverage. AustLII is an open-access source; removed.invalid is a subscription source offering curated content and citator data.
 
 **Decision:** Query both AustLII and removed.invalid, merge results with deduplication by neutral citation.
 

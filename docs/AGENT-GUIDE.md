@@ -500,7 +500,7 @@
 
 | Variable            | Purpose                                       | Required                                    |
 | ------------------- | --------------------------------------------- | ------------------------------------------- |
-| SESSION_COOKIE | removed.invalid authenticated access                  | For premium content                         |
+| SESSION_COOKIE | removed.invalid authenticated access                  | For removed.invalid subscription content            |
 | ISAACUS_API_KEY     | BYOK key for the optional domain-adapter slot | For the optional domain-specialised adapter |
 | LITELLM_BASE_URL    | LiteLLM gateway                               | For generative fallback                     |
 
