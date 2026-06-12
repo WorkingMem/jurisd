@@ -20,7 +20,7 @@ npm run lint:fix       # Auto-fix lint issues
 
 ## Key Architecture
 
-- `src/index.ts` - MCP server, 10 tool registrations
+- `src/index.ts` - MCP server, 18 tool registrations
 - `src/services/jade-gwt.ts` - GWT-RPC protocol: `proposeCitables` (search), `avd2Request` (fetch), citator, strong names, GWT encoding
 - `src/services/jade.ts` - jade.io integration: `searchJade`, `resolveArticle`, `searchCitingCases`, bridge section resolution
 - `src/services/austlii.ts` - AustLII search with authority-based ranking

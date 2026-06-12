@@ -7,119 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-12
+
+First tagged release: a snapshot of the server as it stands. 18 MCP tools for Australian and NZ
+legal research across AustLII and jade.io.
+
+### Tools
+
+- **Search**: `search_cases`, `search_legislation` (AustLII + jade.io results merged and
+  deduplicated by neutral citation; smart query detection, jurisdiction filtering, relevance/date
+  sort selection, title-match boosting), `search_by_citation`
+- **Documents**: `fetch_document_text` (HTML, PDF, OCR via Tesseract; jade.io via GWT-RPC when a
+  session cookie is configured), `check_source_freshness`
+- **jade.io**: `resolve_jade_article`, `jade_citation_lookup`, `search_citing_cases` (citator via
+  reverse-engineered GWT-RPC; see `docs/jade-gwt-protocol.md`)
+- **Citations (AGLC4)**: `format_citation`, `format_short_citation`, `validate_citation`,
+  `generate_pinpoint`
+- **Caching and bibliography**: `cache_citation`, `get_cached_citation`, `cache_cited_by`,
+  `get_cited_by`, `list_bibliography`, `export_bibliography`
+
 ### Added
 
-- jade.io search integration via AustLII cross-referencing (no API access required)
-  - `search_jade` MCP tool for searching jade.io cases/legislation
-  - `search_jade_by_citation` MCP tool for finding jade.io articles by neutral citation
-  - `searchJade()` function: searches by cross-referencing AustLII results with jade.io metadata
-  - `searchJadeByCitation()` function: resolves jade.io articles by neutral citation
-  - `deduplicateResults()` function: deduplicates by neutral citation, preferring jade.io
-  - `mergeSearchResults()` function: merges results from AustLII and jade.io
-- `includeJade` parameter on `search_cases` and `search_legislation` tools for multi-source merging
-- Maximum 5 concurrent jade.io article resolutions to avoid overwhelming the server
-- Graceful fallback: if jade.io resolution fails, AustLII results are still returned
-- ESLint and Prettier for code quality enforcement
-- SECURITY.md for responsible vulnerability disclosure
-- CONTRIBUTING.md with development guidelines
-- CHANGELOG.md for tracking changes
-- Comprehensive project improvement documentation
-- Linting and formatting scripts in package.json
-- Test coverage support configuration
-- Unit tests for AustLII search internals (isCaseNameQuery, determineSortMode, boostTitleMatches, extractReportedCitation)
-- Unit tests for configuration module
-
-### Changed
-
-- Updated dependencies to address security vulnerabilities
-- Enhanced documentation structure
-- Migrated ESLint configuration from `.eslintrc.json` to `eslint.config.mjs` for ESLint v9 compatibility
-- Services now use custom error classes (AustLiiError, NetworkError, ParseError, OcrError) instead of generic Error
-- Document fetcher now uses structured logger instead of console.warn/error
-- Document fetcher now uses config and constants modules instead of hardcoded values
-- Exported internal AustLII functions for testability
+- AustLII search with authority-based ranking, pagination, and multiple search methods
+- jade.io search integration via AustLII cross-referencing inside `search_cases` /
+  `search_legislation` (`searchJade()`, `mergeSearchResults()`, `deduplicateResults()`); graceful
+  fallback to AustLII-only results when jade.io resolution fails
+- jade.io GWT-RPC protocol implementation (`proposeCitables` search, `avd2Request` fetch,
+  `LeftoverRemoteService` citator)
+- Citation extraction and AGLC4 formatting (neutral and reported formats, paragraph-number
+  preservation for pinpoints)
+- Source store and citation cache with bibliography export
+- SSRF URL allowlist guard, per-host rate limiting, and cookie-scrubbing in error paths
+- Structured logging, typed error classes (`AustLiiError`, `NetworkError`, `ParseError`,
+  `OcrError`), config and constants modules
+- CI: lint + typecheck + Node 20/22 test matrix + npm audit; Docker build; TypeDoc docs sync;
+  tag-triggered release workflow
+- Unit, integration (live-service), and performance test suites; ESLint v9 flat config; Prettier
+- SECURITY.md, CONTRIBUTING.md, architecture documentation
 
 ### Security
 
-- Fixed 3 HIGH severity vulnerabilities in dependencies
-- Added npm audit to development workflow
-
-## [0.1.0] - 2024-12-01
-
-### Added
-
-- Initial MVP release
-- AustLII search integration for Australian and NZ legal research
-- Intelligent search relevance with auto-detection
-- Case law search with jurisdiction filtering
-- Legislation search capabilities
-- Smart query detection (case names vs topic searches)
-- Automatic sort mode selection (relevance vs date)
-- Title matching boost for case name queries
-- Full-text document retrieval (HTML and PDF)
-- OCR support for scanned PDFs using Tesseract
-- jade.io URL support for document fetching
-- Citation extraction (neutral and reported formats)
-- Paragraph number preservation for pinpoint citations
-- Multiple output formats (JSON, text, markdown, HTML)
-- Pagination support with offset parameter
-- Multiple search methods (title, phrase, boolean, etc.)
-- Comprehensive documentation (README, AGENTS, ROADMAP)
-- Real-world integration tests (18 test scenarios)
-- GitHub Actions CI/CD workflows
-- TypeScript strict mode configuration
-- MIT License
-
-### Features
-
-- **Search Tools**:
-  - `search_cases` - Search Australian and NZ case law
-  - `search_legislation` - Search legislation
-  - `fetch_document_text` - Retrieve full text with OCR fallback
-
-- **Jurisdictions Supported**:
-  - Commonwealth (cth/federal)
-  - All Australian states and territories (VIC, NSW, QLD, SA, WA, TAS, NT, ACT)
-  - New Zealand (nz)
-
-- **Smart Search**:
-  - Auto-detects case name queries vs topic searches
-  - Relevance sorting for specific case lookups
-  - Date sorting for recent case research
-  - Title matching boost for better results
-
-- **Citation Support**:
-  - Neutral citations: `[2024] HCA 26`
-  - Reported citations: `(2024) 350 ALR 123`
-  - Paragraph numbers: `[N]` format preservation
-
-### Technical
-
-- Node.js 18+ required
-- TypeScript 5.9+ with strict mode
-- Model Context Protocol (MCP) SDK 1.19+
-- Vitest for testing
-- Cheerio for HTML parsing
-- Axios for HTTP requests
-- Tesseract OCR for scanned PDFs
-
-### Documentation
-
-- Comprehensive README with usage examples
-- AGENTS.md for AI-assisted development
-- ROADMAP.md for planned features
-- Architecture documentation
-
-### Testing
-
-- 18 integration test scenarios
-- Real-world API testing against AustLII
-- Coverage of main use cases:
-  - Negligence and duty of care
-  - Contract disputes
-  - Constitutional law
-  - Employment law
-  - Property and land law
+- Source-store citeKey hardening against path traversal (#108)
+- Dependency updates resolving known HIGH severity advisories; npm audit in CI
 
 [Unreleased]: https://github.com/russellbrenner/auslaw-mcp/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/russellbrenner/auslaw-mcp/releases/tag/v0.1.0
