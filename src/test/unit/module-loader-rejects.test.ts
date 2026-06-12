@@ -81,7 +81,8 @@ describe("WS-E loader — rejects invalid/tampered manifests (design §1.2)", ()
   it("refuses a manifest with a tampered (non-hex) sha256", () => {
     const m = cloneValid();
     m.name = "tampered-sha";
-    (m.files as { sha256: string }[])[0].sha256 = "not-a-real-hash";
+    const files = m.files as { sha256: string }[];
+    files[0]!.sha256 = "not-a-real-hash";
     writeModule("tampered-sha", m);
     discoverModules(true);
     const entry = getModule("tampered-sha");
