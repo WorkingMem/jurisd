@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import axios from "axios";
 import { fetchDocumentText } from "../../services/fetcher.js";
+import { config } from "../../config.js";
 import { AUSTLII_JUDGMENT_HTML } from "../fixtures/index.js";
 
 vi.mock("axios");
@@ -19,9 +20,17 @@ describe("fetchDocumentText (mocked)", () => {
   it("should throw a descriptive error for removed.invalid URLs instead of returning empty content", async () => {
     // removed.invalid is a RPC SPA — HTTP fetch returns a JS bootstrap shell, not judgment text.
     // Silently returning empty content is misleading; we want a clear, actionable error.
-    await expect(fetchDocumentText("https://removed.invalid/article/67401")).rejects.toThrow(
-      /source\.io.*not supported|fetch_document_text.*source\.io/i,
-    );
+    // The config singleton captures any ambient SESSION_COOKIE at import time,
+    // which would route this down the authenticated RPC path; force the no-cookie branch.
+    const savedCookie = config.source.sessionCookie;
+    config.source.sessionCookie = undefined;
+    try {
+      await expect(fetchDocumentText("https://removed.invalid/article/67401")).rejects.toThrow(
+        /source\.io.*not supported|fetch_document_text.*source\.io/i,
+      );
+    } finally {
+      config.source.sessionCookie = savedCookie;
+    }
   });
 
   it("should extract text from HTML content", async () => {
