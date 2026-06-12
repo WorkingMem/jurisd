@@ -498,11 +498,11 @@
 
 ### Environment Variables (User-Provided)
 
-| Variable            | Purpose                      | Required                |
-| ------------------- | ---------------------------- | ----------------------- |
-| SESSION_COOKIE | removed.invalid authenticated access | For premium content     |
-| ISAACUS_API_KEY     | Isaacus enrichment tools     | For AI features         |
-| LITELLM_BASE_URL    | LiteLLM gateway              | For generative fallback |
+| Variable            | Purpose                                       | Required                                    |
+| ------------------- | --------------------------------------------- | ------------------------------------------- |
+| SESSION_COOKIE | removed.invalid authenticated access                  | For premium content                         |
+| ISAACUS_API_KEY     | BYOK key for the optional domain-adapter slot | For the optional domain-specialised adapter |
+| LITELLM_BASE_URL    | LiteLLM gateway                               | For generative fallback                     |
 
 ---
 

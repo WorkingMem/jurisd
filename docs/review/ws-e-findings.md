@@ -194,3 +194,46 @@ matching sha256 already guarantees byte-for-byte integrity, so the row count is
 redundant belt-and-braces. Logged as a **deferred enhancement**, not a hole.
 
 **Verdict: PASS.**
+
+---
+
+## Check 6 — Vendor-neutral vocabulary; no free/premium framing
+
+**Probe:** grepped the whole tree (case-insensitive) for `isaacus`/`kanon` and for
+free/premium/tier framing, then classified each hit as allowed (adapter+label
+code, or an upstream data attribute) vs a framing leak.
+
+**Evidence — `src/` is compliant:**
+
+- `isaacus` in `src/` appears **only** in:
+  - `src/services/adapter.ts` — the provider-adapter + label code (the single
+    location the framing rule §4.2 permits a vendor name: `ISAACUS_API_KEY`,
+    `ISAACUS_BASE_URL`, the `"Isaacus-enhanced"` label, `buildIsaacusAdapter`).
+  - `src/data/manifest.schema.json` — the vendored upstream schema describes the
+    `isaacus/open-australian-legal-corpus` _dataset id_ (a reproducibility
+    attribute of the data, not product framing). Allowed.
+  - the test files (asserting the label / the no-framing grep). Allowed.
+- `kanon` — **zero** occurrences anywhere.
+- The only `"free vs premium" / "basic vs pro"` string in `src/` is the **rule
+  statement** in `adapter.ts:18` that forbids it — not a violation.
+- The runtime label only reaches a tool result as `metadata.enhancement =
+adapter.label` (`modules.ts:933`), i.e. `"baseline"` or `"Isaacus-enhanced"` —
+  capability-presence framing, never a tier. No tool _description_ in `server.ts`
+  contains a vendor name or premium/free framing (`semantic_search_local`'s
+  description is "offline, no key … degrades visibly").
+
+**Doc-drift leak found and fixed:**
+
+- `docs/AGENT-GUIDE.md:504` framed `ISAACUS_API_KEY` as "Isaacus enrichment tools
+  / For AI features" — stale pre-reframe language that violates the binding rule.
+  **Fixed** to "BYOK key for the optional domain-adapter slot / For the optional
+  domain-specialised adapter", matching the salvaged `ARCHITECTURE.md` framing.
+
+**Out-of-scope notes (left as-is, flagged):** `docs/DECISIONS.md:14` and
+`docs/AGENT-GUIDE.md:503` use "premium" to describe the **removed.invalid live source**
+(AustLII-free vs removed.invalid-curated), which is the live-layer landscape, not the
+WS-E domain-adapter slot the §4.2 rule governs. These are factual source
+descriptions, not adapter-tier framing, so they are outside this review's binding
+scope; noted for a future docs pass if the project wants total uniformity.
+
+**Verdict: PASS (one doc-drift leak fixed).**
