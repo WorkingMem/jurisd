@@ -116,6 +116,15 @@
 
 ---
 
+### ADR-011: R5 Tool-Surface Consolidation (18 → 10)
+
+**Date:** 2026-06-12  
+**Status:** Accepted
+
+**Decision:** Consolidate the 18 MCP tools to 10 base tools using `mode`/`op`/`action`/`by` dispatch, with no aliases for the old names (pre-1.0 breaking cut). Full record: [decisions/tool-surface.md](decisions/tool-surface.md).
+
+---
+
 ## Pending Decisions
 
 ### PND-001: Citation Graph Storage

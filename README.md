@@ -212,6 +212,8 @@ Once the MCP is connected, you can ask an AI assistant like Claude natural langu
 
 ## Available Tools
 
+10 tools. Operation variants are selected via a `mode`/`op`/`action`/`by` parameter on the relevant tool (see [docs/decisions/tool-surface.md](docs/decisions/tool-surface.md)).
+
 ### search_cases
 
 Search Australian and New Zealand case law.
@@ -316,6 +318,7 @@ Fetch full text from a case or legislation URL. Supports AustLII HTML, PDF with 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `url` | Yes | URL of the document (AustLII or removed.invalid) |
+| `citeKey` | No | Cite key of a cached citation to associate with this fetch (saves a local source copy) |
 | `format` | No | `json` (default), `text`, `markdown`, `html` |
 
 **Example:**
@@ -328,18 +331,26 @@ Fetch full text from a case or legislation URL. Supports AustLII HTML, PDF with 
 
 ### format_citation
 
-Format an Australian case citation per AGLC4 rules.
+Format an Australian case citation per AGLC4 rules. One tool for full citations, short forms, and pinpoint generation, selected via `mode`.
 
 **Parameters:**
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `title` | Yes | Case name, e.g. `Mabo v Queensland (No 2)` |
-| `neutralCitation` | No | Neutral citation, e.g. `[1992] HCA 23` |
-| `reportedCitation` | No | Reported citation, e.g. `(1992) 175 CLR 1` |
-| `pinpoint` | No | Pinpoint reference, e.g. `[20]` |
-| `style` | No | `combined` (default), `neutral`, or `reported` |
+| `mode` | No | `full` (default), `short`, `ibid`, `subsequent`, `pinpoint` |
+| `title` | Yes\* | Case name, e.g. `Mabo v Queensland (No 2)` (abbreviated name for short-form modes) |
+| `neutralCitation` | No | Neutral citation, e.g. `[1992] HCA 23` (`full` mode) |
+| `reportedCitation` | No | Reported citation, e.g. `(1992) 175 CLR 1` (`full` mode) |
+| `pinpoint` | No | Pinpoint reference, e.g. `[20]` (`full` mode) |
+| `style` | No | `combined` (default), `neutral`, or `reported` (`full` mode) |
+| `footnoteRef` | Yes for `subsequent` | Footnote number of first citation |
+| `pinpointPara` / `pinpointPage` | No | Pinpoint for short-form modes |
+| `url` | Yes for `pinpoint` | AustLII document URL to fetch and search |
+| `paragraphNumber` / `phrase` | One required for `pinpoint` | Paragraph to locate |
+| `caseCitation` | No | Citation to prepend to the pinpoint, e.g. `[1992] HCA 23` |
 
-**Example:**
+\*Required for all modes except `pinpoint`.
+
+**Example (`full`):**
 
 ```json
 {
@@ -352,35 +363,11 @@ Format an Australian case citation per AGLC4 rules.
 
 **Output:** `Mabo v Queensland (No 2) [1992] HCA 23, (1992) 175 CLR 1 at [64]`
 
-### validate_citation
-
-Validate a neutral citation by checking it exists on AustLII.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `citation` | Yes | Neutral citation to validate, e.g. `[1992] HCA 23` |
-
-**Returns:** `{ valid, canonicalCitation, austliiUrl, message }`
-
-### generate_pinpoint
-
-Fetch a judgment from AustLII and generate a pinpoint citation to a specific paragraph.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `url` | Yes | AustLII document URL |
-| `paragraphNumber` | No* | Paragraph number to locate |
-| `phrase` | No* | Phrase to search for within paragraphs |
-| `caseCitation` | No | Case citation to prepend (e.g. `[1992] HCA 23`) |
-
-\*At least one of `paragraphNumber` or `phrase` is required.
-
-**Example:**
+**Example (`pinpoint`):**
 
 ```json
 {
+  "mode": "pinpoint",
   "url": "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html",
   "phrase": "native title",
   "caseCitation": "[1992] HCA 23"
@@ -389,33 +376,75 @@ Fetch a judgment from AustLII and generate a pinpoint citation to a specific par
 
 **Output:** `{ paragraphNumber: 64, pinpointString: "at [64]", fullCitation: "[1992] HCA 23 at [64]" }`
 
-### search_by_citation
+### resolve_citation
 
-Find a case by its citation. If a neutral citation is detected, validates against AustLII directly; otherwise falls back to text search.
+Resolve a citation to its authoritative source. Validation and search behind one tool, selected via `mode`.
 
 **Parameters:**
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `citation` | Yes | Citation or case name, e.g. `[1992] HCA 23` or `Mabo v Queensland` |
+| `mode` | No | `auto` (default: validate neutral citation, fall back to search), `validate` (AustLII existence check only), `search` (text search only) |
 | `format` | No | `json` (default), `text`, `markdown`, `html` |
 
-### resolve_source_article
+**Returns (`validate`):** `{ valid, canonicalCitation, austliiUrl, message }`
 
-Resolve metadata for a removed.invalid article by its numeric ID.
+### source_lookup
 
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `articleId` | Yes | removed.invalid article ID (integer) |
-
-### source_citation_lookup
-
-Generate a removed.invalid lookup URL for a given neutral citation.
+Look up removed.invalid by article ID or neutral citation, selected via `by`.
 
 **Parameters:**
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `citation` | Yes | Neutral citation, e.g. `[2008] NSWSC 323` |
+| `by` | Yes | `article_id` (resolve metadata for a numeric ID) or `citation` (build a removed.invalid lookup URL) |
+| `articleId` | Yes for `article_id` | removed.invalid article ID (integer) |
+| `citation` | Yes for `citation` | Neutral citation, e.g. `[2008] NSWSC 323` |
+
+### search_citing_cases
+
+Find cases that cite a given case using the removed.invalid citator (requires `SESSION_COOKIE`).
+
+**Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `caseName` | Yes | Case name or citation, e.g. `Mabo v Queensland (No 2)` or `[1992] HCA 23` |
+| `format` | No | `json` (default), `text`, `markdown`, `html` |
+
+### cite
+
+Write to the local citation cache, selected via `action`.
+
+**Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `action` | No | `add` (default: store/update a citation, returns the cite key and AGLC4 string) or `refresh_source` (conditional-HEAD freshness check, re-download when stale) |
+| `title` | Yes for `add` | Case name |
+| `url` | Yes for `add` | Primary source URL (AustLII or removed.invalid) |
+| `citeKey` | Yes for `refresh_source` | Cite key of a cached citation, e.g. `mabo1992` |
+| `neutralCitation`, `reportedCitation`, `type`, `jurisdiction`, `year`, `court`, `keywords`, `summary`, `document`, `footnoteNumber`, `pinpoint`, `style` | No | Citation metadata (`add`) |
+
+### bibliography
+
+Read from the local citation cache (no network calls), selected via `op`.
+
+**Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `op` | No | `get`, `list` (default), `export`, `cited_by` |
+| `query` | Yes for `get` | Cite key, AGLC4 string, neutral citation, or case title |
+| `citeKey` | Yes for `cited_by` | Cite key of the case to retrieve cached cited-by data for |
+| `document` | No | Filter to citations used in one document (`list`/`export`) |
+| `outputPath` | No | Absolute path for the `.bib` file (`export`) |
+| `format` | No | `json` (default), `text`, `markdown`, `html` |
+
+### cache_cited_by
+
+Fetch citing cases for a cached citation from removed.invalid and store them locally (requires `SESSION_COOKIE`).
+
+**Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `citeKey` | Yes | Cite key of the parent case whose citing cases should be fetched and cached |
 
 ## Jurisdictions
 
@@ -452,7 +481,8 @@ Test scenarios include:
 
 ```
 src/
-├── index.ts              # MCP server & tool registration (9 tools)
+├── index.ts              # Entry point: transport wiring (stdio / streamable HTTP)
+├── server.ts             # createMcpServer(): 10 tool registrations (mode/op/action/by dispatch)
 ├── config.ts             # Configuration management
 ├── constants.ts          # Citation patterns, court codes, reporters
 ├── errors.ts             # Custom error classes

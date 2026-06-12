@@ -50,7 +50,8 @@ function buildTree(dir, prefix = "", isLast = true) {
 /** Return a short comment describing well-known files. */
 function getAnnotation(relPath) {
   const annotations = {
-    "src/index.ts": " # MCP server & tool registration",
+    "src/index.ts": " # Entry point: transport wiring (stdio / streamable HTTP)",
+    "src/server.ts": " # createMcpServer(): tool registration (mode/op/action/by dispatch)",
     "src/config.ts": " # Configuration management",
     "src/constants.ts": " # Shared constants",
     "src/errors.ts": " # Error types and handling",

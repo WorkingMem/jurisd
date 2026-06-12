@@ -20,6 +20,7 @@ export default defineConfig({
         "**/*.test.ts",
         "**/*.spec.ts",
         "src/index.ts",
+        "src/server.ts",
         "vitest.config.ts",
       ],
       all: true,

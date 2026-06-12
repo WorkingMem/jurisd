@@ -171,58 +171,28 @@
 
 ### format_citation
 
-**Purpose:** Format citation per AGLC4 rules.
+**Purpose:** Format citation per AGLC4 rules — full citations, short forms, and pinpoint generation, selected via `mode`.
 
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| title | string | Yes | Case name |
-| neutralCitation | string | No | [year] court number |
-| reportedCitation | string | No | (year) volume reporter page |
-| pinpoint | string | No | [paragraph] or page |
-| style | string | No | neutral, reported, combined |
+| mode | string | No | full (default), short, ibid, subsequent, pinpoint |
+| title | string | Yes\* | Case name (abbreviated name for short-form modes) |
+| neutralCitation | string | No | [year] court number (full mode) |
+| reportedCitation | string | No | (year) volume reporter page (full mode) |
+| pinpoint | string | No | [paragraph] or page (full mode) |
+| style | string | No | neutral, reported, combined (full mode) |
+| footnoteRef | number | Yes for subsequent | Footnote number of first citation |
+| pinpointPara / pinpointPage | number | No | Pinpoint for short-form modes |
+| url | string | Yes for pinpoint | AustLII document URL to fetch and search |
+| paragraphNumber / phrase | number / string | One required for pinpoint | Paragraph to locate |
+| caseCitation | string | No | Citation to prepend (pinpoint mode) |
 
-**Output:** `Mabo v Queensland (No 2) [1992] HCA 23, (1992) 175 CLR 1 at [64]`
+\*Required for all modes except pinpoint.
 
----
+**Output (`full`):** `Mabo v Queensland (No 2) [1992] HCA 23, (1992) 175 CLR 1 at [64]`
 
-### validate_citation
-
-**Purpose:** Verify neutral citation exists on AustLII.
-
-**Parameters:**
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| citation | string | Yes | Neutral citation to validate |
-
-**Response:**
-
-```json
-{
-  "valid": true,
-  "canonicalCitation": "[1992] HCA 23",
-  "austliiUrl": "https://www.austlii.edu.au/...",
-  "message": "Citation is valid"
-}
-```
-
----
-
-### generate_pinpoint
-
-**Purpose:** Generate pinpoint citation to specific paragraph.
-
-**Parameters:**
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| url | string | Yes | AustLII document URL |
-| paragraphNumber | number | No* | Paragraph number |
-| phrase | string | No* | Phrase to find |
-| caseCitation | string | No | Citation to prepend |
-
-\*At least one of paragraphNumber or phrase required.
-
-**Response:**
+**Response (`pinpoint`):**
 
 ```json
 {
@@ -235,33 +205,48 @@
 
 ---
 
-### search_by_citation
+### resolve_citation
 
-**Purpose:** Find case by citation.
+**Purpose:** Resolve a citation to its authoritative source — validation and search behind one tool, selected via `mode`.
 
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | citation | string | Yes | Citation or case name |
+| mode | string | No | auto (default), validate, search |
 | format | string | No | Output format |
 
 **Behavior:**
 
-- If neutral citation detected (e.g., [1992] HCA 23), validates and returns direct URL
-- Otherwise falls back to text search
+- `auto`: if a neutral citation is detected (e.g., [1992] HCA 23), validates against AustLII and returns the direct URL; otherwise falls back to text search
+- `validate`: AustLII existence check only
+- `search`: text search only
+
+**Response (`validate`):**
+
+```json
+{
+  "valid": true,
+  "canonicalCitation": "[1992] HCA 23",
+  "austliiUrl": "https://www.austlii.edu.au/...",
+  "message": "Citation is valid"
+}
+```
 
 ---
 
-### resolve_source_article
+### source_lookup
 
-**Purpose:** Get removed.invalid article metadata by ID.
+**Purpose:** Look up removed.invalid by article ID or neutral citation, selected via `by`.
 
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| articleId | number | Yes | removed.invalid article ID |
+| by | string | Yes | article_id or citation |
+| articleId | number | Yes for article_id | removed.invalid article ID |
+| citation | string | Yes for citation | Neutral citation |
 
-**Response:**
+**Response (`by: article_id`):**
 
 ```json
 {
@@ -274,18 +259,7 @@
 }
 ```
 
----
-
-### source_citation_lookup
-
-**Purpose:** Generate removed.invalid lookup URL for a citation.
-
-**Parameters:**
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| citation | string | Yes | Neutral citation |
-
-**Response:**
+**Response (`by: citation`):**
 
 ```json
 {
@@ -320,6 +294,53 @@
   ]
 }
 ```
+
+---
+
+### cite
+
+**Purpose:** Write to the local citation cache, selected via `action`.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| action | string | No | add (default) or refresh_source |
+| title | string | Yes for add | Case name |
+| url | string | Yes for add | Primary source URL (AustLII or removed.invalid) |
+| citeKey | string | Yes for refresh_source | Cite key of a cached citation |
+| neutralCitation, reportedCitation, type, jurisdiction, year, court, keywords, summary, document, footnoteNumber, pinpoint, style | various | No | Citation metadata (add) |
+
+**Behavior:**
+
+- `add`: stores or updates a citation, assigns a biblatex-compatible cite key on first use, returns `{ citeKey, aglc4Full, cached }`
+- `refresh_source`: conditional-HEAD freshness check on the cached source file; re-downloads when the remote is newer
+
+---
+
+### bibliography
+
+**Purpose:** Read from the local citation cache (no network calls), selected via `op`.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| op | string | No | get, list (default), export, cited_by |
+| query | string | Yes for get | Cite key, AGLC4 string, neutral citation, or case title |
+| citeKey | string | Yes for cited_by | Cite key of the case |
+| document | string | No | Filter to one document (list/export) |
+| outputPath | string | No | Absolute path for the .bib file (export) |
+| format | string | No | Output format |
+
+---
+
+### cache_cited_by
+
+**Purpose:** Fetch citing cases for a cached citation from removed.invalid and store them locally (requires SESSION_COOKIE).
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| citeKey | string | Yes | Cite key of the parent case |
 
 ---
 
