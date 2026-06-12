@@ -380,3 +380,314 @@ function bindParam(
     prepared.bindVarchar(index, String(value));
   }
 }
+
+// ── Response metadata (design §2, ROUTING.md "Response metadata") ───────────
+
+/** The mandatory provenance metadata block on every local-module answer. */
+export interface LocalModuleMetadata {
+  source: "local_module";
+  name: string;
+  module_version: string;
+  snapshot_date: string;
+  /** Present only when the snapshot is older than config.modules.stalenessDays. */
+  staleness_advisory?: string;
+  /** Present only when a domain adapter refined the result (design §4.2). */
+  enhancement?: string;
+}
+
+/** Days between an ISO date string and now (floored). */
+function ageInDays(isoDate: string): number {
+  const then = Date.parse(isoDate);
+  if (Number.isNaN(then)) return 0;
+  return Math.floor((Date.now() - then) / 86_400_000);
+}
+
+/**
+ * Build the provenance metadata for an answer sourced from `entry`. Attaches a
+ * staleness advisory when the snapshot is older than the configured threshold.
+ */
+export function buildMetadata(entry: ModuleEntry): LocalModuleMetadata {
+  const m = entry.manifest!;
+  const snapshotDate = m.snapshot.date;
+  const meta: LocalModuleMetadata = {
+    source: "local_module",
+    name: m.name,
+    module_version: m.module_version,
+    snapshot_date: snapshotDate,
+  };
+  const age = ageInDays(snapshotDate);
+  const threshold = config.modules.stalenessDays;
+  if (age > threshold) {
+    meta.staleness_advisory = `module snapshot is ${age} days old (>${threshold}); consider re-fetching`;
+  }
+  return meta;
+}
+
+// ── Provision-reference normalisation (design §2.1) ─────────────────────────
+
+/**
+ * Normalise a citable provision reference to the canonical short form the
+ * fixture/pipeline stores in `chunks.provision_ref`: collapse whitespace, lower
+ * the leading kind word, and map long kind words to their abbreviations
+ * (section→s, schedule→sch, regulation→reg, clause→cl).
+ */
+export function normaliseProvisionRef(raw: string): string {
+  const collapsed = raw.trim().replace(/\s+/g, " ");
+  const kindMap: Record<string, string> = {
+    section: "s",
+    sect: "s",
+    schedule: "sch",
+    regulation: "reg",
+    reg: "reg",
+    clause: "cl",
+    part: "pt",
+    division: "div",
+  };
+  const m = collapsed.match(/^([A-Za-z]+)\s*(.*)$/);
+  if (!m) return collapsed;
+  const kindRaw = m[1]!.toLowerCase();
+  const rest = m[2]!;
+  const kind = kindMap[kindRaw] ?? kindRaw;
+  return rest ? `${kind} ${rest}` : kind;
+}
+
+/**
+ * Choose the best `ready` module for a request. When `pin` names a ready module
+ * it is used. Otherwise, among ready modules, prefer one whose
+ * `coverage.jurisdictions` includes `jurisdiction` (when given); else the first
+ * ready module. Returns null when no ready module qualifies.
+ */
+export function selectModules(
+  opts: {
+    pin?: string;
+    jurisdiction?: string;
+    requireEmbedded?: boolean;
+  } = {},
+): ModuleEntry[] {
+  let candidates = readyModules();
+  if (opts.pin) {
+    candidates = candidates.filter((m) => m.name === opts.pin);
+  }
+  if (opts.requireEmbedded) {
+    candidates = candidates.filter((m) => m.manifest?.embedding != null);
+  }
+  if (opts.jurisdiction) {
+    const matching = candidates.filter((m) =>
+      m.manifest!.coverage.jurisdictions.includes(opts.jurisdiction!),
+    );
+    if (matching.length > 0) return matching;
+  }
+  return candidates;
+}
+
+// ── get_provision (design §2.1) ─────────────────────────────────────────────
+
+/** A single provision chunk + its owning document's provenance. */
+export interface ProvisionResult {
+  found: true;
+  chunk_id: string;
+  provision_ref: string;
+  segment_type: string;
+  text: string;
+  char_start: number;
+  char_end: number;
+  citation: string;
+  version_id: string;
+  url: string;
+  metadata: LocalModuleMetadata;
+}
+
+/** Typed not-found result so the router can descend to Layer 2. */
+export interface NotFoundResult {
+  found: false;
+}
+
+/**
+ * Deterministic provision lookup. Resolves `act` (citation / work_id /
+ * version_id) and a normalised `provision` ref against `chunks.provision_ref`,
+ * over the best-covering ready module(s). Returns the first exact match or a
+ * typed `{ found: false }`. No embedding, no ranking. Bound params only.
+ */
+export async function getProvision(args: {
+  act: string;
+  provision: string;
+  module?: string;
+}): Promise<ProvisionResult | NotFoundResult> {
+  const provisionRef = normaliseProvisionRef(args.provision);
+  const candidates = selectModules({ pin: args.module });
+  for (const entry of candidates) {
+    const attached = await attachModule(entry.name);
+    if (!attached) continue;
+    const v = viewNames(entry.name);
+    const rows = await runModuleQuery(
+      `SELECT c.chunk_id, c.provision_ref, c.segment_type, c.text,
+              c.char_start, c.char_end, d.citation, d.version_id, d.url
+         FROM "${v.chunks}" c
+         JOIN "${v.documents}" d ON d.version_id = c.version_id
+        WHERE (d.citation = $1 OR d.work_id = $1 OR d.version_id = $1)
+          AND c.provision_ref = $2
+        LIMIT 1`,
+      [args.act, provisionRef],
+    );
+    const row = rows[0];
+    if (row) {
+      return {
+        found: true,
+        chunk_id: String(row.chunk_id ?? ""),
+        provision_ref: String(row.provision_ref ?? ""),
+        segment_type: String(row.segment_type ?? ""),
+        text: String(row.text ?? ""),
+        char_start: Number(row.char_start ?? 0),
+        char_end: Number(row.char_end ?? 0),
+        citation: String(row.citation ?? ""),
+        version_id: String(row.version_id ?? ""),
+        url: String(row.url ?? ""),
+        metadata: buildMetadata(entry),
+      };
+    }
+  }
+  return { found: false };
+}
+
+// ── get_act_structure (design §2.2) ─────────────────────────────────────────
+
+/** One node in the flat containment-tree result. */
+export interface ActStructureNode {
+  node_id: string;
+  parent_id: string | null;
+  label: string;
+  depth: number;
+  children: ActStructureNode[];
+}
+
+export interface ActStructureResult {
+  found: boolean;
+  root?: ActStructureNode;
+  metadata?: LocalModuleMetadata;
+}
+
+/**
+ * Walk an Act's containment tree over `act_provision` edges via a recursive CTE.
+ * The depth guard doubles as a cycle backstop so a malformed module cannot hang
+ * the runtime. Returns a nested tree, or `{ found: false }` when the Act is not
+ * present in any ready module.
+ */
+export async function getActStructure(args: {
+  act: string;
+  depth?: number;
+  module?: string;
+}): Promise<ActStructureResult> {
+  const maxDepth = args.depth ?? 12;
+  const candidates = selectModules({ pin: args.module });
+  for (const entry of candidates) {
+    const attached = await attachModule(entry.name);
+    if (!attached) continue;
+    const v = viewNames(entry.name);
+    // Legislation provisions live inside the Act's own version, addressed by
+    // pinpoint, so an act_provision edge's dst_version_id is typically the Act
+    // version itself. The descended node is therefore identified by the edge
+    // (edge_id) — not dst_version_id — so it never collides with the root. The
+    // recursion chains on `e.src = t.match_id`, where the root's match_id is the
+    // Act version and a descended node's match_id is its pinpoint; this walks
+    // genuine sub-provision edges (src = a parent pinpoint) while a flat
+    // Act->provision set terminates naturally after one level. The depth guard
+    // is the cycle backstop for a malformed module.
+    const rows = await runModuleQuery(
+      `WITH RECURSIVE tree AS (
+         SELECT d.version_id AS node_id, d.version_id AS match_id,
+                CAST(NULL AS VARCHAR) AS parent_id, d.citation AS label, 0 AS depth
+           FROM "${v.documents}" d
+          WHERE (d.citation = $1 OR d.work_id = $1 OR d.version_id = $1)
+         UNION ALL
+         SELECT e.edge_id AS node_id, e.pinpoint AS match_id,
+                t.node_id AS parent_id, e.pinpoint AS label, t.depth + 1 AS depth
+           FROM "${v.edges}" e
+           JOIN tree t ON e.src = t.match_id
+          WHERE e.kind = 'act_provision'
+            AND t.depth < $2
+       )
+       SELECT node_id, parent_id, label, depth FROM tree ORDER BY depth, label`,
+      [args.act, maxDepth],
+    );
+    if (rows.length === 0) continue;
+    const root = assembleTree(rows);
+    if (root) {
+      return { found: true, root, metadata: buildMetadata(entry) };
+    }
+  }
+  return { found: false };
+}
+
+/** Assemble flat (node_id, parent_id, label, depth) rows into a nested tree. */
+function assembleTree(rows: Record<string, unknown>[]): ActStructureNode | null {
+  const byId = new Map<string, ActStructureNode>();
+  let root: ActStructureNode | null = null;
+  for (const r of rows) {
+    const node: ActStructureNode = {
+      node_id: String(r.node_id ?? ""),
+      parent_id: r.parent_id == null ? null : String(r.parent_id),
+      label: String(r.label ?? ""),
+      depth: Number(r.depth ?? 0),
+      children: [],
+    };
+    byId.set(node.node_id, node);
+    if (node.parent_id === null) root = node;
+  }
+  for (const node of byId.values()) {
+    if (node.parent_id !== null) {
+      byId.get(node.parent_id)?.children.push(node);
+    }
+  }
+  return root;
+}
+
+// ── list_data_modules (design §2.5) ─────────────────────────────────────────
+
+/** One row of the introspection view (metadata only, no attach). */
+export interface ModuleSummary {
+  name: string;
+  module_version: string;
+  jurisdictions: string[];
+  types: string[];
+  doc_count: number;
+  chunk_count: number;
+  embedding: { model_id: string; dim: number; normalised: boolean } | null;
+  status: ModuleStatus;
+  statusDetail?: string;
+  snapshot_date: string | null;
+  stale: boolean;
+}
+
+/**
+ * Introspection over the in-memory registry. No DuckDB attach: counts come from
+ * the manifest `coverage`. Refused modules are included only when
+ * `includeInvalid`, with their status reason, per the degrade-visibly tenet.
+ */
+export function listDataModules(
+  opts: {
+    refresh?: boolean;
+    includeInvalid?: boolean;
+  } = {},
+): ModuleSummary[] {
+  const mods = listModules(opts.refresh ?? false);
+  const threshold = config.modules.stalenessDays;
+  return mods
+    .filter((m) => opts.includeInvalid || m.status === "ready")
+    .map((m): ModuleSummary => {
+      const man = m.manifest;
+      const snapshotDate = man?.snapshot.date ?? null;
+      return {
+        name: m.name,
+        module_version: man?.module_version ?? "",
+        jurisdictions: man?.coverage.jurisdictions ?? [],
+        types: man?.coverage.types ?? [],
+        doc_count: man?.coverage.doc_count ?? 0,
+        chunk_count: man?.coverage.chunk_count ?? 0,
+        embedding: man?.embedding ?? null,
+        status: m.status,
+        statusDetail: m.statusDetail,
+        snapshot_date: snapshotDate,
+        stale: snapshotDate ? ageInDays(snapshotDate) > threshold : false,
+      };
+    });
+}
