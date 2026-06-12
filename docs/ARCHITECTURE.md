@@ -26,23 +26,38 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 └─────────────────────────────────────────┘
                     │
                     ▼
-┌─────────────────────────────────────────┐
-│ jurisd Server (10 Tools)                │
-│ ┌─────────────────────────────────────┐ │
-│ │ search_cases, search_legislation    │ │
-│ │ fetch_document_text, format_citation│ │
-│ │ resolve_citation, source_lookup       │ │
-│ │ search_citing_cases, cite           │ │
-│ │ bibliography, cache_cited_by        │ │
-│ └─────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
-        │           │           │
-        ▼           ▼           ▼
-   ┌────────┐  ┌────────┐  ┌──────────┐
-   │AustLII │  │ removed.invalid│  │Isaacus   │
-   │(free)  │  │(premium)│  │(optional)│
-   └────────┘  └────────┘  └──────────┘
+┌──────────────────────────────────────────────┐
+│ jurisd Server (15 Tools)                       │
+│ ┌──────────────────────────────────────────┐  │
+│ │ Live + citation (10):                     │  │
+│ │  search_cases, search_legislation,        │  │
+│ │  fetch_document_text, format_citation,    │  │
+│ │  resolve_citation, source_lookup,           │  │
+│ │  search_citing_cases, cite,               │  │
+│ │  bibliography, cache_cited_by             │  │
+│ ├──────────────────────────────────────────┤  │
+│ │ Local data-module recall (5, offline):    │  │
+│ │  get_provision, get_act_structure,        │  │
+│ │  find_citing, semantic_search_local,      │  │
+│ │  list_data_modules                        │  │
+│ └──────────────────────────────────────────┘  │
+└──────────────────────────────────────────────┘
+        │            │              │
+        ▼            ▼              ▼
+   ┌─────────┐  ┌─────────┐  ┌──────────────────┐
+   │ Live    │  │ Local   │  │ Domain adapter   │
+   │ sources │  │ data    │  │ slot (optional)  │
+   │ AustLII │  │ modules │  │ baseline ↔       │
+   │ removed.invalid │  │ (DuckDB │  │ domain-special-  │
+   │         │  │ parquet)│  │ ised, BYOK       │
+   └─────────┘  └─────────┘  └──────────────────┘
 ```
+
+The domain-adapter slot is **vendor-neutral**: the baseline adapter (pure local
+cosine order, no key, always present) is selected unless a provider is both
+configured and reachable, in which case a provider-interpolated label is reported
+(see [design/data-layer.md](design/data-layer.md) §4.2). The distinction is
+capability presence, never a paid/free tier.
 
 ---
 
@@ -50,8 +65,11 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 
 ### 1. MCP Server
 
-**Tools** (10; operation variants selected via `mode`/`op`/`action`/`by` — see
+**Tools** (15; live/citation operation variants selected via
+`mode`/`op`/`action`/`by` — see
 [decisions/tool-surface.md](decisions/tool-surface.md)):
+
+Live + citation (10):
 | Tool | Description |
 |------|-------------|
 | search_cases | Dual AustLII + removed.invalid case search |
@@ -64,6 +82,16 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 | cite | Citation cache write: `action: add\|refresh_source` |
 | bibliography | Citation cache read: `op: get\|list\|export\|cited_by` |
 | cache_cited_by | Fetch + cache citing cases locally |
+
+Local data-module recall (5; offline, closed-world over installed modules — see
+[design/data-layer.md](design/data-layer.md)):
+| Tool | Description |
+|------|-------------|
+| get_provision | Deterministic provision lookup (no embedding, no ranking) |
+| get_act_structure | Containment tree via `act_provision` edges |
+| find_citing | Offline twin of search_citing_cases (cites/considers edges) |
+| semantic_search_local | Local-embedding cosine recall over chunk vectors |
+| list_data_modules | Introspect installed modules (metadata only) |
 
 ### 2. AustLII Service
 
@@ -88,6 +116,21 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 - AGLC4 formatting
 - Validates against AustLII
 - Generates pinpoint citations
+
+### 6. Local Data Layer (WS-E)
+
+- Installed parquet "data modules" under `~/.jurisd/modules/`, each a closed
+  world validated against the vendored manifest schema (`src/data/manifest.ts`)
+- Lazy per-module DuckDB attach over parquet (`@duckdb/node-api`, optional); the
+  registry holds metadata only until first query
+- Local query embedding (`@huggingface/transformers`, optional) for
+  `semantic_search_local`; absence degrades visibly, never crashes
+- Optional vendor-neutral domain-adapter slot refines the LOCAL top-k (rerank /
+  extractive-QA); baseline cosine order is the floor (see
+  [design/data-layer.md](design/data-layer.md))
+- Module acquisition is a CLI subcommand (`jurisd fetch-module`), not a tool:
+  manifest is schema-validated and every file sha256-verified before an atomic
+  temp-then-rename install
 
 ---
 
@@ -122,14 +165,15 @@ MCP_TRANSPORT=http npm start
 
 ## Configuration
 
-| Variable            | Default     | Description                |
-| ------------------- | ----------- | -------------------------- |
-| AUSTLII_SEARCH_BASE | AustLII URL | Search endpoint            |
-| AUSTLII_TIMEOUT     | 60000       | Request timeout (ms)       |
-| OCR_LANGUAGE        | eng         | Tesseract language         |
-| SESSION_COOKIE | —           | removed.invalid auth cookie        |
-| MCP_TRANSPORT       | stdio       | stdio or http              |
-| ISAACUS_API_KEY     | —           | Isaacus API key (optional) |
+| Variable            | Default           | Description                                   |
+| ------------------- | ----------------- | --------------------------------------------- |
+| AUSTLII_SEARCH_BASE | AustLII URL       | Search endpoint                               |
+| AUSTLII_TIMEOUT     | 60000             | Request timeout (ms)                          |
+| OCR_LANGUAGE        | eng               | Tesseract language                            |
+| SESSION_COOKIE | —                 | removed.invalid auth cookie                           |
+| MCP_TRANSPORT       | stdio             | stdio or http                                 |
+| ISAACUS_API_KEY     | —                 | BYOK key for the optional domain-adapter slot |
+| JURISD_MODULES_DIR  | ~/.jurisd/modules | Installed local data-module root              |
 
 ---
 
