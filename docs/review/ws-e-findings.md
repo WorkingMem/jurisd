@@ -45,3 +45,40 @@ search_legislation, semantic_search_local`.
   count and the exact name set (2 tests, both PASS).
 
 **Verdict: PASS.**
+
+---
+
+## Check 2 — Loader rejects invalid/tampered manifests
+
+**Probe:** constructed bad fixtures programmatically (clone the valid fixture
+manifest, mutate one axis each), pointed the loader at a tempdir, and asserted
+the resulting `status` per design §1.2. ajv 8.18.0 is present, so the schema path
+(not the structural fallback) is the one exercised; the vendored schema enforces
+`files[].sha256` `^[a-f0-9]{64}$`.
+
+**Evidence (`src/test/unit/module-loader-rejects.test.ts`, 8 tests, all PASS):**
+
+| Tamper                      | Loader result                               |
+| --------------------------- | ------------------------------------------- |
+| `schema_version: 99`        | refused `unsupported_schema_version`        |
+| `yanked: true`              | refused `yanked`                            |
+| name `"evil; DROP TABLE x"` | refused `invalid` ("not a safe identifier") |
+| missing required fields     | refused `invalid`                           |
+| non-hex `sha256`            | refused `invalid` (ajv schema pattern)      |
+| unparseable `manifest.json` | skipped, no throw                           |
+| no `manifest.json`          | skipped, no throw                           |
+| `validateManifest(null)`    | `{valid:false}` with typed error            |
+
+- No tamper class throws; every refusal is recorded as a typed `status` +
+  `statusDetail` per the degrade-visibly tenet.
+- **Design note (not a defect):** a structurally-valid-but-refused module (e.g.
+  unimplemented `schema_version`, or an unsafe manifest `name`) is keyed in the
+  registry under its _manifest_ `name`, not its dir name. This is safe because the
+  unsafe name is only ever metadata for `list_data_modules`; it is never used to
+  build a `M__view` SQL identifier. The guarantee is two-fold: `classifyManifest`
+  refuses an unsafe name to `status: "invalid"`, and `attachModule` builds views
+  only for `status === "ready"` modules (`modules.ts:325`). An unsafe-named module
+  can therefore never reach `viewNames`, so the SQL-identifier-injection path is
+  closed before any view is created.
+
+**Verdict: PASS.**
