@@ -1,17 +1,44 @@
+# Keep the build context small and reproducible: the image rebuilds dist/ from
+# src/ inside the builder stage, and installs deps from package-lock.json, so
+# none of the local build output or tooling state needs to ship.
+
+# Dependencies + local build output (rebuilt in-image)
 node_modules
-npm-debug.log
 dist
+coverage
+
+# VCS + CI
 .git
 .github
 .gitignore
-*.md
-!README.md
+.husky
+
+# Local env / secrets — never bake these into a layer
 .env
-.env.local
-.DS_Store
-coverage
+.env.*
+!.env.example
+
+# Editor / OS cruft
 .vscode
 .idea
+.DS_Store
+.editorconfig
+.prettierrc.json
+.prettierignore
+.remember
+.claude
+.mcp.json
+
+# Logs + temp
 *.log
+npm-debug.log
 tmp
 *.tmp
+
+# Docs and loose markdown (README is small; exclude the rest of the prose)
+*.md
+!README.md
+docs
+
+# Test artefacts not needed at build time
+src/test
