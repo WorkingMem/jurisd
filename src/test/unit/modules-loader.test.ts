@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Evaluate DuckDB availability at collection time so it.skipIf sees the real
+// value (beforeEach runs after collection, too late for skipIf).
+const duckdbAvailable = (await tryLoadDuckDB()) !== null;
+
 import {
   discoverModules,
   listModules,
@@ -65,12 +69,10 @@ function validBaseManifest(over: Record<string, unknown> = {}): Record<string, u
 }
 
 let scratch: string;
-let duckdbAvailable = false;
 
-beforeEach(async () => {
+beforeEach(() => {
   scratch = fs.mkdtempSync(path.join(os.tmpdir(), "jurisd-mods-"));
   setModulesRootForTest(scratch, true);
-  duckdbAvailable = (await tryLoadDuckDB()) !== null;
 });
 
 afterEach(() => {

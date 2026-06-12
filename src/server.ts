@@ -36,6 +36,7 @@ import {
   type CitedByRef,
 } from "./services/citation-cache.js";
 import { storeSource, checkSourceFreshness } from "./services/source-store.js";
+import { getProvision, getActStructure, listDataModules } from "./services/modules.js";
 import { config } from "./config.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
@@ -1187,6 +1188,116 @@ export function createMcpServer(): McpServer {
               null,
               2,
             ),
+          },
+        ],
+      };
+    },
+  );
+
+  // ── get_provision ─────────────────────────────────────────────────────────
+  // WS-E Layer-1 deterministic recall over installed data modules.
+  const getProvisionShape = {
+    act: z
+      .string()
+      .min(1)
+      .describe(
+        "Act work identity or citation, e.g. 'Competition and Consumer Act 2010 (Cth)' or a work_id",
+      ),
+    provision: z
+      .string()
+      .min(1)
+      .describe("Citable provision reference, e.g. 's 18', 'sch 2', 'reg 12', 'cl 4(1)'"),
+    module: z
+      .string()
+      .optional()
+      .describe("Pin a specific module by name; otherwise the best-covering ready module is used"),
+    format: formatEnum.optional(),
+  };
+  const getProvisionParser = z.object(getProvisionShape);
+
+  server.registerTool(
+    "get_provision",
+    {
+      title: "Get Provision (local module)",
+      description:
+        "Deterministic provision lookup over installed local data modules (offline). Resolves a single " +
+        "provision of an Act or instrument by its citable handle (no embedding, no ranking). Returns the " +
+        "provision text with provenance, or a typed not-found result so the router can fall through to live " +
+        "AustLII. Requires @duckdb/node-api and at least one installed module.",
+      inputSchema: getProvisionShape,
+    },
+    async (rawInput) => {
+      const { act, provision, module } = getProvisionParser.parse(rawInput);
+      const result = await getProvision({ act, provision, module });
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  // ── get_act_structure ─────────────────────────────────────────────────────
+  const getActStructureShape = {
+    act: z.string().min(1).describe("Act work identity or citation"),
+    depth: z
+      .number()
+      .int()
+      .min(1)
+      .max(12)
+      .optional()
+      .describe("Max tree depth; default 12 (also the cycle backstop)"),
+    module: z.string().optional(),
+    format: formatEnum.optional(),
+  };
+  const getActStructureParser = z.object(getActStructureShape);
+
+  server.registerTool(
+    "get_act_structure",
+    {
+      title: "Get Act Structure (local module)",
+      description:
+        "Return the containment tree of an Act (Act -> Part -> Division -> section/schedule/clause) by " +
+        "walking 'act_provision' edges in an installed local data module (offline, closed-world). Returns a " +
+        "nested tree or a typed not-found result. Requires @duckdb/node-api and at least one installed module.",
+      inputSchema: getActStructureShape,
+    },
+    async (rawInput) => {
+      const { act, depth, module } = getActStructureParser.parse(rawInput);
+      const result = await getActStructure({ act, depth, module });
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  // ── list_data_modules ─────────────────────────────────────────────────────
+  const listDataModulesShape = {
+    refresh: z.boolean().optional().describe("Re-scan the modules dir before listing"),
+    includeInvalid: z
+      .boolean()
+      .optional()
+      .describe("Include refused modules with their status reason"),
+    format: formatEnum.optional(),
+  };
+  const listDataModulesParser = z.object(listDataModulesShape);
+
+  server.registerTool(
+    "list_data_modules",
+    {
+      title: "List Data Modules",
+      description:
+        "Introspect the installed local data modules: name, version, jurisdiction/type coverage, doc/chunk " +
+        "counts, embedding descriptor, load status, snapshot date and staleness. Use includeInvalid to see " +
+        "refused modules and why they did not load. Reads metadata only (no DuckDB attach).",
+      inputSchema: listDataModulesShape,
+    },
+    async (rawInput) => {
+      const { refresh, includeInvalid } = listDataModulesParser.parse(rawInput);
+      const modules = listDataModules({ refresh, includeInvalid });
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ count: modules.length, modules }, null, 2),
           },
         ],
       };
