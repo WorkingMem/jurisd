@@ -6,8 +6,13 @@ import { createServer } from "node:http";
 
 import { createMcpServer } from "./server.js";
 import { probeCapabilities } from "./services/capabilities.js";
+import { runCli } from "./cli.js";
 
 async function main() {
+  // CLI subcommands (fetch-module / verify-module / list-modules) run before
+  // the server starts and exit when handled (WS-E §5.1).
+  if (await runCli(process.argv.slice(2))) return;
+
   // Startup capability probe (WS-E §4.1 / ROUTING.md). Reports the data-layer
   // capabilities without changing routing precedence; logged for the operator.
   try {
