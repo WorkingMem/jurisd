@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/russellbrenner/jurisd-data/manifest.schema.json",
+  "title": "jurisd data module manifest",
+  "description": "Manifest for a jurisd data module (schema_version 1). A module is a directory of parquet files plus this manifest. See MODULE_SPEC.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "module_version",
+    "schema_version",
+    "yanked",
+    "base_uri",
+    "snapshot",
+    "coverage",
+    "embedding",
+    "files",
+    "licence"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Module name (the stable half of module identity). e.g. legislation-cth.",
+      "minLength": 1
+    },
+    "module_version": {
+      "type": "string",
+      "description": "Module version (the versioned half of module identity). Bumped on rebuild.",
+      "minLength": 1
+    },
+    "schema_version": {
+      "type": "integer",
+      "description": "The MODULE_SPEC schema version this module conforms to. The loader refuses versions it does not implement.",
+      "minimum": 1
+    },
+    "yanked": {
+      "type": "boolean",
+      "description": "True if this module version has been withdrawn and should not be used."
+    },
+    "base_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "The explicit base URI that files[].path resolves against. Consumers never construct paths from a repo name."
+    },
+    "snapshot": {
+      "type": "object",
+      "description": "The reproducibility record: the pinned inputs this module was built from.",
+      "additionalProperties": false,
+      "required": ["date", "recipe_repo", "recipe_git_sha", "args"],
+      "oneOf": [
+        {
+          "required": ["corpus_sha"],
+          "not": { "required": ["dataset", "revision"] }
+        },
+        {
+          "required": ["dataset", "revision"],
+          "not": { "required": ["corpus_sha"] }
+        }
+      ],
+      "properties": {
+        "corpus_sha": {
+          "type": "string",
+          "description": "SHA of the local source corpus build (use this OR dataset+revision).",
+          "minLength": 1
+        },
+        "dataset": {
+          "type": "string",
+          "description": "Source dataset id, e.g. isaacus/open-australian-legal-corpus (use with revision; mutually exclusive with corpus_sha).",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "description": "Pinned dataset revision (use with dataset).",
+          "minLength": 1
+        },
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "The snapshot date (ISO-8601)."
+        },
+        "recipe_repo": {
+          "type": "string",
+          "description": "The recipe repository that built this module."
+        },
+        "recipe_git_sha": {
+          "type": "string",
+          "description": "The git SHA of the recipe at build time.",
+          "minLength": 7
+        },
+        "args": {
+          "type": "object",
+          "description": "The pipeline arguments used. Free-form but recorded for reproducibility.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "description": "What this module covers.",
+      "additionalProperties": false,
+      "required": ["jurisdictions", "types", "doc_count", "chunk_count"],
+      "properties": {
+        "jurisdictions": {
+          "type": "array",
+          "description": "Jurisdiction codes covered.",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "types": {
+          "type": "array",
+          "description": "Document types covered (documents.type values).",
+          "items": {
+            "type": "string",
+            "enum": ["decision", "primary_legislation", "secondary_legislation", "bill"]
+          },
+          "minItems": 1
+        },
+        "doc_count": {
+          "type": "integer",
+          "description": "Number of rows in the documents table.",
+          "minimum": 0
+        },
+        "chunk_count": {
+          "type": "integer",
+          "description": "Number of rows in the chunks table.",
+          "minimum": 0
+        }
+      }
+    },
+    "embedding": {
+      "description": "The embedding descriptor, or null if the module is unembedded.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model_id", "dim", "normalised"],
+          "properties": {
+            "model_id": {
+              "type": "string",
+              "description": "The embedding model id, e.g. bge-small-en-v1.5.",
+              "minLength": 1
+            },
+            "dim": {
+              "type": "integer",
+              "description": "Embedding dimension; must match chunks.embedding length.",
+              "minimum": 1
+            },
+            "normalised": {
+              "type": "boolean",
+              "description": "Whether embeddings are L2-normalised."
+            }
+          }
+        }
+      ]
+    },
+    "files": {
+      "type": "array",
+      "description": "The parquet files in this module, with integrity hashes and row counts.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "rows"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path relative to base_uri.",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "description": "Lowercase hex sha256 of the file.",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "rows": {
+            "type": "integer",
+            "description": "Row count of the parquet file.",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "licence": {
+      "type": "object",
+      "description": "The module's licence posture: aggregate SPDX, per-source audit, and attribution.",
+      "additionalProperties": false,
+      "required": ["spdx", "per_source", "attribution"],
+      "properties": {
+        "spdx": {
+          "type": "string",
+          "description": "The aggregate SPDX licence identifier for the module's data, e.g. CC-BY-4.0.",
+          "minLength": 1
+        },
+        "per_source": {
+          "type": "array",
+          "description": "Per-upstream-source licence verdict. One entry per distinct documents.source in the module.",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "licence", "redistributable", "evidence_url"],
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "The source identifier (matches documents.source).",
+                "minLength": 1
+              },
+              "licence": {
+                "type": "string",
+                "description": "The upstream licence for this source.",
+                "minLength": 1
+              },
+              "redistributable": {
+                "type": "boolean",
+                "description": "Whether rows from this source may be redistributed in a published module."
+              },
+              "evidence_url": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL evidencing the licence verdict."
+              }
+            }
+          }
+        },
+        "attribution": {
+          "type": "array",
+          "description": "Attribution statements required by the per-source licences.",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

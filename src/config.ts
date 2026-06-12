@@ -96,6 +96,20 @@ export interface Config {
      */
     enabled: boolean;
   };
+  modules: {
+    /** Root dir for installed data modules. Default ~/.jurisd/modules. */
+    dir: string; // JURISD_MODULES_DIR
+    /** When false, the whole local-module layer (Layer 1) is disabled. */
+    enabled: boolean; // JURISD_MODULES_ENABLED, default true
+    /** Staleness threshold in days for the snapshot advisory. */
+    stalenessDays: number; // JURISD_MODULE_STALENESS_DAYS, default 365
+    /** When true, sha256-verify each parquet against the manifest on load. */
+    verifyOnLoad: boolean; // JURISD_MODULE_VERIFY_ON_LOAD, default false
+    /** Directory the local embedder caches its model under. */
+    modelsDir: string; // JURISD_MODELS_DIR, default ~/.jurisd/models
+    /** When true, the embedder must never reach the network (air-gapped). */
+    embedOffline: boolean; // JURISD_EMBED_OFFLINE, default false
+  };
 }
 
 /**
@@ -107,6 +121,7 @@ export function loadConfig(): Config {
   const cacheDir = process.env.AUSLAW_CACHE_DIR ?? process.cwd();
   const projectName = process.env.AUSLAW_PROJECT_NAME ?? path.basename(cacheDir);
   const sourcesDir = process.env.AUSLAW_SOURCES_DIR ?? path.join(cacheDir, "sources");
+  const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? ".";
 
   return {
     austlii: {
@@ -167,6 +182,14 @@ export function loadConfig(): Config {
         process.env.AUSLAW_OALC_SOURCE ||
         `${process.env.HOME ?? process.env.USERPROFILE ?? "~"}/oalc-data/corpus_published.jsonl`,
       enabled: process.env.AUSLAW_OALC_ENABLED !== "false",
+    },
+    modules: {
+      dir: process.env.JURISD_MODULES_DIR || path.join(homeDir, ".jurisd", "modules"),
+      enabled: process.env.JURISD_MODULES_ENABLED !== "false",
+      stalenessDays: parseInt(process.env.JURISD_MODULE_STALENESS_DAYS || "365", 10) || 365,
+      verifyOnLoad: process.env.JURISD_MODULE_VERIFY_ON_LOAD === "true",
+      modelsDir: process.env.JURISD_MODELS_DIR || path.join(homeDir, ".jurisd", "models"),
+      embedOffline: process.env.JURISD_EMBED_OFFLINE === "true",
     },
   };
 }

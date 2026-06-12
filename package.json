@@ -12,7 +12,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"const fs=require('fs'),p=require('path');fs.mkdirSync('dist/data',{recursive:true});fs.copyFileSync('src/data/manifest.schema.json','dist/data/manifest.schema.json')\"",
     "clean": "rm -rf dist",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",

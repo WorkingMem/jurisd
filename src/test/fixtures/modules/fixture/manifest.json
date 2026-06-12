@@ -1,0 +1,67 @@
+{
+  "name": "fixture",
+  "module_version": "0.0.1",
+  "schema_version": 1,
+  "yanked": false,
+  "base_uri": "https://github.com/russellbrenner/jurisd-data/raw/main/fixture-module/",
+  "snapshot": {
+    "corpus_sha": "0000000000000000000000000000000000000000",
+    "date": "2026-06-12",
+    "recipe_repo": "russellbrenner/jurisd-data",
+    "recipe_git_sha": "fixture-handwritten",
+    "args": {
+      "note": "vendored test fixture, not pipeline-built"
+    }
+  },
+  "coverage": {
+    "jurisdictions": ["commonwealth"],
+    "types": ["primary_legislation", "decision"],
+    "doc_count": 2,
+    "chunk_count": 3
+  },
+  "embedding": null,
+  "files": [
+    {
+      "path": "documents.parquet",
+      "sha256": "1dccffb5c50ad0246e3f39d892e15359a710a3d7d8ae79bf9288c5f352cedb2c",
+      "rows": 2
+    },
+    {
+      "path": "chunks.parquet",
+      "sha256": "7146520c3c086401ae6aa55efcb94ca572468ac27644a7bbd1f27f95208b0f1d",
+      "rows": 3
+    },
+    {
+      "path": "edges.parquet",
+      "sha256": "7896d6e515fd8c66b3577ef15d4dd7b65f00eab8e861d428bc7f887f639acc2e",
+      "rows": 2
+    },
+    {
+      "path": "unmatched_citations.parquet",
+      "sha256": "8d153e42da52dc4b78a4b07158449e0cf65054b9e7380229bc19d1d9cfe755d8",
+      "rows": 1
+    }
+  ],
+  "licence": {
+    "spdx": "CC-BY-4.0",
+    "per_source": [
+      {
+        "source": "federal_register_of_legislation",
+        "licence": "CC-BY-4.0",
+        "redistributable": true,
+        "evidence_url": "https://www.legislation.gov.au/content/copyright"
+      },
+      {
+        "source": "hca",
+        "licence": "CC-BY-4.0",
+        "redistributable": true,
+        "evidence_url": "https://www.hcourt.gov.au/registry/copyright"
+      }
+    ],
+    "attribution": [
+      "Contains material from the Open Australian Legal Corpus (Isaacus), CC BY 4.0.",
+      "Federal Register of Legislation material (C) Commonwealth of Australia, CC BY 4.0.",
+      "High Court of Australia judgment material, CC BY 4.0."
+    ]
+  }
+}
