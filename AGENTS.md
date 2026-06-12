@@ -13,17 +13,26 @@ This document provides guidance for AI agents (Claude Code, Warp/Oz, Cursor, etc
 
 ```
 src/
-├── index.ts              # Entry point: transport wiring (stdio / streamable HTTP)
-├── server.ts             # createMcpServer(): 10 tool registrations (mode/op/action/by dispatch)
+├── index.ts              # Entry point: CLI subcommands + transport wiring (stdio / streamable HTTP)
+├── cli.ts                # fetch-module / verify-module / list-modules subcommand dispatch (WS-E)
+├── server.ts             # createMcpServer(): 15 tool registrations (10 live/citation + 5 WS-E local-module)
 ├── config.ts             # Configuration management (env vars with defaults)
 ├── constants.ts          # Citation patterns, court codes, reporters, timeouts
 ├── errors.ts             # Custom error classes (AustLiiError, NetworkError, ParseError, OcrError)
+├── data/
+│   ├── manifest.ts          # Module manifest types + dependency-light validator (WS-E)
+│   └── manifest.schema.json # Vendored module manifest schema (from jurisd-data)
 ├── services/
 │   ├── austlii.ts        # AustLII search, authority scoring, sort detection
 │   ├── citation.ts       # AGLC4 citation parsing, formatting, validation, pinpoints
 │   ├── fetcher.ts        # Document retrieval (HTML, PDF, OCR, removed.invalid)
 │   ├── source.ts           # removed.invalid article resolution, URL utilities, citation lookup
-│   └── source-rpc.ts       # RPC utilities (buildFetchRequest, encodeInt, parseFetchResponse)
+│   ├── source-rpc.ts       # RPC utilities (buildFetchRequest, encodeInt, parseFetchResponse)
+│   ├── modules.ts        # WS-E module store/loader + lazy DuckDB attach + 5 recall query helpers
+│   ├── embedder.ts       # WS-E local bge-small query embedding (optional @huggingface/transformers)
+│   ├── adapter.ts        # WS-E vendor-neutral domain adapter (baseline + Isaacus BYOK skeleton)
+│   ├── capabilities.ts   # WS-E startup capability probe (duckdb / embeddings / modules / adapter)
+│   └── fetch-module.ts   # WS-E module fetch + sha256 verification + atomic install
 ├── utils/
 │   ├── formatter.ts      # MCP response formatting (json/text/markdown/html)
 │   ├── logger.ts         # Structured levelled logging (LOG_LEVEL env var)

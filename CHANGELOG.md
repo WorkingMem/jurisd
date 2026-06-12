@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **WS-E local-module data layer**: a Layer-1 offline recall path over installed
+  parquet **data modules** (`docs/design/data-layer.md`). Adds a module store/loader
+  with manifest validation against a vendored schema and lazy per-module DuckDB
+  attach over parquet (`src/services/modules.ts`, `src/data/`), holding metadata only
+  in RSS and degrading gracefully when `@duckdb/node-api` is absent.
+- **5 new MCP tools** (tool surface 10 → 15, under the 18 ceiling): `get_provision`
+  (deterministic provision lookup), `get_act_structure` (recursive-CTE containment
+  tree over `act_provision` edges), `find_citing` (offline twin of
+  `search_citing_cases` over `cites`/`considers` edges), `semantic_search_local`
+  (local bge-small query embedding + cosine ranking with facet pre-filters), and
+  `list_data_modules` (registry introspection). All carry
+  `metadata.source = "local_module"` with name/version/snapshot and a staleness advisory.
+- **Local query embedding** (`src/services/embedder.ts`) via the optional
+  `@huggingface/transformers` dependency (bge-small-en-v1.5, 384-dim, offline, no key),
+  lazy-imported with graceful absence and an air-gapped `JURISD_EMBED_OFFLINE` mode.
+- **Capability probe + vendor-neutral provider adapter** (`src/services/capabilities.ts`,
+  `src/services/adapter.ts`): a startup probe reporting duckdb / local_embeddings /
+  module counts / domain adapter, and a baseline-vs-domain-specialised adapter with an
+  Isaacus BYOK rerank + extractive-QA skeleton (silent per-call degradation, no
+  free/premium framing).
+- **`fetch-module` CLI** (`jurisd fetch-module` / `verify-module` / `list-modules`):
+  operator-driven module install with sha256 verification, fail-fast manifest validation
+  before any parquet download, and atomic temp-then-rename install
+  (`src/services/fetch-module.ts`, `src/cli.ts`).
+- New config block (`config.modules`) and env vars: `JURISD_MODULES_DIR`,
+  `JURISD_MODULES_ENABLED`, `JURISD_MODULE_STALENESS_DAYS`, `JURISD_MODULE_VERIFY_ON_LOAD`,
+  `JURISD_MODELS_DIR`, `JURISD_EMBED_OFFLINE`, and `ISAACUS_API_KEY` / `ISAACUS_BASE_URL`.
+
 ### Changed
 
 - **BREAKING**: Consolidated the MCP tool surface from 18 tools to 10 per the R5 decision

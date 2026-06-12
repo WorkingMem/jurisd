@@ -212,7 +212,7 @@ Once the MCP is connected, you can ask an AI assistant like Claude natural langu
 
 ## Available Tools
 
-10 tools. Operation variants are selected via a `mode`/`op`/`action`/`by` parameter on the relevant tool (see [docs/decisions/tool-surface.md](docs/decisions/tool-surface.md)).
+15 tools: 10 live/citation tools plus 5 WS-E local-module recall tools that serve installed offline data modules (see [docs/design/data-layer.md](docs/design/data-layer.md)). Operation variants are selected via a `mode`/`op`/`action`/`by` parameter on the relevant tool (see [docs/decisions/tool-surface.md](docs/decisions/tool-surface.md)).
 
 ### search_cases
 
@@ -446,6 +446,83 @@ Fetch citing cases for a cached citation from removed.invalid and store them loc
 |-----------|----------|-------------|
 | `citeKey` | Yes | Cite key of the parent case whose citing cases should be fetched and cached |
 
+## Local data-module tools (WS-E)
+
+These five tools serve installed offline **data modules** (parquet bundles obtained with `jurisd fetch-module`). They require the optional `@duckdb/node-api` dependency and at least one installed module; `semantic_search_local` additionally needs `@huggingface/transformers`. All five carry `metadata.source = "local_module"` with the module name, version, and snapshot date (and a staleness advisory when the snapshot is old). See [docs/design/data-layer.md](docs/design/data-layer.md).
+
+### get_provision
+
+Deterministic provision lookup over installed modules (no embedding, no ranking). Returns the provision text with provenance, or a typed not-found result so the router can fall through to live AustLII.
+
+**Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `act` | Yes | Act citation or work/version identity, e.g. `Competition and Consumer Act 2010 (Cth)` |
+| `provision` | Yes | Citable provision reference, e.g. `s 18`, `sch 2`, `reg 12`, `cl 4(1)` |
+| `module` | No | Pin a specific module; otherwise the best-covering ready module is used |
+| `format` | No | `json` (default), `text`, `markdown`, `html` |
+
+### get_act_structure
+
+Containment tree of an Act (Act → Part → Division → section/schedule/clause) walked over `act_provision` edges in a local module (closed-world, with a depth guard as cycle backstop).
+
+**Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `act` | Yes | Act citation or work/version identity |
+| `depth` | No | Max tree depth 1-12 (default 12) |
+| `module` | No | Pin a specific module |
+| `format` | No | `json` (default), `text`, `markdown`, `html` |
+
+### find_citing
+
+Offline twin of `search_citing_cases`: documents in installed modules whose text cites a target, via `cites`/`considers` edges, with the provenance span of each citation.
+
+**Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `target` | Yes | Citation or work/version identity of the cited document |
+| `kinds` | No | Edge kinds to include: `cites`, `considers` (default both) |
+| `module` | No | Pin a specific module |
+| `limit` | No | Max results 1-200 |
+| `format` | No | `json` (default), `text`, `markdown`, `html` |
+
+### semantic_search_local
+
+Vector recall over installed modules: the query is embedded locally (bge-small, offline, no key) and ranked by cosine similarity over chunk embeddings, with optional facet pre-filters. Degrades visibly (typed notes) when the embedder or an embedded module is unavailable.
+
+**Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `query` | Yes | Natural-language query, embedded locally |
+| `module` | No | Pin a module; otherwise all embedded modules with a matching descriptor |
+| `k` | No | Number of results 1-50 (default 10) |
+| `filter` | No | Facet pre-filters: `jurisdiction`, `type`, `segment_type` |
+| `format` | No | `json` (default), `text`, `markdown`, `html` |
+
+### list_data_modules
+
+Introspect installed modules: name, version, jurisdiction/type coverage, doc/chunk counts, embedding descriptor, load status, snapshot date and staleness. Reads metadata only (no DuckDB attach).
+
+**Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `refresh` | No | Re-scan the modules dir before listing |
+| `includeInvalid` | No | Include refused modules with their status reason |
+| `format` | No | `json` (default), `text`, `markdown`, `html` |
+
+## Obtaining data modules (CLI)
+
+Data modules are operator-installed via CLI subcommands (kept off the tool surface so an LLM never triggers a large download):
+
+```bash
+jurisd fetch-module <name> [--version X.Y.Z]   # download + sha256-verify + atomic install
+jurisd verify-module <name>                     # re-verify installed files against the manifest
+jurisd list-modules                             # list installed modules (incl. refused)
+```
+
+Default install root is `~/.jurisd/modules/` (override with `JURISD_MODULES_DIR` or `--modules-dir`).
+
 ## Jurisdictions
 
 | Code      | Jurisdiction                   |
@@ -482,7 +559,7 @@ Test scenarios include:
 ```
 src/
 ├── index.ts              # Entry point: transport wiring (stdio / streamable HTTP)
-├── server.ts             # createMcpServer(): 10 tool registrations (mode/op/action/by dispatch)
+├── server.ts             # createMcpServer(): 15 tool registrations (10 live/citation + 5 WS-E local-module)
 ├── config.ts             # Configuration management
 ├── constants.ts          # Citation patterns, court codes, reporters
 ├── errors.ts             # Custom error classes

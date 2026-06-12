@@ -21,7 +21,9 @@ npm run lint:fix       # Auto-fix lint issues
 ## Key Architecture
 
 - `src/index.ts` - entry point, transport wiring (stdio / streamable HTTP)
-- `src/server.ts` - `createMcpServer()`, 10 tool registrations with `mode`/`op`/`action`/`by` dispatch (see `docs/decisions/tool-surface.md`)
+- `src/server.ts` - `createMcpServer()`, 15 tool registrations (10 live/citation with `mode`/`op`/`action`/`by` dispatch, plus 5 WS-E local-module recall tools; see `docs/decisions/tool-surface.md` and `docs/design/data-layer.md`)
+- `src/services/modules.ts` - WS-E module store/loader, lazy DuckDB attach over parquet, and the 5 recall query helpers (`get_provision`, `get_act_structure`, `find_citing`, `semantic_search_local`, `list_data_modules`)
+- `src/services/embedder.ts` / `src/services/adapter.ts` / `src/services/capabilities.ts` / `src/services/fetch-module.ts` - WS-E local embedding, vendor-neutral domain adapter, capability probe, and the module fetch/verify CLI flow
 - `src/services/source-rpc.ts` - RPC protocol: `resolveRecords` (search), `fetchRequest` (fetch), citator, tokens, RPC encoding
 - `src/services/source.ts` - removed.invalid integration: `searchUpstream`, `resolveArticle`, `searchCitingCases`, bridge section resolution
 - `src/services/austlii.ts` - AustLII search with authority-based ranking
