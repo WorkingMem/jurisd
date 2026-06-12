@@ -277,3 +277,59 @@ future enhancement (a `notes`/`reason` field on the deterministic tools when
 logged as a **deferred enhancement**.
 
 **Verdict: PASS.**
+
+---
+
+## Check 8 — Full suite + lint + typecheck; cleanup; final verdict
+
+**Gates (all green):**
+
+- **Typecheck** (`tsc --noEmit`): **0 errors**. (Fixed one strict-mode
+  `possibly-undefined` in the Check 2 test introduced during this review.)
+- **Lint** (`eslint src --ext .ts`): **0 errors**, 8 warnings — all 8 are
+  pre-existing `no-console` warnings in `src/test/citator.test.ts` (last touched by
+  `304ad70`, unrelated to WS-E). This review introduces **zero** new lint
+  errors/warnings.
+- **Build** (`npm run build`): exit 0; `dist/data/manifest.schema.json` copied;
+  the built `dist/server.js` registers **15** tools.
+- **Unit suite** (`vitest run src/test/unit/`): **615 passed, 0 failed** (includes
+  the 6 new durable WS-E review test files, ~31 new assertions).
+
+**Cleanup:** the two scratch probes (`_wse_review_scratch*.test.ts`, never
+committed) and their `/tmp/wse-shapes*.txt` debris are removed. Their probe logic
+was distilled into the durable tests listed below. Working tree clean.
+
+**Durable artefacts added by this review:**
+
+- `src/test/unit/tool-surface.test.ts` (Check 1)
+- `src/test/unit/module-loader-rejects.test.ts` (Check 2)
+- `src/test/unit/recall-tools-shapes.test.ts` (Check 3)
+- `src/test/unit/capability-probe.test.ts` (Check 4)
+- `src/test/unit/fetch-module-verify.test.ts` (Check 5)
+- `src/test/unit/optional-dep-degradation.test.ts` (Check 7)
+
+**Fixes landed:** salvaged + kept the 2nd reviewer's `ARCHITECTURE.md` /
+`PROJECT-OVERVIEW.md` doc-drift corrections (Check 1); fixed the one vendor-neutral
+framing leak in `docs/AGENT-GUIDE.md` (Check 6); fixed a strict-mode typecheck
+error in a review test (Check 8).
+
+**Deferred (non-blocking) gaps:** (a) a "deliberately old" embedded fixture to
+exercise the staleness advisory directly (Check 3); (b) the `files[].rows`
+DuckDB `count(*)` cross-check at fetch time — redundant given sha256 (Check 5);
+(c) a per-call note on the deterministic tools when DuckDB is absent — currently
+surfaced only by the capability probe (Check 7). None of these affect correctness,
+safety, or the framing contract.
+
+---
+
+## FINAL VERDICT: approve-with-deferred-gaps
+
+The landed WS-E data layer (`0ecd0b3..9b960f9`) faithfully implements the design
+contract. All eight checks PASS. The loader refuses every tampered/invalid
+manifest class without throwing; the five recall tools return correct shapes with
+provenance metadata; the capability probe degrades baseline↔domain-specialised
+with a bounded no-hang reachability check; `fetch-module` rejects bad sha256 and
+installs atomically; vocabulary is vendor-neutral with no free/premium framing
+(one doc leak fixed); optional-dependency absence degrades visibly with typed
+signals. Gates are green (615 unit tests, 0 lint errors, clean typecheck/build).
+The three deferred gaps are enhancements, not defects, and do not block approval.
