@@ -49,6 +49,32 @@ export interface Config {
     /** Maximum number of citing-case sources to download per lookup. */
     downloadLimit: number;
   };
+  transport: {
+    /**
+     * When true, use the impit HTTP client (TLS impersonation) for AustLII
+     * requests instead of axios. Requires the optional 'impit' dependency.
+     * Defaults to true when impit is installed.
+     */
+    useImpit: boolean;
+    /**
+     * Browser profile passed to impit for TLS fingerprint impersonation.
+     * Supported values: "chrome", "firefox", "safari".
+     */
+    imitBrowser: string;
+  };
+  oalc: {
+    /**
+     * Path to the OALC corpus JSONL file used as a document-text fallback.
+     * Defaults to ~/oalc-data/corpus_published.jsonl.
+     * Set AUSLAW_OALC_SOURCE to override.
+     */
+    source: string;
+    /**
+     * When true, the OALC DuckDB layer is enabled and will be queried for
+     * document text when live AustLII fetch fails.
+     */
+    enabled: boolean;
+  };
 }
 
 /**
@@ -100,6 +126,16 @@ export function loadConfig(): Config {
       enabled: process.env.AUSLAW_CACHE_CITED_BY !== "false",
       downloadSources: process.env.AUSLAW_DOWNLOAD_CITED_BY_SOURCES !== "false",
       downloadLimit: parseInt(process.env.AUSLAW_CITED_BY_DOWNLOAD_LIMIT ?? "5", 10) || 5,
+    },
+    transport: {
+      useImpit: process.env.AUSLAW_USE_IMPIT !== "false",
+      imitBrowser: process.env.AUSLAW_IMPIT_BROWSER || "chrome",
+    },
+    oalc: {
+      source:
+        process.env.AUSLAW_OALC_SOURCE ||
+        `${process.env.HOME ?? process.env.USERPROFILE ?? "~"}/oalc-data/corpus_published.jsonl`,
+      enabled: process.env.AUSLAW_OALC_ENABLED !== "false",
     },
   };
 }

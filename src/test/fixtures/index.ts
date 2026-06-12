@@ -40,3 +40,15 @@ export const PROPOSE_CITABLES_ROGERS = readFileSync(
 );
 
 export const CITATOR_MABO = readFileSync(join(__dirname, "citator-mabo.txt"), "utf-8");
+
+export const AUSTLII_CLOUDFLARE_CHALLENGE_HTML = readFileSync(
+  join(__dirname, "austlii-cloudflare-challenge.html"),
+  "utf-8",
+);
+
+export const AUSTLII_CLASSIC_JUDGMENT_HTML = readFileSync(
+  join(__dirname, "austlii-classic-judgment.html"),
+  "utf-8",
+);
+
+export const OALC_FIXTURE_JSONL_PATH = join(__dirname, "oalc-fixture.jsonl");
