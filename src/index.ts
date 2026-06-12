@@ -5,8 +5,18 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createServer } from "node:http";
 
 import { createMcpServer } from "./server.js";
+import { probeCapabilities } from "./services/capabilities.js";
 
 async function main() {
+  // Startup capability probe (WS-E §4.1 / ROUTING.md). Reports the data-layer
+  // capabilities without changing routing precedence; logged for the operator.
+  try {
+    const caps = await probeCapabilities();
+    console.error(`jurisd capabilities: ${JSON.stringify(caps)}`);
+  } catch (err) {
+    console.error("jurisd capability probe failed (non-fatal):", err);
+  }
+
   if (process.env.MCP_TRANSPORT === "http") {
     const port = parseInt(process.env.PORT ?? "3000", 10);
     createServer(async (req, res) => {

@@ -21,6 +21,7 @@ import {
   validateManifest,
 } from "../data/manifest.js";
 import { getQueryEmbedder, activeEmbedderDescriptor, type EmbedderDescriptor } from "./embedder.js";
+import { baselineAdapter, type DomainAdapter, type LocalChunk } from "./adapter.js";
 
 /** Load status of a discovered module. */
 export type ModuleStatus =
@@ -821,12 +822,20 @@ function modelIdCompatible(manifestModelId: string, embedderModelId: string): bo
  * Returns `found:false` with a note when the embedder is absent (degrade
  * visibly), never throwing into the result.
  */
-export async function semanticSearchLocal(args: {
-  query: string;
-  module?: string;
-  k?: number;
-  filter?: { jurisdiction?: string; type?: string; segment_type?: string };
-}): Promise<SemanticSearchResult> {
+export async function semanticSearchLocal(
+  args: {
+    query: string;
+    module?: string;
+    k?: number;
+    filter?: { jurisdiction?: string; type?: string; segment_type?: string };
+  },
+  /**
+   * The domain adapter that refines the LOCAL top-k (design §4.2). Defaults to
+   * the baseline (pure cosine order). When it can rerank, the top-k LOCAL rows
+   * are reordered and each hit's metadata carries `enhancement = adapter.label`.
+   */
+  adapter: DomainAdapter = baselineAdapter,
+): Promise<SemanticSearchResult> {
   const k = args.k ?? 10;
   const notes: string[] = [];
 
@@ -905,5 +914,26 @@ export async function semanticSearchLocal(args: {
   }
 
   hits.sort((a, b) => b.score - a.score);
-  return { found: hits.length > 0, hits: hits.slice(0, k), notes };
+  let topK = hits.slice(0, k);
+
+  // Optional domain-adapter refinement over the LOCAL top-k (never replaces
+  // local recall). Absence (baseline) leaves cosine order untouched. A provider
+  // failure inside rerank degrades to the input order (handled in the adapter).
+  if (adapter.canRerank && adapter.rerank && topK.length > 0) {
+    const localChunks: LocalChunk[] = topK.map((h) => ({
+      chunk_id: h.chunk_id,
+      text: h.text,
+      score: h.score,
+    }));
+    const reordered = await adapter.rerank(args.query, localChunks);
+    const byId = new Map(topK.map((h) => [h.chunk_id, h]));
+    const refined: SemanticHit[] = [];
+    for (const c of reordered) {
+      const hit = byId.get(c.chunk_id);
+      if (hit) refined.push({ ...hit, metadata: { ...hit.metadata, enhancement: adapter.label } });
+    }
+    if (refined.length > 0) topK = refined;
+  }
+
+  return { found: topK.length > 0, hits: topK, notes };
 }

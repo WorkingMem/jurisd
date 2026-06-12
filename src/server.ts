@@ -43,6 +43,7 @@ import {
   findCiting,
   semanticSearchLocal,
 } from "./services/modules.js";
+import { getActiveAdapter } from "./services/capabilities.js";
 import { config } from "./config.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
@@ -1388,7 +1389,8 @@ export function createMcpServer(): McpServer {
     },
     async (rawInput) => {
       const { query, module, k, filter } = semanticSearchLocalParser.parse(rawInput);
-      const result = await semanticSearchLocal({ query, module, k, filter });
+      const adapter = await getActiveAdapter();
+      const result = await semanticSearchLocal({ query, module, k, filter }, adapter);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
       };
