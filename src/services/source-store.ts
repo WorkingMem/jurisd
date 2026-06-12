@@ -32,6 +32,24 @@ export interface StoreSourceResult {
   contentHash: string;
 }
 
+const CITE_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+
+function buildSourceFilePath(citeKey: string, sourcesDir: string): string {
+  if (!CITE_KEY_PATTERN.test(citeKey)) {
+    throw new Error(
+      `Invalid citeKey '${citeKey}'. Only letters, numbers, underscores, and hyphens are allowed.`,
+    );
+  }
+
+  const baseDir = path.resolve(sourcesDir);
+  const filePath = path.resolve(baseDir, `${citeKey}.md`);
+  if (!filePath.startsWith(`${baseDir}${path.sep}`)) {
+    throw new Error(`Resolved source path escapes sources directory for citeKey '${citeKey}'.`);
+  }
+
+  return filePath;
+}
+
 /**
  * Issue a conditional HEAD request to check whether the local copy of a
  * source document is still current.
@@ -91,7 +109,7 @@ export async function storeSource(
   sourcesDir: string,
   prefetchedDoc?: { text: string; etag?: string; lastModified?: string },
 ): Promise<StoreSourceResult> {
-  const filePath = path.join(sourcesDir, `${citeKey}.md`);
+  const filePath = buildSourceFilePath(citeKey, sourcesDir);
 
   // Freshness check when we have prior ETag or Last-Modified
   if (cached?.sourceEtag || cached?.sourceLastModified) {

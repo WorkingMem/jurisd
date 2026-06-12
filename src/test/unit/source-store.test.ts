@@ -182,6 +182,14 @@ describe("storeSource", () => {
     expect(result.path).toBe(path.join(SOURCES_DIR, "mabo1992.md"));
   });
 
+  it("rejects path traversal citeKey values", async () => {
+    await expect(storeSource("../escape", TEST_URL, null, SOURCES_DIR)).rejects.toThrow(
+      /Invalid citeKey/,
+    );
+    expect(fetchDocumentText).not.toHaveBeenCalled();
+    expect(mockFs.writeFile).not.toHaveBeenCalled();
+  });
+
   it("captures etag from HEAD response", async () => {
     const result = await storeSource("mabo1992", TEST_URL, null, SOURCES_DIR);
     expect(result.etag).toBe('"etag-1"');
