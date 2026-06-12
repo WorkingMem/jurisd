@@ -83,6 +83,23 @@ If your client edits a JSON config directly (Claude Desktop's
 To pass environment variables, add an `"env": { "JADE_SESSION_COOKIE": "..." }`
 block to the server entry.
 
+### Claude Code skill
+
+The repo ships a Claude Code skill (`skills/jurisd-research/`) that gives the agent
+expert jurisd usage from day 0: tool decision guidance (local-first vs live
+fallback), AGLC4 citation workflows, the typical research flow, module management,
+and a worked example transcript. Install it alongside the MCP server by copying the
+skill folder into your skills directory:
+
+```bash
+cp -r skills/jurisd-research ~/.claude/skills/          # user skills
+# or into a plugin: cp -r skills/jurisd-research <plugin>/skills/
+```
+
+It is plain Markdown (`SKILL.md` with YAML frontmatter), so no build step is
+needed. Once installed, it activates automatically on legal-research and AGLC4
+prompts.
+
 ## Environment variables (all optional)
 
 With none of these set, the live AustLII layer and the local-module recall layer

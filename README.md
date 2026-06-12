@@ -69,6 +69,21 @@ layer and the local-module recall layer both work. See
 [docs/INSTALL.md](docs/INSTALL.md) for the local-clone path, every config option,
 and the offline/baseline guarantee.
 
+### Claude Code skill
+
+A bundled [Claude Code skill](skills/jurisd-research/SKILL.md) teaches the agent
+expert jurisd usage from day 0 — which of the 15 tools to reach for, the
+local-first/live-fallback rule, AGLC4 citation workflows, and a
+[worked research session](skills/jurisd-research/examples/research-session.md).
+Install it by copying the skill folder into your skills directory:
+
+```bash
+cp -r skills/jurisd-research ~/.claude/skills/
+```
+
+(or your plugin's skills path). The skill activates automatically on legal-research
+and AGLC4 prompts once the `jurisd` MCP server is registered.
+
 ## Tools
 
 15 tools in three groups. Operation variants are selected via a
@@ -226,17 +241,18 @@ for the full per-source verdict table.
 
 ## Documentation
 
-| Document                                          | Description                                                    |
-| ------------------------------------------------- | -------------------------------------------------------------- |
-| [INSTALL.md](docs/INSTALL.md)                     | Day-0 install paths, Claude Code config, env vars, module flow |
-| [AGENT-GUIDE.md](docs/AGENT-GUIDE.md)             | Agent-facing usage guide with full tool catalog and examples   |
-| [data-layer.md](docs/design/data-layer.md)        | Local data-module design (loader, the five recall tools, BYOK) |
-| [tool-surface.md](docs/decisions/tool-surface.md) | The R5 tool-consolidation decision (15-tool surface)           |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md)           | System architecture, deployment topology, CI/CD                |
-| [DECISIONS.md](docs/DECISIONS.md)                 | Architectural decision records (ADRs)                          |
-| [DOCKER.md](docs/DOCKER.md)                       | Docker deployment guide                                        |
-| [ROADMAP.md](docs/ROADMAP.md)                     | Development history and future plans                           |
-| [jade-gwt-protocol.md](docs/jade-gwt-protocol.md) | jade.io GWT-RPC reverse-engineering details                    |
+| Document                                                 | Description                                                                |
+| -------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [INSTALL.md](docs/INSTALL.md)                            | Day-0 install paths, Claude Code config, env vars, module flow             |
+| [jurisd-research skill](skills/jurisd-research/SKILL.md) | Claude Code skill: tool decision guidance, AGLC4 workflows, worked example |
+| [AGENT-GUIDE.md](docs/AGENT-GUIDE.md)                    | Agent-facing usage guide with full tool catalog and examples               |
+| [data-layer.md](docs/design/data-layer.md)               | Local data-module design (loader, the five recall tools, BYOK)             |
+| [tool-surface.md](docs/decisions/tool-surface.md)        | The R5 tool-consolidation decision (15-tool surface)                       |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)                  | System architecture, deployment topology, CI/CD                            |
+| [DECISIONS.md](docs/DECISIONS.md)                        | Architectural decision records (ADRs)                                      |
+| [DOCKER.md](docs/DOCKER.md)                              | Docker deployment guide                                                    |
+| [ROADMAP.md](docs/ROADMAP.md)                            | Development history and future plans                                       |
+| [jade-gwt-protocol.md](docs/jade-gwt-protocol.md)        | jade.io GWT-RPC reverse-engineering details                                |
 
 ## Jurisdictions
 
