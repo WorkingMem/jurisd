@@ -46,7 +46,7 @@
     "dotenv": "^17.4.2",
     "file-type": "^21.3.0",
     "pdf-parse": "^2.4.5",
-    "tmp": "^0.2.5",
+    "tmp": "^0.2.6",
     "zod": "^3.25.76"
   },
   "devDependencies": {
