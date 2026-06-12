@@ -1,114 +1,57 @@
 # jurisd
 
-Model Context Protocol (MCP) server for Australian and New Zealand legal research. Searches AustLII for case law and legislation, retrieves full-text judgements with paragraph numbers preserved, and supports OCR for scanned PDFs.
+A Model Context Protocol (MCP) server for Australian legal research, built
+**local-first**. jurisd gives an AI assistant a fast, offline-capable recall
+layer over installed legal data modules — deterministic provision lookup,
+local semantic search, and a citation graph — and falls back to live AustLII
+search and an Open Australian Legal Corpus (OALC) layer when the answer is not
+in a local module.
 
-**Status**: ✅ Full-featured with AGLC4 citation service, removed.invalid authentication, and security hardening
+The design tenet is **degrade visibly, never silently**: a missing optional
+dependency, an absent API key, or an uninstalled module disables only the
+feature that needs it and is reported back, never swallowed. With no key and no
+network, the local-module recall path still answers.
 
-## Features
+**Status:** pre-1.0, day-0 release candidate. 15 MCP tools across live research,
+citation/bibliography, and local data modules.
 
-### Current Capabilities
+## What jurisd is
 
-- ✅ **Case law search**: Natural language queries across all Australian and NZ jurisdictions
-- ✅ **All jurisdictions**: Commonwealth, all States/Territories (VIC, NSW, QLD, SA, WA, TAS, NT, ACT), and New Zealand
-- ✅ **Intelligent search relevance**: Auto-detects case name queries vs topic searches
-  - Case name queries (e.g., "Donoghue v Stevenson") use relevance sorting
-  - Topic queries (e.g., "negligence duty of care") use date sorting for recent cases
-- ✅ **Multiple search methods**: Title-only, phrase, boolean, proximity searches
-- ✅ **Pagination**: Retrieve additional pages of results with offset parameter
-- ✅ **Legislation search**: Find Australian and NZ legislation
-- ✅ **Primary sources only**: Filters out journal articles and commentary
-- ✅ **Citation extraction**: Extracts neutral citations `[2025] HCA 26` and reported citations `(2024) 350 ALR 123`
-- ✅ **AGLC4 citation formatting**: Format, validate, and generate pinpoint citations per AGLC4 rules
-- ✅ **removed.invalid authenticated fetch**: Fetch full judgment text from removed.invalid using your session cookie
-- ✅ **removed.invalid search**: Case search via `resolveRecords` RPC (reverse-engineered); results merged with AustLII, deduplicated by neutral citation. Requires `SESSION_COOKIE`.
-- ✅ **Paragraph blocks**: `[N]` paragraph markers extracted as structured blocks for pinpoint citations
-- ✅ **Authority-based ranking**: Results ranked by court hierarchy (HCA > FCAFC > FCA > state courts)
-- ✅ **Multiple formats**: JSON, text, markdown, or HTML output
-- ✅ **Document retrieval**: Full text from HTML and PDF sources (AustLII, removed.invalid)
-- ✅ **OCR support**: Tesseract OCR fallback for scanned PDFs
-- ✅ **SSRF protection**: URL allowlist restricts fetches to AustLII and removed.invalid only
-- ✅ **Rate limiting**: 10 req/min for AustLII, 5 req/min for removed.invalid
+jurisd answers Australian (and New Zealand) legal-research questions from an AI
+assistant. It has three answer sources, tried in precedence order:
 
-### Roadmap
+1. **Local data modules (Layer 1)** — installed parquet bundles holding
+   legislation and decisions with provision-level structure, citation edges, and
+   chunk embeddings. Answered offline, no network, no key. This is the
+   **local-first** core: deterministic provision lookup, an Act containment tree,
+   an offline citation graph, and local semantic search.
+2. **Live AustLII (Layer 2)** — natural-language case and legislation search over
+   AustLII, with authority-based ranking, paragraph-pinpoint extraction, full-text
+   fetch (HTML + PDF with OCR), and AGLC4 citation formatting.
+3. **OALC fallback (Layer 3)** — an Open Australian Legal Corpus layer that backs
+   the live layer when a direct fetch is blocked.
 
-- ✅ **removed.invalid search**: Implemented via reverse-engineered `resolveRecords` RPC — requires `SESSION_COOKIE`
-- 🔶 **Upstream Source integration**: Requires contacting Upstream for API access
+removed.invalid is supported as an authenticated source for search, full-text fetch, and
+the citator when you supply your own session cookie.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the full development history and future plans.
+## Quick start
 
-## Documentation
-
-| Document                                          | Description                                                                   |
-| ------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md)           | System architecture, deployment topology, CI/CD pipeline, production patterns |
-| [DECISIONS.md](docs/DECISIONS.md)                 | Architectural decision records (ADRs) with context and consequences           |
-| [AGENT-GUIDE.md](docs/AGENT-GUIDE.md)             | Agent-facing usage guide with tool catalog and examples                       |
-| [DOCKER.md](docs/DOCKER.md)                       | Docker deployment guide                                                       |
-| [ROADMAP.md](docs/ROADMAP.md)                     | Development history and future plans                                          |
-| [source-rpc-protocol.md](docs/source-rpc-protocol.md) | removed.invalid RPC reverse-engineering details                                   |
-
-## Quick Start
-
-### Run with npx (no local clone required)
+### Run with npx (no clone)
 
 ```bash
 npx -y github:russellbrenner/jurisd
 ```
 
 `npx` clones the repository, installs dependencies, builds, and launches the
-MCP server over stdio in one step. Use this for the simplest install path or
-when configuring an MCP-compatible client (see [MCP Registration](#mcp-registration)).
+server over stdio in one step.
 
-### Local Development
-
-```bash
-git clone https://github.com/russellbrenner/jurisd.git
-cd jurisd
-npm install
-npm run dev  # hot reload for local development
-```
-
-To build for production:
+### Register with Claude Code
 
 ```bash
-npm run build
-npm start
+claude mcp add jurisd -- npx -y github:russellbrenner/jurisd
 ```
 
-### Docker Deployment
-
-```bash
-# Build the Docker image
-docker build -t jurisd:latest .
-
-# Run with Docker Compose
-docker-compose up
-
-# Or run directly
-docker run -it --rm jurisd:latest
-```
-
-See [docs/DOCKER.md](docs/DOCKER.md) for detailed Docker deployment instructions.
-
-### Kubernetes (k3s) Deployment
-
-```bash
-# Build and import image to k3s nodes
-docker build -t jurisd:latest .
-docker save jurisd:latest -o jurisd.tar
-
-# Deploy to k3s cluster
-kubectl apply -f k8s/
-```
-
-See [k8s/README.md](k8s/README.md) for complete Kubernetes deployment guide.
-
-## MCP Registration
-
-Configure your MCP-compatible client (eg. Claude Desktop, Cursor, Claude Code)
-to launch the server.
-
-### Option A — npx (no clone required)
+Or add it to your client config directly:
 
 ```json
 {
@@ -121,399 +64,74 @@ to launch the server.
 }
 ```
 
-The first invocation clones the repo, installs deps, and builds. Subsequent
-launches reuse the cached install. To pin to a specific commit or branch,
-append `#<ref>` to the URL — eg. `github:russellbrenner/jurisd#main`.
-
-### Option B — Local clone
-
-For Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "jurisd": {
-      "command": "node",
-      "args": ["/path/to/jurisd/dist/index.js"]
-    }
-  }
-}
-```
-
-Replace `/path/to/jurisd` with the actual path to your installation.
-
-## Example Queries for AI Assistants
-
-Once the MCP is connected, you can ask an AI assistant like Claude natural language questions. Here are examples organised by use case:
-
-### Finding Recent Decisions
-
-> "What cases were decided by Australian courts today?"
-
-> "Show me the latest Federal Court decisions from this week"
-
-> "Find recent Victorian Supreme Court cases about contract disputes"
-
-> "What are the newest High Court judgments?"
-
-### Researching Legal Topics
-
-> "Find Australian cases about duty of care in professional negligence"
-
-> "Search for cases dealing with unfair dismissal in the construction industry"
-
-> "What are the leading cases on misleading and deceptive conduct under the ACL?"
-
-> "Find cases about breach of directors' duties in the last 2 years"
-
-> "Search for NSW cases involving defamation on social media"
-
-### Finding Specific Cases
-
-> "Find the Mabo case"
-
-> "Look up Donoghue v Stevenson"
-
-> "Find the High Court decision in Palmer v McGowan"
-
-> "Search for Re Wakim - the constitutional case about cross-vesting"
-
-### Comparing Jurisdictions
-
-> "Compare how Victoria and New South Wales courts have treated non-compete clauses"
-
-> "Find Queensland cases about adverse possession"
-
-> "What's the leading New Zealand case on unjust enrichment?"
-
-### Legislation Research
-
-> "Find the Privacy Act"
-
-> "Search for legislation about workplace health and safety in Victoria"
-
-> "What Commonwealth legislation deals with competition law?"
-
-> "Find the New Zealand equivalent of the Australian Consumer Law"
-
-### Deep Research Tasks
-
-> "Find cases that have considered section 52 of the Trade Practices Act and summarise how courts have interpreted 'misleading and deceptive conduct'"
-
-> "Research the development of the 'reasonable person' test in negligence across Australian jurisdictions"
-
-> "Find all High Court cases about constitutional implied freedoms in the last 10 years and identify the key principles"
-
-### Document Retrieval
-
-> "Fetch the full text of [2024] HCA 1 and summarise the key holdings"
-
-> "Get the judgment in Mabo v Queensland (No 2) and explain the doctrine of native title it established"
-
-## Available Tools
-
-15 tools: 10 live/citation tools plus 5 WS-E local-module recall tools that serve installed offline data modules (see [docs/design/data-layer.md](docs/design/data-layer.md)). Operation variants are selected via a `mode`/`op`/`action`/`by` parameter on the relevant tool (see [docs/decisions/tool-surface.md](docs/decisions/tool-surface.md)).
-
-### search_cases
-
-Search Australian and New Zealand case law.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `query` | Yes | Search query (e.g., "negligence duty of care", "Mabo v Queensland") |
-| `jurisdiction` | No | Filter: `cth`, `vic`, `nsw`, `qld`, `sa`, `wa`, `tas`, `nt`, `act`, `federal`, `nz`, `other` |
-| `limit` | No | Max results 1-50 (default 10) |
-| `sortBy` | No | `auto` (default), `relevance`, or `date` |
-| `method` | No | `auto`, `title`, `phrase`, `all`, `any`, `near`, `boolean` |
-| `offset` | No | Skip first N results for pagination (e.g., 50 for page 2) |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-**Search Methods:**
-| Method | Description | Best For |
-|--------|-------------|----------|
-| `auto` | AustLII decides | General use |
-| `title` | Search case names only | Finding specific cases by name |
-| `phrase` | Exact phrase match | Legal terms of art |
-| `all` | All words must appear | Precise searches |
-| `any` | Any word matches | Broad searches |
-| `near` | Words near each other | Conceptual searches |
-| `boolean` | Raw SINO query syntax | Power users |
-
-**Examples:**
-
-Find a specific case:
-
-```json
-{
-  "query": "Donoghue v Stevenson",
-  "method": "title",
-  "limit": 5
-}
-```
-
-Recent NSW cases on a topic:
-
-```json
-{
-  "query": "adverse possession",
-  "jurisdiction": "nsw",
-  "sortBy": "date",
-  "limit": 10
-}
-```
-
-Exact phrase search:
-
-```json
-{
-  "query": "duty of care",
-  "method": "phrase",
-  "jurisdiction": "cth",
-  "limit": 20
-}
-```
-
-Pagination (get results 51-100):
-
-```json
-{
-  "query": "contract breach",
-  "limit": 50,
-  "offset": 50
-}
-```
-
-### search_legislation
-
-Search Australian and New Zealand legislation.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `query` | Yes | Search query |
-| `jurisdiction` | No | Filter: `cth`, `vic`, `nsw`, `qld`, `sa`, `wa`, `tas`, `nt`, `act`, `nz`, `other` |
-| `limit` | No | Max results 1-50 (default 10) |
-| `sortBy` | No | `auto` (default), `relevance`, or `date` |
-| `method` | No | `auto`, `title`, `phrase`, `all`, `any`, `near`, `legis`, `boolean` |
-| `offset` | No | Skip first N results for pagination |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-**Example:**
-
-```json
-{
-  "query": "Privacy Act",
-  "jurisdiction": "cth",
-  "method": "legis",
-  "limit": 10
-}
-```
-
-### fetch_document_text
-
-Fetch full text from a case or legislation URL. Supports AustLII HTML, PDF with OCR fallback, and removed.invalid authenticated fetch via RPC (requires `SESSION_COOKIE`).
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `url` | Yes | URL of the document (AustLII or removed.invalid) |
-| `citeKey` | No | Cite key of a cached citation to associate with this fetch (saves a local source copy) |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-**Example:**
-
-```json
-{
-  "url": "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html"
-}
-```
-
-### format_citation
-
-Format an Australian case citation per AGLC4 rules. One tool for full citations, short forms, and pinpoint generation, selected via `mode`.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `mode` | No | `full` (default), `short`, `ibid`, `subsequent`, `pinpoint` |
-| `title` | Yes\* | Case name, e.g. `Mabo v Queensland (No 2)` (abbreviated name for short-form modes) |
-| `neutralCitation` | No | Neutral citation, e.g. `[1992] HCA 23` (`full` mode) |
-| `reportedCitation` | No | Reported citation, e.g. `(1992) 175 CLR 1` (`full` mode) |
-| `pinpoint` | No | Pinpoint reference, e.g. `[20]` (`full` mode) |
-| `style` | No | `combined` (default), `neutral`, or `reported` (`full` mode) |
-| `footnoteRef` | Yes for `subsequent` | Footnote number of first citation |
-| `pinpointPara` / `pinpointPage` | No | Pinpoint for short-form modes |
-| `url` | Yes for `pinpoint` | AustLII document URL to fetch and search |
-| `paragraphNumber` / `phrase` | One required for `pinpoint` | Paragraph to locate |
-| `caseCitation` | No | Citation to prepend to the pinpoint, e.g. `[1992] HCA 23` |
-
-\*Required for all modes except `pinpoint`.
-
-**Example (`full`):**
-
-```json
-{
-  "title": "Mabo v Queensland (No 2)",
-  "neutralCitation": "[1992] HCA 23",
-  "reportedCitation": "(1992) 175 CLR 1",
-  "pinpoint": "[64]"
-}
-```
-
-**Output:** `Mabo v Queensland (No 2) [1992] HCA 23, (1992) 175 CLR 1 at [64]`
-
-**Example (`pinpoint`):**
-
-```json
-{
-  "mode": "pinpoint",
-  "url": "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html",
-  "phrase": "native title",
-  "caseCitation": "[1992] HCA 23"
-}
-```
-
-**Output:** `{ paragraphNumber: 64, pinpointString: "at [64]", fullCitation: "[1992] HCA 23 at [64]" }`
-
-### resolve_citation
-
-Resolve a citation to its authoritative source. Validation and search behind one tool, selected via `mode`.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `citation` | Yes | Citation or case name, e.g. `[1992] HCA 23` or `Mabo v Queensland` |
-| `mode` | No | `auto` (default: validate neutral citation, fall back to search), `validate` (AustLII existence check only), `search` (text search only) |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-**Returns (`validate`):** `{ valid, canonicalCitation, austliiUrl, message }`
-
-### source_lookup
-
-Look up removed.invalid by article ID or neutral citation, selected via `by`.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `by` | Yes | `article_id` (resolve metadata for a numeric ID) or `citation` (build a removed.invalid lookup URL) |
-| `articleId` | Yes for `article_id` | removed.invalid article ID (integer) |
-| `citation` | Yes for `citation` | Neutral citation, e.g. `[2008] NSWSC 323` |
-
-### search_citing_cases
-
-Find cases that cite a given case using the removed.invalid citator (requires `SESSION_COOKIE`).
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `caseName` | Yes | Case name or citation, e.g. `Mabo v Queensland (No 2)` or `[1992] HCA 23` |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-### cite
-
-Write to the local citation cache, selected via `action`.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `action` | No | `add` (default: store/update a citation, returns the cite key and AGLC4 string) or `refresh_source` (conditional-HEAD freshness check, re-download when stale) |
-| `title` | Yes for `add` | Case name |
-| `url` | Yes for `add` | Primary source URL (AustLII or removed.invalid) |
-| `citeKey` | Yes for `refresh_source` | Cite key of a cached citation, e.g. `mabo1992` |
-| `neutralCitation`, `reportedCitation`, `type`, `jurisdiction`, `year`, `court`, `keywords`, `summary`, `document`, `footnoteNumber`, `pinpoint`, `style` | No | Citation metadata (`add`) |
-
-### bibliography
-
-Read from the local citation cache (no network calls), selected via `op`.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `op` | No | `get`, `list` (default), `export`, `cited_by` |
-| `query` | Yes for `get` | Cite key, AGLC4 string, neutral citation, or case title |
-| `citeKey` | Yes for `cited_by` | Cite key of the case to retrieve cached cited-by data for |
-| `document` | No | Filter to citations used in one document (`list`/`export`) |
-| `outputPath` | No | Absolute path for the `.bib` file (`export`) |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-### cache_cited_by
-
-Fetch citing cases for a cached citation from removed.invalid and store them locally (requires `SESSION_COOKIE`).
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `citeKey` | Yes | Cite key of the parent case whose citing cases should be fetched and cached |
-
-## Local data-module tools (WS-E)
-
-These five tools serve installed offline **data modules** (parquet bundles obtained with `jurisd fetch-module`). They require the optional `@duckdb/node-api` dependency and at least one installed module; `semantic_search_local` additionally needs `@huggingface/transformers`. All five carry `metadata.source = "local_module"` with the module name, version, and snapshot date (and a staleness advisory when the snapshot is old). See [docs/design/data-layer.md](docs/design/data-layer.md).
-
-### get_provision
-
-Deterministic provision lookup over installed modules (no embedding, no ranking). Returns the provision text with provenance, or a typed not-found result so the router can fall through to live AustLII.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `act` | Yes | Act citation or work/version identity, e.g. `Competition and Consumer Act 2010 (Cth)` |
-| `provision` | Yes | Citable provision reference, e.g. `s 18`, `sch 2`, `reg 12`, `cl 4(1)` |
-| `module` | No | Pin a specific module; otherwise the best-covering ready module is used |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-### get_act_structure
-
-Containment tree of an Act (Act → Part → Division → section/schedule/clause) walked over `act_provision` edges in a local module (closed-world, with a depth guard as cycle backstop).
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `act` | Yes | Act citation or work/version identity |
-| `depth` | No | Max tree depth 1-12 (default 12) |
-| `module` | No | Pin a specific module |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-### find_citing
-
-Offline twin of `search_citing_cases`: documents in installed modules whose text cites a target, via `cites`/`considers` edges, with the provenance span of each citation.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `target` | Yes | Citation or work/version identity of the cited document |
-| `kinds` | No | Edge kinds to include: `cites`, `considers` (default both) |
-| `module` | No | Pin a specific module |
-| `limit` | No | Max results 1-200 |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-### semantic_search_local
-
-Vector recall over installed modules: the query is embedded locally (bge-small, offline, no key) and ranked by cosine similarity over chunk embeddings, with optional facet pre-filters. Degrades visibly (typed notes) when the embedder or an embedded module is unavailable.
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `query` | Yes | Natural-language query, embedded locally |
-| `module` | No | Pin a module; otherwise all embedded modules with a matching descriptor |
-| `k` | No | Number of results 1-50 (default 10) |
-| `filter` | No | Facet pre-filters: `jurisdiction`, `type`, `segment_type` |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-### list_data_modules
-
-Introspect installed modules: name, version, jurisdiction/type coverage, doc/chunk counts, embedding descriptor, load status, snapshot date and staleness. Reads metadata only (no DuckDB attach).
-
-**Parameters:**
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `refresh` | No | Re-scan the modules dir before listing |
-| `includeInvalid` | No | Include refused modules with their status reason |
-| `format` | No | `json` (default), `text`, `markdown`, `html` |
-
-## Obtaining data modules (CLI)
-
-Data modules are operator-installed via CLI subcommands (kept off the tool surface so an LLM never triggers a large download):
+All environment variables are **optional** — with none set, the live AustLII
+layer and the local-module recall layer both work. See
+[docs/INSTALL.md](docs/INSTALL.md) for the local-clone path, every config option,
+and the offline/baseline guarantee.
+
+## Tools
+
+15 tools in three groups. Operation variants are selected via a
+`mode` / `op` / `action` / `by` discriminator on the relevant tool (see
+[docs/decisions/tool-surface.md](docs/decisions/tool-surface.md)).
+
+### Live research (AustLII + removed.invalid)
+
+| Tool                  | What it does                                                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `search_cases`        | Natural-language case-law search across all AU/NZ jurisdictions; authority ranking; title/phrase/boolean methods; pagination. |
+| `search_legislation`  | Search AU/NZ legislation with the same method/jurisdiction/sort controls.                                                     |
+| `fetch_document_text` | Fetch full text from an AustLII or removed.invalid URL (HTML, PDF with OCR fallback, removed.invalid via RPC).                            |
+
+### Citation + bibliography (AGLC4)
+
+| Tool                  | What it does                                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `format_citation`     | Format an AGLC4 citation. `mode`: `full` (default), `short`, `ibid`, `subsequent`, `pinpoint`.                       |
+| `resolve_citation`    | Resolve a citation to its source. `mode`: `auto` (default), `validate` (AustLII existence check), `search`.          |
+| `source_lookup`         | Look up removed.invalid. `by`: `article_id` (resolve metadata) or `citation` (build a lookup URL).                           |
+| `search_citing_cases` | Find cases citing a target via the removed.invalid citator (requires `SESSION_COOKIE`).                                 |
+| `cite`                | Write to the local citation cache. `action`: `add` (default) or `refresh_source` (conditional-HEAD freshness check). |
+| `bibliography`        | Read the local citation cache (no network). `op`: `get`, `list` (default), `export` (`.bib`), `cited_by`.            |
+| `cache_cited_by`      | Fetch a cached citation's citing cases from removed.invalid and store them locally (requires `SESSION_COOKIE`).         |
+
+### Local data modules (offline recall)
+
+These five tools serve installed offline data modules. They require the optional
+`@duckdb/node-api` dependency and at least one installed module;
+`semantic_search_local` additionally needs `@huggingface/transformers`. Every
+answer carries `metadata.source = "local_module"` with the module name, version,
+and snapshot date (plus a staleness advisory when the snapshot is old).
+
+| Tool                    | What it does                                                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `get_provision`         | Deterministic provision lookup (e.g. `s 18` of an Act). No embedding, no ranking; typed not-found so the router can fall through.                      |
+| `get_act_structure`     | Containment tree of an Act (Act → Part → Division → section/schedule/clause) over `act_provision` edges, closed-world.                                 |
+| `find_citing`           | Offline twin of `search_citing_cases`: documents in installed modules that cite a target, with each citation's provenance span.                        |
+| `semantic_search_local` | Vector recall: the query is embedded locally (bge-small, offline, no key) and ranked by cosine over chunk embeddings, with optional facet pre-filters. |
+| `list_data_modules`     | Introspect installed modules: coverage, doc/chunk counts, embedding descriptor, load status, snapshot date and staleness.                              |
+
+Full parameter tables for every tool are in
+[docs/AGENT-GUIDE.md](docs/AGENT-GUIDE.md); the local-module design is in
+[docs/design/data-layer.md](docs/design/data-layer.md).
+
+## Data modules
+
+A **data module** is a self-describing parquet bundle (documents, chunks, edges,
+unmatched citations, plus a `manifest.json`) published as a GitHub release asset
+on the [`jurisd-data`](https://github.com/russellbrenner/jurisd-data) repository.
+Everything needed to load and query a module — schema version, coverage,
+embedding descriptor, file hashes, and licence posture — is in its manifest. No
+out-of-band config.
+
+Modules are queried in place: DuckDB scans the parquet on disk and never
+materialises a whole table into memory, so a host can install many modules
+(Commonwealth legislation + per-state + decisions) and stay flat in RSS.
+
+### Installing modules
+
+Modules are **operator-installed via the CLI** (kept off the tool surface so an
+LLM never triggers a large download mid-conversation):
 
 ```bash
 jurisd fetch-module <name> [--version X.Y.Z]   # download + sha256-verify + atomic install
@@ -521,7 +139,104 @@ jurisd verify-module <name>                     # re-verify installed files agai
 jurisd list-modules                             # list installed modules (incl. refused)
 ```
 
-Default install root is `~/.jurisd/modules/` (override with `JURISD_MODULES_DIR` or `--modules-dir`).
+The default install root is `~/.jurisd/modules/` (override with
+`JURISD_MODULES_DIR` or `--modules-dir`). `fetch-module` validates the manifest
+and checks the schema version **before** downloading any parquet, sha256-verifies
+every file against the manifest, installs atomically (temp-then-rename, so a
+half-written module never appears), and prints the licence attribution lines at
+install time.
+
+### Baseline vs domain-specialised variants
+
+A module's identity is `(name, module_version)`. The `module_version` handle
+distinguishes a module's **variant** — a **baseline** module is the standard
+build (deterministic structure, citation edges, bge-small embeddings); a
+**domain-specialised** variant is a build tuned for a particular corpus or task.
+Use `list_data_modules` to see the variant, coverage, and embedding descriptor of
+each installed module, and pin a specific one with the `module` argument on any
+recall tool.
+
+### BYOK provider adapter
+
+`semantic_search_local` has two optional enhancement slots that operate **over
+the locally-retrieved top-k results** — they never replace local recall, they
+refine it:
+
+- **rerank** — reorder the local top-k by a stronger relevance model.
+- **extractive-QA** — return the best answer span within a retrieved chunk.
+
+Both are expressed through one vendor-neutral `DomainAdapter` interface. The
+distinction is **capability presence**, framed as **baseline vs
+domain-specialised** with a **provider-interpolated display label**:
+
+- **Baseline** (always present): pure local cosine order. No network, no key.
+- **Domain-specialised** (slot): selected only if a provider is configured **and
+  reachable** via a BYOK key. With `ISAACUS_API_KEY` set and the endpoint
+  reachable, the capability probe reports
+  `domain_adapter: { label: "Isaacus-enhanced", canRerank: true, canExtractiveQA: true }`
+  and responses carry `metadata.enhancement = "Isaacus-enhanced"`.
+
+If the key is unset, or set-but-unreachable, the adapter degrades to baseline and
+the tool still returns local cosine results — reported by the probe, never thrown
+into a tool result.
+
+## Quality
+
+jurisd's local data layer is built and scored honestly against a gold set. The
+[`jurisd-data` gold-set evaluation](https://github.com/russellbrenner/jurisd-data/blob/main/docs/eval/gold-set-report.md)
+measures the local enricher (segments, defined terms, citation crossrefs) against
+90 Open Australian Legal Corpus / Kanon ILDGS documents, under two parallel
+metrics:
+
+- **strict** — the conservative audit metric: every typed prediction unmatched
+  within its type is a false positive.
+- **aligned** — the decision metric: a strict false positive whose span
+  co-locates an _untyped_ gold sub-span at IoU ≥ 0.9 is credited as a granularity
+  agreement (a vocabulary disagreement with the silver standard, not an extraction
+  error) rather than penalised.
+
+The current baseline **does not yet pass all four gate thresholds** (segment F1,
+citation precision, citation recall, defined-term F1). Headline segment F1 is
+0.44 strict / 0.64 aligned against a 0.85 gate. The report localises every gap
+to a specific rule (the residual segment gap is genuine over-segmentation, chiefly
+an endnotes-boundary flood; citation precision is internal-ref over-firing on
+structural lines). It is published in full, both metrics, as the honest current
+state, not a marketing number.
+
+## Licensing
+
+- **Code:** MIT (see [LICENSE](LICENSE)). Third-party dependency licences are
+  catalogued in [LICENSE-THIRD-PARTY.md](LICENSE-THIRD-PARTY.md).
+- **Module data:** licensed **per source**, declared in each module's
+  `manifest.json` `licence` block, and surfaced at `fetch-module` install time.
+  The aggregate is CC-BY-4.0 (Open Australian Legal Corpus), but redistribution is
+  decided per source, not in aggregate:
+  - **AustLII-sourced rows are excluded from published modules by default** — the
+    AustLII Terms of Service is restrictive, and re-importing it is exactly what
+    the live transport layer routes around. They remain available **recipe-only**
+    (rebuild locally).
+  - **VIC** and **NT** legislation are **not redistributable** (Government Printer
+    / Crown copyright, no open licence) — **recipe-only**.
+  - Commonwealth (FRL), NSW, QLD, SA, TAS, WA legislation and HCA/FCA/NSW
+    case-law sources are redistributable under the CC-BY-4.0 aggregate, subject to
+    per-source confirmation before each module publishes.
+
+See [`jurisd-data/LICENSING.md`](https://github.com/russellbrenner/jurisd-data/blob/main/LICENSING.md)
+for the full per-source verdict table.
+
+## Documentation
+
+| Document                                          | Description                                                    |
+| ------------------------------------------------- | -------------------------------------------------------------- |
+| [INSTALL.md](docs/INSTALL.md)                     | Day-0 install paths, Claude Code config, env vars, module flow |
+| [AGENT-GUIDE.md](docs/AGENT-GUIDE.md)             | Agent-facing usage guide with full tool catalog and examples   |
+| [data-layer.md](docs/design/data-layer.md)        | Local data-module design (loader, the five recall tools, BYOK) |
+| [tool-surface.md](docs/decisions/tool-surface.md) | The R5 tool-consolidation decision (15-tool surface)           |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)           | System architecture, deployment topology, CI/CD                |
+| [DECISIONS.md](docs/DECISIONS.md)                 | Architectural decision records (ADRs)                          |
+| [DOCKER.md](docs/DOCKER.md)                       | Docker deployment guide                                        |
+| [ROADMAP.md](docs/ROADMAP.md)                     | Development history and future plans                           |
+| [source-rpc-protocol.md](docs/source-rpc-protocol.md) | removed.invalid RPC reverse-engineering details                    |
 
 ## Jurisdictions
 
@@ -540,180 +255,75 @@ Default install root is `~/.jurisd/modules/` (override with `JURISD_MODULES_DIR`
 | `nz`      | New Zealand                    |
 | `other`   | All jurisdictions (no filter)  |
 
-## Running Tests
+## Example queries for AI assistants
+
+Once connected, ask natural-language questions:
+
+- "Find the High Court decision in Mabo v Queensland (No 2) and explain native title."
+- "Search for recent NSW cases about defamation on social media."
+- "What does section 18 of the Australian Consumer Law say?" (answered offline if the module is installed)
+- "Find cases that cite Mabo v Queensland (No 2)."
+- "Format `Mabo v Queensland (No 2) [1992] HCA 23 (1992) 175 CLR 1` per AGLC4 at [64]."
+- "Compare how Victoria and NSW courts have treated non-compete clauses."
+
+## Development
 
 ```bash
-npm test
+git clone https://github.com/russellbrenner/jurisd.git
+cd jurisd
+npm install
+npm run dev        # hot reload
+npm run build      # TypeScript compile
+npm start          # run the built server
+npm test           # unit + integration + perf (integration hits live services)
+npm run lint       # ESLint (flat config)
 ```
-
-Test scenarios include:
-
-1. **Negligence and duty of care** - Personal injury law searches
-2. **Contract disputes** - Commercial law and breach of contract
-3. **Constitutional law** - High Court constitutional matters
-4. **Employment law** - Unfair dismissal and workplace relations
-5. **Property and land law** - Native title and land rights disputes
-
-## Project Structure
-
-```
-src/
-├── index.ts              # Entry point: transport wiring (stdio / streamable HTTP)
-├── server.ts             # createMcpServer(): 15 tool registrations (10 live/citation + 5 WS-E local-module)
-├── config.ts             # Configuration management
-├── constants.ts          # Citation patterns, court codes, reporters
-├── errors.ts             # Custom error classes
-├── services/
-│   ├── austlii.ts        # AustLII search and authority scoring
-│   ├── citation.ts       # AGLC4 citation formatting, validation, pinpoints
-│   ├── fetcher.ts        # Document retrieval (HTML, PDF, OCR, removed.invalid)
-│   ├── source.ts           # removed.invalid article resolution and enrichment
-│   └── source-rpc.ts       # RPC utilities (buildFetchRequest, encodeInt, parseFetchResponse)
-├── utils/
-│   ├── formatter.ts      # MCP response formatting (json/text/markdown/html)
-│   ├── logger.ts         # Structured levelled logging
-│   ├── rate-limiter.ts   # Token bucket rate limiter (AustLII, removed.invalid)
-│   └── url-guard.ts      # SSRF protection (HTTPS-only, allowlisted hosts)
-└── test/
-    ├── source.test.ts       # removed.invalid integration tests
-    ├── scenarios.test.ts  # End-to-end search scenarios (live network)
-    ├── fixtures/          # Static HTML fixtures for deterministic tests
-    ├── performance/       # Performance benchmarks
-    └── unit/              # Unit tests (~163 test cases)
-        ├── austlii.test.ts
-        ├── austlii-mock.test.ts
-        ├── citation.test.ts
-        ├── config.test.ts
-        ├── constants.test.ts
-        ├── errors.test.ts
-        ├── fetcher.test.ts
-        ├── fetcher-mock.test.ts
-        ├── formatter.test.ts
-        ├── source-rpc.test.ts
-        ├── logger.test.ts
-        ├── rate-limiter.test.ts
-        └── url-guard.test.ts
-
-plans/                    # Session implementation plans (git-tracked)
-k8s/                      # Kubernetes deployment manifests
-docs/                     # Architecture, Docker, and roadmap docs
-```
-
-## Deployment
 
 ### Docker
 
-Quick start:
-
 ```bash
-./build.sh              # Build Docker image
-docker-compose up       # Run locally
+./build.sh         # build the image
+docker-compose up  # run locally
 ```
 
-See [docs/DOCKER.md](docs/DOCKER.md) for detailed Docker deployment instructions.
+See [docs/DOCKER.md](docs/DOCKER.md) for details.
 
 ### Kubernetes (k3s)
 
-Quick start:
-
 ```bash
-./build.sh              # Build and export image
-# Import to k3s nodes (see k8s/README.md)
-./deploy-k8s.sh         # Deploy to cluster
+./build.sh
+# import the image to k3s nodes (see k8s/README.md)
+./deploy-k8s.sh
 ```
 
-See [k8s/README.md](k8s/README.md) for complete k3s deployment guide and [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for a comprehensive deployment checklist.
-
-### Configuration
-
-All configuration can be customized via environment variables:
-
-- `AUSTLII_SEARCH_BASE` - AustLII search endpoint
-- `AUSTLII_REFERER` - Referer header
-- `AUSTLII_USER_AGENT` - User agent string
-- `AUSTLII_TIMEOUT` - Request timeout (ms)
-- `OCR_LANGUAGE` - Tesseract OCR language
-- `OCR_OEM`, `OCR_PSM` - OCR engine settings
-- `DEFAULT_SEARCH_LIMIT` - Default search results
-- `MAX_SEARCH_LIMIT` - Maximum search results
-- `DEFAULT_OUTPUT_FORMAT` - Default format (json/text/markdown/html)
-- `DEFAULT_SORT_BY` - Default sort order (auto/relevance/date)
-- `SESSION_COOKIE` - removed.invalid authenticated session cookie (see below)
-
-See `src/config.ts` for defaults and `.env.example` for a template.
-
-### removed.invalid Authenticated Access
-
-removed.invalid requires a subscription. To enable authenticated document fetching:
-
-1. Log in to [removed.invalid](https://removed.invalid) in your browser (Chrome recommended).
-2. Open DevTools (F12) and go to the **Network** tab.
-3. Navigate to any article on removed.invalid (e.g. `https://removed.invalid/article/68901`).
-4. In the Network tab, click any request to `removed.invalid`, then open the **Headers** pane.
-5. Under **Request Headers**, find the `Cookie` header and copy its full value.
-   The value includes multiple cookies: `IID=...; alcsessionid=...; cf_clearance=...` (and possibly others).
-6. Set the environment variable to the full cookie header value:
-
-```bash
-export SESSION_COOKIE="IID=abc123; alcsessionid=xyz789; cf_clearance=..."
-```
-
-For Kubernetes deployment, store it in a Secret (not a ConfigMap, as it is a credential):
-
-```bash
-kubectl create secret generic jurisd-secrets \
-  --from-literal=SESSION_COOKIE="IID=abc123; alcsessionid=xyz789; cf_clearance=..."
-```
-
-Then reference it in your deployment manifest via `envFrom` or `env[].valueFrom.secretKeyRef`.
-
-**Security:** Treat this value like a password. It grants full access to your removed.invalid subscription. Do not commit it to version control. Rotate it if compromised.
-
-## Data Sources and Attribution
-
-This project retrieves legal data from publicly accessible databases.
-
-### AustLII (Australasian Legal Information Institute)
-
-- Website: https://www.austlii.edu.au
-- Terms of Use: https://www.austlii.edu.au/austlii/terms.html
-- AustLII provides free access to Australian and New Zealand legal materials
-
-### removed.invalid
-
-- Users must have their own removed.invalid subscription
-- This tool does not bypass removed.invalid's access controls
-- Respects removed.invalid's terms of service
-
-### Fair Use
-
-Please use this tool responsibly:
-
-- Implement reasonable delays between requests
-- Cache results when appropriate
-- Don't overload public legal databases
-- Consider [supporting AustLII](https://www.austlii.edu.au/austlii/sponsors.html) through donations
+See [k8s/README.md](k8s/README.md) and
+[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for full contribution guidelines, [AGENTS.md](AGENTS.md) for AI agent instructions, and [SECURITY.md](SECURITY.md) for responsible disclosure.
+See [CONTRIBUTING.md](CONTRIBUTING.md), [AGENTS.md](AGENTS.md) for AI-agent
+instructions, and [SECURITY.md](SECURITY.md) for responsible disclosure.
 
-**Key principles**:
+**Key principles:**
 
 - Primary sources only (no journal articles)
 - Citation accuracy is paramount
-- All tests must pass before committing
-- Real-world testing (hits live AustLII)
+- Degrade visibly, never silently
+- All unit tests must pass before committing
 
 ## Disclaimer
 
-**This tool is for legal research purposes only and does not constitute legal advice.**
+**This tool is for legal research purposes only and does not constitute legal
+advice.**
 
-- Search results may not be comprehensive and should not be relied upon as a complete statement of the law
-- AustLII databases may not include all decisions or the most recent updates
-- Always verify citations and check for subsequent treatment of cases
-- Legal advice should be sought from a qualified legal practitioner for any specific legal matter
-- The authors and contributors accept no liability for any loss or damage arising from use of this tool
+- Search results may not be comprehensive and should not be relied upon as a
+  complete statement of the law.
+- Source databases may not include all decisions or the most recent updates.
+- Always verify citations and check for subsequent treatment of cases.
+- Legal advice should be sought from a qualified legal practitioner for any
+  specific legal matter.
+- The authors and contributors accept no liability for any loss or damage arising
+  from use of this tool.
 
 ## License
 
