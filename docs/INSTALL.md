@@ -1,0 +1,209 @@
+# Installing jurisd
+
+jurisd is a Model Context Protocol (MCP) server. You install it once, register it
+with an MCP-compatible client (Claude Code, Claude Desktop, Cursor), and the
+client launches it over stdio on demand.
+
+**The offline floor:** with **no API key and no network**, the local-module
+recall layer still answers. Every environment variable below is optional, and
+every optional dependency degrades visibly when absent (the feature that needs it
+is disabled and reported, nothing throws). The live AustLII layer needs network
+but no key.
+
+## Day-0 install paths
+
+### A. npx from GitHub (no clone)
+
+```bash
+npx -y github:russellbrenner/jurisd
+```
+
+`npx` clones the repository, installs dependencies, builds, and launches the
+server over stdio. The first invocation does the clone+build; subsequent launches
+reuse the cached install. Pin a ref by appending `#<ref>` — e.g.
+`github:russellbrenner/jurisd#main`.
+
+### B. Local clone + npm
+
+```bash
+git clone https://github.com/russellbrenner/jurisd.git
+cd jurisd
+npm install
+npm run build
+npm start          # runs dist/index.js over stdio
+```
+
+For local development use `npm run dev` (hot reload) instead of `build` + `start`.
+
+## Registering with Claude Code
+
+The fastest path:
+
+```bash
+claude mcp add jurisd -- npx -y github:russellbrenner/jurisd
+```
+
+Or, for a local clone:
+
+```bash
+claude mcp add jurisd -- node /path/to/jurisd/dist/index.js
+```
+
+### Client config JSON
+
+If your client edits a JSON config directly (Claude Desktop's
+`claude_desktop_config.json`, or a project `.mcp.json`):
+
+**npx (no clone):**
+
+```json
+{
+  "mcpServers": {
+    "jurisd": {
+      "command": "npx",
+      "args": ["-y", "github:russellbrenner/jurisd"]
+    }
+  }
+}
+```
+
+**Local clone:**
+
+```json
+{
+  "mcpServers": {
+    "jurisd": {
+      "command": "node",
+      "args": ["/path/to/jurisd/dist/index.js"]
+    }
+  }
+}
+```
+
+To pass environment variables, add an `"env": { "SESSION_COOKIE": "..." }`
+block to the server entry.
+
+## Environment variables (all optional)
+
+With none of these set, the live AustLII layer and the local-module recall layer
+both work. Set them only to enable the feature each one gates.
+
+### Authentication / BYOK
+
+| Variable              | Enables                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `SESSION_COOKIE` | removed.invalid authenticated search, full-text fetch, and the citator. Your own subscription cookie.        |
+| `ISAACUS_API_KEY`     | The optional **domain-specialised** adapter slot (rerank + extractive-QA) over local results (BYOK). |
+| `ISAACUS_BASE_URL`    | Override the domain-adapter endpoint (optional; defaults to the provider's base URL).                |
+
+**`SESSION_COOKIE`** — log in to removed.invalid in your browser, open DevTools →
+Network, navigate to any article, copy the full `Cookie` request header value
+(`IID=...; alcsessionid=...; cf_clearance=...`), and set it:
+
+```bash
+export SESSION_COOKIE="IID=abc123; alcsessionid=xyz789; cf_clearance=..."
+```
+
+Treat it like a password. It grants full access to your removed.invalid subscription. Do
+not commit it; rotate if compromised.
+
+**`ISAACUS_API_KEY`** — bring-your-own-key for the domain-adapter slot. When set
+and the endpoint is reachable, the capability probe reports a
+provider-interpolated label (`"Isaacus-enhanced"`) and `semantic_search_local`
+reranks the local top-k. When unset or unreachable, the adapter degrades to
+**baseline** (pure local cosine order) and the tool still answers. The
+distinction is capability presence, framed as baseline vs domain-specialised.
+
+### Data modules
+
+| Variable                       | Default             | Effect                                                                                                             |
+| ------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `JURISD_MODULES_DIR`           | `~/.jurisd/modules` | Install/scan root for data modules.                                                                                |
+| `JURISD_MODULES_ENABLED`       | `true`              | Set `false` to disable the whole local-module layer (skip Layer 1).                                                |
+| `JURISD_MODULE_STALENESS_DAYS` | `365`               | Snapshot age (days) past which a staleness advisory is attached.                                                   |
+| `JURISD_MODULE_VERIFY_ON_LOAD` | `false`             | Force per-load sha256 verification (paranoid; verification is normally done at install).                           |
+| `JURISD_MODELS_DIR`            | `~/.jurisd/models`  | Cache dir for the local embedding model.                                                                           |
+| `JURISD_EMBED_OFFLINE`         | `false`             | Hard-fail rather than reach the network for the embedding model (air-gapped installs must pre-seed the model dir). |
+
+### Live layer / OCR / search defaults
+
+| Variable                | Effect                                                 |
+| ----------------------- | ------------------------------------------------------ |
+| `LOG_LEVEL`             | `0`=DEBUG, `1`=INFO, `2`=WARN, `3`=ERROR.              |
+| `AUSTLII_SEARCH_BASE`   | AustLII search endpoint.                               |
+| `AUSTLII_REFERER`       | Referer header.                                        |
+| `AUSTLII_USER_AGENT`    | User-agent string.                                     |
+| `AUSTLII_TIMEOUT`       | Request timeout (ms).                                  |
+| `OCR_LANGUAGE`          | Tesseract OCR language (default `eng`).                |
+| `OCR_OEM`, `OCR_PSM`    | OCR engine + page-segmentation modes.                  |
+| `DEFAULT_SEARCH_LIMIT`  | Default search results (default 10).                   |
+| `MAX_SEARCH_LIMIT`      | Maximum search results (default 50).                   |
+| `DEFAULT_OUTPUT_FORMAT` | Default format: `json` / `text` / `markdown` / `html`. |
+| `DEFAULT_SORT_BY`       | Default sort: `auto` / `relevance` / `date`.           |
+
+See [`.env.example`](../.env.example) for a copy-paste template and `src/config.ts`
+for every default.
+
+## Installing data modules
+
+Data modules are **operator-installed via the CLI** — deliberately off the MCP
+tool surface so an AI assistant never triggers a multi-hundred-MB download
+mid-conversation. Modules are published as GitHub release assets on the
+[`jurisd-data`](https://github.com/russellbrenner/jurisd-data) repository.
+
+```bash
+jurisd fetch-module <name> [--version X.Y.Z] [--modules-dir DIR]
+jurisd verify-module <name>
+jurisd list-modules
+```
+
+`fetch-module`:
+
+1. Resolves the release on `jurisd-data` (named module's latest, or `--version`).
+2. Downloads `manifest.json` first and validates it against the vendored schema —
+   checks the schema version is implemented and the release is not yanked
+   **before** downloading any parquet (fail fast, save bandwidth).
+3. Downloads each parquet file to a temp dir.
+4. **sha256-verifies every file** against the manifest. Any mismatch aborts,
+   deletes the temp dir, and exits non-zero naming the file — never installs a
+   partially-verified module.
+5. Installs atomically (temp-then-rename), so a half-written module never appears
+   to the loader.
+6. Prints the licence attribution lines (the CC-BY obligation) at install time.
+
+`verify-module` re-runs the sha256 check against installed files on demand;
+`list-modules` lists installed modules including any refused, with the reason.
+Inside a conversation, `list_data_modules` is the in-band way to see what is
+installed and why a module is or is not loading.
+
+The default install root is `~/.jurisd/modules/` (override with
+`JURISD_MODULES_DIR` or `--modules-dir`).
+
+## Offline / baseline guarantee
+
+With **no key and no network**:
+
+- The five local-module recall tools answer from installed modules. Provision
+  lookup, the Act containment tree, and the offline citation graph need only the
+  optional `@duckdb/node-api` dependency.
+- `semantic_search_local` embeds the query **locally** (bge-small-en-v1.5,
+  384-dim, no key) via the optional `@huggingface/transformers` dependency. The
+  model is cached under `~/.jurisd/models/` after first use; set
+  `JURISD_EMBED_OFFLINE=true` to hard-fail rather than reach the network (pre-seed
+  the model dir for air-gapped installs).
+- The domain-adapter slot is **baseline** (pure local cosine order). No vendor, no
+  account, no network.
+
+Optional dependencies degrade visibly: if `@duckdb/node-api` or
+`@huggingface/transformers` is absent, only the feature that needs it is disabled
+(reported by the capability probe and `list_data_modules`), and the rest of the
+server is unaffected. The live AustLII layer additionally needs network but never
+a key.
+
+## Docker and Kubernetes
+
+For container and k3s deployment, see [DOCKER.md](DOCKER.md),
+[../k8s/README.md](../k8s/README.md), and
+[../DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md). Store
+`SESSION_COOKIE` and `ISAACUS_API_KEY` in a Kubernetes Secret (not a
+ConfigMap) and reference them via `envFrom` or `env[].valueFrom.secretKeyRef`.
