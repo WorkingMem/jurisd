@@ -36,6 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New config block (`config.modules`) and env vars: `JURISD_MODULES_DIR`,
   `JURISD_MODULES_ENABLED`, `JURISD_MODULE_STALENESS_DAYS`, `JURISD_MODULE_VERIFY_ON_LOAD`,
   `JURISD_MODELS_DIR`, `JURISD_EMBED_OFFLINE`, and `ISAACUS_API_KEY` / `ISAACUS_BASE_URL`.
+- **Container image + release plumbing**: a multi-stage `Dockerfile` (Debian-slim
+  glibc Node 20; builds TS in a discarded builder, then a slim runtime carrying only
+  the two optional natives the server uses — `@duckdb/node-api` and `impit` — while
+  `@huggingface/transformers` stays unbundled to keep the image small), a
+  `docker-compose.yaml` smoke-test/build example honest about the stdio per-invocation
+  model (idle container + `exec` handshake, not a long-lived daemon), a `.dockerignore`,
+  a `scripts/docker-handshake.mjs` stdio `initialize`+`tools/list` verifier (docker or
+  podman; asserts the 15-tool surface), and `docs/DOCKER.md` covering Claude Code wiring
+  (`docker run -i ...`), `/data/modules` volume mounting via `JURISD_MODULES_DIR`, and the
+  container env vars.
 
 ### Changed
 

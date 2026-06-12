@@ -1,3 +1,19 @@
+# Example compose for jurisd.
+#
+# IMPORTANT — read this before `up`:
+# jurisd is a stdio MCP server. A real MCP client (Claude Code, Claude Desktop)
+# spawns itsa OWN process per session and owns its stdin/stdout. There is no
+# long-lived network daemon to "run" in the usual compose sense, so compose is
+# only useful here for two things:
+#
+#   1. Building + tagging the image (`docker compose build`).
+#   2. Holding an idle container you can `exec` an interactive handshake into,
+#      for local smoke-testing of the stdio protocol.
+#
+# For actual MCP client use, point the client at `docker run -i ...` directly
+# (see docs/DOCKER.md "Use with Claude Code"); do NOT route the client through
+# this compose service.
+
 services:
   jurisd:
     build:
@@ -5,36 +21,35 @@ services:
       dockerfile: Dockerfile
     image: jurisd:latest
     container_name: jurisd
-    restart: unless-stopped
 
-    # Environment variables (can be overridden via .env file)
+    # The default entrypoint (node dist/index.js) is a stdio server: with no
+    # client attached to stdin it would read EOF and exit. To keep a container
+    # alive for `exec`-based smoke tests, override the command to idle. This is
+    # a TEST convenience, not how the MCP client talks to the server.
+    entrypoint: ["sleep", "infinity"]
+
     environment:
       NODE_ENV: ${NODE_ENV:-production}
+      # Local data modules are read from here; mount real modules at this path.
+      JURISD_MODULES_DIR: /data/modules
       AUSTLII_SEARCH_BASE: ${AUSTLII_SEARCH_BASE:-https://www.austlii.edu.au/cgi-bin/sinosrch.cgi}
       AUSTLII_REFERER: ${AUSTLII_REFERER:-https://www.austlii.edu.au/forms/search1.html}
-      AUSTLII_USER_AGENT: ${AUSTLII_USER_AGENT:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36}
       AUSTLII_TIMEOUT: ${AUSTLII_TIMEOUT:-60000}
-      OCR_LANGUAGE: ${OCR_LANGUAGE:-eng}
-      OCR_OEM: ${OCR_OEM:-1}
-      OCR_PSM: ${OCR_PSM:-3}
-      DEFAULT_SEARCH_LIMIT: ${DEFAULT_SEARCH_LIMIT:-10}
-      MAX_SEARCH_LIMIT: ${MAX_SEARCH_LIMIT:-50}
-      DEFAULT_OUTPUT_FORMAT: ${DEFAULT_OUTPUT_FORMAT:-json}
-      DEFAULT_SORT_BY: ${DEFAULT_SORT_BY:-auto}
+      # Optional removed.invalid session cookie for authenticated fetch (see .env.example).
+      SESSION_COOKIE: ${SESSION_COOKIE:-}
 
-    # Mount config.yaml for reference (optional)
     volumes:
-      - ./config.yaml:/app/config.yaml:ro
+      # Mount your installed parquet data modules read-only at the documented
+      # mount point. Create ./modules locally (or point at ~/.jurisd/modules).
+      - ./modules:/data/modules:ro
 
-    # MCP servers use stdio, no ports to expose
-    # stdin_open and tty are enabled for stdio communication
-    stdin_open: true
-    tty: true
-
-    # Health check (basic container health)
-    healthcheck:
-      test: ["CMD", "node", "-e", "console.log('healthy')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+# Usage:
+#   docker compose build
+#   docker compose up -d
+#   # one-shot stdio handshake against the running container:
+#   docker compose exec -T jurisd node dist/index.js < handshake.jsonl
+#   docker compose down
+#
+# `exec -T` disables the pseudo-TTY so the JSON-RPC bytes are piped cleanly.
+# Each `exec` spawns a fresh `node dist/index.js` — exactly the per-invocation
+# model an MCP client uses, just reached through the idle container.
