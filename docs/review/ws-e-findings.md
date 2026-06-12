@@ -126,3 +126,37 @@ not the code):**
   behaviour, not a miss.
 
 **Verdict: PASS.**
+
+---
+
+## Check 4 — Capability probe: baseline-offline vs provider-interpolated, no crash/hang
+
+**Probe:** ran `probeCapabilities` across the three key states (no key, fake key +
+reachable, fake key + unreachable) via the reachability test seam, plus a REAL
+network probe to a non-routable host (`probeDomainAdapter`, no override) to prove
+the no-hang guarantee fires on a black-hole connect.
+
+**Evidence (`src/test/unit/capability-probe.test.ts`, 5 tests, all PASS):**
+
+| State                                                  | `domain_adapter` result                                                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| no `ISAACUS_API_KEY`                                   | `label:"baseline"`, `configured:false`, `reachable:false`, `canRerank/canExtractiveQA:false` — fully offline, no network |
+| fake key + reachable                                   | `label:"Isaacus-enhanced"`, `configured:true`, `reachable:true`, capabilities on (provider-interpolated label)           |
+| fake key + unreachable                                 | degrades to `label:"baseline"`, `configured:true`, `reachable:false`, `detail` set — never throws                        |
+| any state                                              | probe always reports `duckdb`/`local_embeddings` booleans + `modules:{ready,refused}`                                    |
+| fake key + REAL connect to `192.0.2.1:81` (TEST-NET-1) | degrades to baseline in **< 6 s** (3 s `AbortController` + slack) — no hang                                              |
+
+**Adversarial wiring checks (no per-request hang):**
+
+- Startup probe (`index.ts:19`) is wrapped in try/catch — a configured-but-
+  unreachable provider blocks startup at most once for ~3 s and is reported, never
+  crashes (degrade-visibly).
+- The per-request semantic handler (`server.ts:1392`) uses `getActiveAdapter`,
+  which **caches** the probe for the process lifetime (`capabilities.ts:81-97`).
+  So an unreachable provider costs the 3 s timeout **once**, not on every tool
+  call — there is no per-request 3 s hang.
+- Framing: the only provider-interpolated label string is `"Isaacus-enhanced"`;
+  the floor label is `"baseline"`. No free/premium framing in the probe output
+  (verified in full at Check 6).
+
+**Verdict: PASS.**
