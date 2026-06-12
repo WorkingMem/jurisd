@@ -39,9 +39,9 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          # Extract section for this version from CHANGELOG.md
-          # Captures everything between ## [VERSION] and the next ## [ or end of file
-          NOTES=$(sed -n "/^## \[$VERSION\]/,/^## \[/p" CHANGELOG.md | head -n -1 | tail -n +2)
+          # Extract section for this version from CHANGELOG.md: everything between
+          # ## [VERSION] and the next section heading or the trailing link-definition block
+          NOTES=$(awk -v ver="$VERSION" '$0 ~ "^## \\["ver"\\]" {flag=1; next} /^## \[|^\[Unreleased\]:/ {flag=0} flag' CHANGELOG.md)
           if [ -z "$NOTES" ]; then
             NOTES="Release v$VERSION"
           fi
