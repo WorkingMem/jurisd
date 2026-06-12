@@ -4,7 +4,10 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { createMcpServer } from "../../server.js";
 
-/** The consolidated tool surface per docs/decisions/tool-surface.md (R5). */
+/**
+ * The consolidated tool surface per docs/decisions/tool-surface.md (R5): 10
+ * base tools, plus the WS-E Layer-1 local-module recall tools as they land.
+ */
 const EXPECTED_TOOLS = [
   "search_legislation",
   "search_cases",
@@ -16,6 +19,10 @@ const EXPECTED_TOOLS = [
   "cite",
   "bibliography",
   "cache_cited_by",
+  // WS-E deterministic / graph recall tools.
+  "get_provision",
+  "get_act_structure",
+  "list_data_modules",
 ];
 
 /** Old tool names removed in the R5 breaking cut — must NOT be registered. */
@@ -43,7 +50,7 @@ async function connectedClient() {
 }
 
 describe("createMcpServer tool surface", () => {
-  it("registers exactly the 10 consolidated tools", async () => {
+  it("registers exactly the consolidated tool surface", async () => {
     const client = await connectedClient();
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
