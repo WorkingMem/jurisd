@@ -20,6 +20,7 @@ import {
   MODULE_NAME_PATTERN,
   validateManifest,
 } from "../data/manifest.js";
+import { getQueryEmbedder, activeEmbedderDescriptor, type EmbedderDescriptor } from "./embedder.js";
 
 /** Load status of a discovered module. */
 export type ModuleStatus =
@@ -690,4 +691,219 @@ export function listDataModules(
         stale: snapshotDate ? ageInDays(snapshotDate) > threshold : false,
       };
     });
+}
+
+// ── find_citing (design §2.3) ───────────────────────────────────────────────
+
+/** One citing-document hit with the provenance span of the citation. */
+export interface CitingHit {
+  version_id: string;
+  citation: string;
+  type: string;
+  url: string;
+  kind: "cites" | "considers";
+  mention_text: string | null;
+  pinpoint: string | null;
+  char_start: number | null;
+  char_end: number | null;
+  metadata: LocalModuleMetadata;
+}
+
+export interface FindCitingResult {
+  found: boolean;
+  hits: CitingHit[];
+}
+
+/**
+ * Local twin of `search_citing_cases`: documents in installed modules whose
+ * text cites `target`, via edges of kind cites/considers whose dst resolves to
+ * the target. Runs per ready module and unions the results — each hit carries
+ * the metadata of the module it came from (each module is a closed world).
+ */
+export async function findCiting(args: {
+  target: string;
+  kinds?: ("cites" | "considers")[];
+  module?: string;
+  limit?: number;
+}): Promise<FindCitingResult> {
+  const kinds = args.kinds && args.kinds.length > 0 ? args.kinds : ["cites", "considers"];
+  const limit = args.limit ?? 50;
+  const candidates = selectModules({ pin: args.module });
+  const hits: CitingHit[] = [];
+
+  for (const entry of candidates) {
+    const attached = await attachModule(entry.name);
+    if (!attached) continue;
+    const v = viewNames(entry.name);
+    const rows = await runModuleQuery(
+      `SELECT DISTINCT src_d.version_id, src_d.citation, src_d.type, src_d.url,
+              e.kind, e.mention_text, e.pinpoint, e.char_start, e.char_end
+         FROM "${v.edges}" e
+         JOIN "${v.documents}" src_d ON src_d.version_id = e.src
+         JOIN "${v.documents}" tgt_d
+              ON (tgt_d.work_id = e.dst_work_id OR tgt_d.version_id = e.dst_version_id)
+        WHERE (tgt_d.citation = $1 OR tgt_d.work_id = $1 OR tgt_d.version_id = $1)
+          AND list_contains($2, e.kind)
+        ORDER BY e.kind DESC
+        LIMIT $3`,
+      [args.target, kinds, limit],
+    );
+    const meta = buildMetadata(entry);
+    for (const row of rows) {
+      hits.push({
+        version_id: String(row.version_id ?? ""),
+        citation: String(row.citation ?? ""),
+        type: String(row.type ?? ""),
+        url: String(row.url ?? ""),
+        kind: row.kind === "considers" ? "considers" : "cites",
+        mention_text: row.mention_text == null ? null : String(row.mention_text),
+        pinpoint: row.pinpoint == null ? null : String(row.pinpoint),
+        char_start: row.char_start == null ? null : Number(row.char_start),
+        char_end: row.char_end == null ? null : Number(row.char_end),
+        metadata: meta,
+      });
+    }
+  }
+  // 'considers' before 'cites' across the union.
+  hits.sort((a, b) => b.kind.localeCompare(a.kind));
+  return { found: hits.length > 0, hits: hits.slice(0, limit) };
+}
+
+// ── semantic_search_local (design §2.4) ─────────────────────────────────────
+
+/** One semantically-ranked chunk hit. */
+export interface SemanticHit {
+  chunk_id: string;
+  provision_ref: string;
+  segment_type: string;
+  text: string;
+  char_start: number;
+  char_end: number;
+  citation: string;
+  version_id: string;
+  score: number;
+  metadata: LocalModuleMetadata;
+}
+
+export interface SemanticSearchResult {
+  found: boolean;
+  hits: SemanticHit[];
+  /** Per-module skip reasons (embedding-space mismatch, etc.) — degrade visibly. */
+  notes: string[];
+}
+
+/**
+ * Whether a module's embedding descriptor is comparable to the embedder in use.
+ * Embeddings from different models / dims are not comparable; a mismatch is a
+ * hard gate (skipped with a typed note, never silently returned).
+ */
+function embeddingSpaceMatches(entry: ModuleEntry, embedder: EmbedderDescriptor): boolean {
+  const e = entry.manifest?.embedding;
+  if (!e) return false;
+  return e.dim === embedder.dim && modelIdCompatible(e.model_id, embedder.model_id);
+}
+
+/** Loose model-id compatibility: bare model name matches across org-prefixed ids. */
+function modelIdCompatible(manifestModelId: string, embedderModelId: string): boolean {
+  const a = manifestModelId.toLowerCase();
+  const b = embedderModelId.toLowerCase();
+  const bareB = b.split("/").pop() ?? b;
+  const bareA = a.split("/").pop() ?? a;
+  return a === b || bareA === bareB || a.includes(bareB) || bareB.includes(a);
+}
+
+/**
+ * Vector recall over a module's chunk embeddings. The query is embedded locally
+ * (§3) into the module's space, then ranked by cosine similarity. Gated on the
+ * local embedder being present AND the module being embedded with a matching
+ * descriptor. Facet pre-filters are applied before ranking.
+ *
+ * Returns `found:false` with a note when the embedder is absent (degrade
+ * visibly), never throwing into the result.
+ */
+export async function semanticSearchLocal(args: {
+  query: string;
+  module?: string;
+  k?: number;
+  filter?: { jurisdiction?: string; type?: string; segment_type?: string };
+}): Promise<SemanticSearchResult> {
+  const k = args.k ?? 10;
+  const notes: string[] = [];
+
+  const embed = await getQueryEmbedder();
+  if (!embed) {
+    notes.push(
+      "local embedder unavailable (@huggingface/transformers not installed); semantic_search_local disabled",
+    );
+    return { found: false, hits: [], notes };
+  }
+  const embedderDesc = activeEmbedderDescriptor();
+
+  const candidates = selectModules({
+    pin: args.module,
+    jurisdiction: args.filter?.jurisdiction,
+    requireEmbedded: true,
+  });
+  if (candidates.length === 0) {
+    notes.push("no embedded ready module available");
+    return { found: false, hits: [], notes };
+  }
+
+  const queryVec = Array.from(await embed(args.query));
+  const dim = queryVec.length;
+  const hits: SemanticHit[] = [];
+
+  for (const entry of candidates) {
+    if (!embeddingSpaceMatches(entry, embedderDesc)) {
+      notes.push(
+        `module '${entry.name}' skipped: embedding descriptor ${JSON.stringify(
+          entry.manifest?.embedding,
+        )} does not match the active embedder (${embedderDesc.model_id}, dim ${embedderDesc.dim})`,
+      );
+      continue;
+    }
+    const attached = await attachModule(entry.name);
+    if (!attached) continue;
+    const v = viewNames(entry.name);
+    // Fixed-size cast on both sides so array_cosine_similarity accepts the
+    // vectors (parquet stores variable-length lists). The dim comes from the
+    // embedder output length, not user input.
+    const rows = await runModuleQuery(
+      `SELECT c.chunk_id, c.provision_ref, c.segment_type, c.text,
+              c.char_start, c.char_end, d.citation, d.version_id,
+              array_cosine_similarity(c.embedding::FLOAT[${dim}], $1::FLOAT[${dim}]) AS score
+         FROM "${v.chunks}" c
+         JOIN "${v.documents}" d ON d.version_id = c.version_id
+        WHERE ($2 IS NULL OR d.jurisdiction = $2)
+          AND ($3 IS NULL OR d.type = $3)
+          AND ($4 IS NULL OR c.segment_type = $4)
+        ORDER BY score DESC
+        LIMIT $5`,
+      [
+        queryVec,
+        args.filter?.jurisdiction ?? null,
+        args.filter?.type ?? null,
+        args.filter?.segment_type ?? null,
+        k,
+      ],
+    );
+    const meta = buildMetadata(entry);
+    for (const row of rows) {
+      hits.push({
+        chunk_id: String(row.chunk_id ?? ""),
+        provision_ref: String(row.provision_ref ?? ""),
+        segment_type: String(row.segment_type ?? ""),
+        text: String(row.text ?? ""),
+        char_start: Number(row.char_start ?? 0),
+        char_end: Number(row.char_end ?? 0),
+        citation: String(row.citation ?? ""),
+        version_id: String(row.version_id ?? ""),
+        score: Number(row.score ?? 0),
+        metadata: meta,
+      });
+    }
+  }
+
+  hits.sort((a, b) => b.score - a.score);
+  return { found: hits.length > 0, hits: hits.slice(0, k), notes };
 }

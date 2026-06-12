@@ -19,10 +19,12 @@ const EXPECTED_TOOLS = [
   "cite",
   "bibliography",
   "cache_cited_by",
-  // WS-E deterministic / graph recall tools.
+  // WS-E deterministic / graph / semantic recall tools.
   "get_provision",
   "get_act_structure",
   "list_data_modules",
+  "find_citing",
+  "semantic_search_local",
 ];
 
 /** Old tool names removed in the R5 breaking cut — must NOT be registered. */

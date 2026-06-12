@@ -36,7 +36,13 @@ import {
   type CitedByRef,
 } from "./services/citation-cache.js";
 import { storeSource, checkSourceFreshness } from "./services/source-store.js";
-import { getProvision, getActStructure, listDataModules } from "./services/modules.js";
+import {
+  getProvision,
+  getActStructure,
+  listDataModules,
+  findCiting,
+  semanticSearchLocal,
+} from "./services/modules.js";
 import { config } from "./config.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
@@ -1300,6 +1306,91 @@ export function createMcpServer(): McpServer {
             text: JSON.stringify({ count: modules.length, modules }, null, 2),
           },
         ],
+      };
+    },
+  );
+
+  // ── find_citing ───────────────────────────────────────────────────────────
+  const findCitingShape = {
+    target: z
+      .string()
+      .min(1)
+      .describe(
+        "Citation or work/version identity of the cited document, e.g. 'Mabo v Queensland (No 2) [1992] HCA 23'",
+      ),
+    kinds: z
+      .array(z.enum(["cites", "considers"]))
+      .optional()
+      .describe(
+        "Edge kinds to include; default both. 'considers' is the stronger substantive-engagement signal",
+      ),
+    module: z.string().optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+    format: formatEnum.optional(),
+  };
+  const findCitingParser = z.object(findCitingShape);
+
+  server.registerTool(
+    "find_citing",
+    {
+      title: "Find Citing Documents (local module)",
+      description:
+        "The offline twin of search_citing_cases: documents in installed local data modules whose text cites " +
+        "a target document, via cites/considers edges (closed-world, deterministic). Returns each citing " +
+        "document with the provenance span of the citation. Use search_citing_cases for the live removed.invalid " +
+        "citator instead. Requires @duckdb/node-api and at least one installed module.",
+      inputSchema: findCitingShape,
+    },
+    async (rawInput) => {
+      const { target, kinds, module, limit } = findCitingParser.parse(rawInput);
+      const result = await findCiting({ target, kinds, module, limit });
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  // ── semantic_search_local ─────────────────────────────────────────────────
+  const semanticSearchLocalShape = {
+    query: z.string().min(1).describe("Natural-language query, embedded locally"),
+    module: z
+      .string()
+      .optional()
+      .describe(
+        "Pin a module; otherwise all embedded ready modules whose embedding model_id+dim match the local embedder",
+      ),
+    k: z.number().int().min(1).max(50).optional(),
+    filter: z
+      .object({
+        jurisdiction: z.string().optional(),
+        type: z
+          .enum(["decision", "primary_legislation", "secondary_legislation", "bill"])
+          .optional(),
+        segment_type: z.string().optional(),
+      })
+      .optional()
+      .describe("Facet pre-filters applied before ranking"),
+    format: formatEnum.optional(),
+  };
+  const semanticSearchLocalParser = z.object(semanticSearchLocalShape);
+
+  server.registerTool(
+    "semantic_search_local",
+    {
+      title: "Semantic Search (local module)",
+      description:
+        "Vector recall over installed local data modules: the query is embedded locally (bge-small, offline, " +
+        "no key) and ranked by cosine similarity over chunk embeddings, with optional jurisdiction/type/" +
+        "segment facet pre-filters. Gated on the local embedder being installed and the module being " +
+        "embedded with a matching descriptor; degrades visibly (typed notes) when unavailable. Requires " +
+        "@duckdb/node-api, @huggingface/transformers, and an embedded module.",
+      inputSchema: semanticSearchLocalShape,
+    },
+    async (rawInput) => {
+      const { query, module, k, filter } = semanticSearchLocalParser.parse(rawInput);
+      const result = await semanticSearchLocal({ query, module, k, filter });
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
       };
     },
   );
