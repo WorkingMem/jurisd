@@ -1,5 +1,5 @@
 /**
- * AusLaw MCP - Citation service
+ * jurisd - Citation service
  * Copyright (c) 2024 Russell Brenner
  * Licensed under the MIT License
  *

@@ -1,15 +1,16 @@
-# auslaw-mcp Architecture Guide
+# jurisd Architecture Guide
 
 **Version:** 1.0  
-**Last Updated:** 2026-04-10  
+**Last Updated:** 2026-04-10
 
 ---
 
 ## Executive Summary
 
-auslaw-mcp is a Model Context Protocol (MCP) server for Australian and New Zealand legal research.
+jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand legal research.
 
 **Key Features:**
+
 - Dual-source search (AustLII + jade.io)
 - OCR-capable PDF extraction
 - AGLC4 citation formatting
@@ -26,7 +27,7 @@ auslaw-mcp is a Model Context Protocol (MCP) server for Australian and New Zeala
                     │
                     ▼
 ┌─────────────────────────────────────────┐
-│ auslaw-mcp Server (10 Tools)            │
+│ jurisd Server (10 Tools)            │
 │ ┌─────────────────────────────────────┐ │
 │ │ search_cases, search_legislation    │ │
 │ │ fetch_document_text, format_citation│ │
@@ -94,8 +95,8 @@ auslaw-mcp is a Model Context Protocol (MCP) server for Australian and New Zeala
 ### Local Development
 
 ```bash
-git clone https://github.com/russellbrenner/auslaw-mcp.git
-cd auslaw-mcp
+git clone https://github.com/russellbrenner/jurisd.git
+cd jurisd
 npm install
 npm run dev
 ```
@@ -103,8 +104,8 @@ npm run dev
 ### Docker
 
 ```bash
-docker build -t auslaw-mcp .
-docker run --rm -it auslaw-mcp
+docker build -t jurisd .
+docker run --rm -it jurisd
 ```
 
 ### HTTP Transport
@@ -120,14 +121,14 @@ MCP_TRANSPORT=http npm start
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| AUSTLII_SEARCH_BASE | AustLII URL | Search endpoint |
-| AUSTLII_TIMEOUT | 60000 | Request timeout (ms) |
-| OCR_LANGUAGE | eng | Tesseract language |
-| JADE_SESSION_COOKIE | — | jade.io auth cookie |
-| MCP_TRANSPORT | stdio | stdio or http |
-| ISAACUS_API_KEY | — | Isaacus API key (optional) |
+| Variable            | Default     | Description                |
+| ------------------- | ----------- | -------------------------- |
+| AUSTLII_SEARCH_BASE | AustLII URL | Search endpoint            |
+| AUSTLII_TIMEOUT     | 60000       | Request timeout (ms)       |
+| OCR_LANGUAGE        | eng         | Tesseract language         |
+| JADE_SESSION_COOKIE | —           | jade.io auth cookie        |
+| MCP_TRANSPORT       | stdio       | stdio or http              |
+| ISAACUS_API_KEY     | —           | Isaacus API key (optional) |
 
 ---
 

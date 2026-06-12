@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed the project from `auslaw-mcp` to `jurisd`: package name, binary, MCP server name,
+  GitHub repository (`russellbrenner/jurisd`, old URLs redirect), Docker/k8s resource names,
+  and documentation. Configuration env vars (`AUSLAW_*`) and the `.auslaw/` cache directory
+  are unchanged.
+
 ## [0.1.0] - 2026-06-12
 
 First tagged release: a snapshot of the server as it stands. 18 MCP tools for Australian and NZ
@@ -50,5 +57,5 @@ legal research across AustLII and jade.io.
 - Source-store citeKey hardening against path traversal (#108)
 - Dependency updates resolving known HIGH severity advisories; npm audit in CI
 
-[Unreleased]: https://github.com/russellbrenner/auslaw-mcp/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/russellbrenner/auslaw-mcp/releases/tag/v0.1.0
+[Unreleased]: https://github.com/russellbrenner/jurisd/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/russellbrenner/jurisd/releases/tag/v0.1.0

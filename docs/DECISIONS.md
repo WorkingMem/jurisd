@@ -1,4 +1,4 @@
-# auslaw-mcp Decision Log
+# jurisd Decision Log
 
 **Purpose:** Track architectural decisions without revealing internal infrastructure.
 
@@ -16,6 +16,7 @@
 **Decision:** Query both AustLII and jade.io, merge results with deduplication by neutral citation.
 
 **Consequences:**
+
 - Positive: Better coverage, richer metadata
 - Negative: Increased complexity, requires jade.io subscription for full functionality
 
@@ -31,6 +32,7 @@
 **Decision:** Reverse-engineer GWT-RPC for programmatic access.
 
 **Consequences:**
+
 - Positive: Full feature access (search, citator)
 - Negative: Strong names change on redeployment; requires maintenance
 
@@ -101,7 +103,7 @@
 **Date:** 2026-03-11  
 **Status:** Accepted
 
-**Decision:** AI inference (Isaacus) is a separate service. auslaw-mcp calls via SDK or HTTP.
+**Decision:** AI inference (Isaacus) is a separate service. jurisd calls via SDK or HTTP.
 
 ---
 
@@ -131,4 +133,5 @@
 ---
 
 **Revision History:**
+
 - 2026-04-10: Initial; ADR-001 through ADR-010 documented

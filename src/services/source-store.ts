@@ -1,5 +1,5 @@
 /**
- * AusLaw MCP - Source store
+ * jurisd - Source store
  *
  * Downloads and persists source documents as local markdown files.
  * Uses HTTP ETag / Last-Modified for conditional-GET freshness checks so that

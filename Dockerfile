@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for AusLaw MCP
+# Multi-stage Dockerfile for jurisd
 # Stage 1: Builder
 FROM node:20-alpine AS builder
 

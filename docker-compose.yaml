@@ -1,12 +1,12 @@
 services:
-  auslaw-mcp:
+  jurisd:
     build:
       context: .
       dockerfile: Dockerfile
-    image: auslaw-mcp:latest
-    container_name: auslaw-mcp
+    image: jurisd:latest
+    container_name: jurisd
     restart: unless-stopped
-    
+
     # Environment variables (can be overridden via .env file)
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -21,16 +21,16 @@ services:
       MAX_SEARCH_LIMIT: ${MAX_SEARCH_LIMIT:-50}
       DEFAULT_OUTPUT_FORMAT: ${DEFAULT_OUTPUT_FORMAT:-json}
       DEFAULT_SORT_BY: ${DEFAULT_SORT_BY:-auto}
-    
+
     # Mount config.yaml for reference (optional)
     volumes:
       - ./config.yaml:/app/config.yaml:ro
-    
+
     # MCP servers use stdio, no ports to expose
     # stdin_open and tty are enabled for stdio communication
     stdin_open: true
     tty: true
-    
+
     # Health check (basic container health)
     healthcheck:
       test: ["CMD", "node", "-e", "console.log('healthy')"]

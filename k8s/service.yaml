@@ -2,14 +2,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: auslaw-mcp
-  namespace: auslaw-mcp
+  name: jurisd
+  namespace: jurisd
   labels:
-    app.kubernetes.io/name: auslaw-mcp
+    app.kubernetes.io/name: jurisd
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: auslaw-mcp
+    app.kubernetes.io/name: jurisd
   ports:
     - name: http
       port: 3000

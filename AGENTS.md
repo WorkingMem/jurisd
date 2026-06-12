@@ -1,10 +1,10 @@
-# AI Agent Instructions for AusLaw MCP
+# AI Agent Instructions for jurisd
 
 This document provides guidance for AI agents (Claude Code, Warp/Oz, Cursor, etc.) working on this project.
 
 ## Project Overview
 
-**AusLaw MCP** is a Model Context Protocol (MCP) server that searches Australian legal databases (AustLII, jade.io) and retrieves full-text judgements with citation support. It's designed for legal research workflows requiring primary source authorities.
+**jurisd** is a Model Context Protocol (MCP) server that searches Australian legal databases (AustLII, jade.io) and retrieves full-text judgements with citation support. It's designed for legal research workflows requiring primary source authorities.
 
 **Primary users**: Legal researchers, law students, lawyers conducting case research
 **Key requirement**: Always return the most authoritative, relevant version of legal materials

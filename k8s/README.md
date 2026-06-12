@@ -1,6 +1,6 @@
-# Kubernetes (k3s) Deployment Guide for AusLaw MCP
+# Kubernetes (k3s) Deployment Guide for jurisd
 
-This guide covers deploying AusLaw MCP to a two-node k3s cluster.
+This guide covers deploying jurisd to a two-node k3s cluster.
 
 ## Prerequisites
 
@@ -15,26 +15,26 @@ This guide covers deploying AusLaw MCP to a two-node k3s cluster.
 
 ```bash
 # Build the Docker image
-docker build -t auslaw-mcp:latest .
+docker build -t jurisd:latest .
 
 # If using a private registry, tag and push:
-docker tag auslaw-mcp:latest your-registry.com/auslaw-mcp:latest
-docker push your-registry.com/auslaw-mcp:latest
+docker tag jurisd:latest your-registry.com/jurisd:latest
+docker push your-registry.com/jurisd:latest
 ```
 
 For k3s, you can import the image directly on each node:
 
 ```bash
 # Save the image to a tar file
-docker save auslaw-mcp:latest -o auslaw-mcp.tar
+docker save jurisd:latest -o jurisd.tar
 
 # Copy to each k3s node and import
-scp auslaw-mcp.tar node1:/tmp/
-scp auslaw-mcp.tar node2:/tmp/
+scp jurisd.tar node1:/tmp/
+scp jurisd.tar node2:/tmp/
 
 # On each node:
-ssh node1 "sudo k3s ctr images import /tmp/auslaw-mcp.tar"
-ssh node2 "sudo k3s ctr images import /tmp/auslaw-mcp.tar"
+ssh node1 "sudo k3s ctr images import /tmp/jurisd.tar"
+ssh node2 "sudo k3s ctr images import /tmp/jurisd.tar"
 ```
 
 ### 2. Deploy to k3s
@@ -57,19 +57,19 @@ kubectl apply -f k8s/
 
 ```bash
 # Check namespace
-kubectl get namespace auslaw-mcp
+kubectl get namespace jurisd
 
 # Check pods
-kubectl get pods -n auslaw-mcp
+kubectl get pods -n jurisd
 
 # Check deployment status
-kubectl get deployment -n auslaw-mcp
+kubectl get deployment -n jurisd
 
 # View pod logs
-kubectl logs -n auslaw-mcp -l app=auslaw-mcp
+kubectl logs -n jurisd -l app=jurisd
 
 # Describe deployment
-kubectl describe deployment auslaw-mcp -n auslaw-mcp
+kubectl describe deployment jurisd -n jurisd
 ```
 
 ### 4. Check Pod Distribution
@@ -77,7 +77,7 @@ kubectl describe deployment auslaw-mcp -n auslaw-mcp
 Verify that pods are distributed across both nodes:
 
 ```bash
-kubectl get pods -n auslaw-mcp -o wide
+kubectl get pods -n jurisd -o wide
 ```
 
 You should see pods running on different nodes due to the anti-affinity rules.
@@ -90,7 +90,7 @@ All configuration is managed through the ConfigMap (`k8s/configmap.yaml`). To mo
 
 1. Edit `k8s/configmap.yaml`
 2. Apply changes: `kubectl apply -f k8s/configmap.yaml`
-3. Restart pods: `kubectl rollout restart deployment/auslaw-mcp -n auslaw-mcp`
+3. Restart pods: `kubectl rollout restart deployment/jurisd -n jurisd`
 
 ### Available Configuration Options
 
@@ -101,7 +101,7 @@ All configuration is managed through the ConfigMap (`k8s/configmap.yaml`). To mo
 | `AUSTLII_USER_AGENT`    | Mozilla/5.0...                                    | User agent string            |
 | `AUSTLII_TIMEOUT`       | `60000`                                           | Request timeout (ms)         |
 | `JADE_BASE_URL`         | `https://jade.io`                                 | jade.io base URL             |
-| `JADE_USER_AGENT`       | `auslaw-mcp/0.1.0 (legal research tool)`          | jade.io user agent           |
+| `JADE_USER_AGENT`       | `jurisd/0.1.0 (legal research tool)`              | jade.io user agent           |
 | `JADE_TIMEOUT`          | `15000`                                           | jade.io request timeout (ms) |
 | `OCR_LANGUAGE`          | `eng`                                             | Tesseract OCR language       |
 | `OCR_OEM`               | `1`                                               | OCR Engine Mode              |
@@ -118,10 +118,10 @@ All configuration is managed through the ConfigMap (`k8s/configmap.yaml`). To mo
 
 ```bash
 # Scale to 3 replicas (if you add a third node)
-kubectl scale deployment auslaw-mcp -n auslaw-mcp --replicas=3
+kubectl scale deployment jurisd -n jurisd --replicas=3
 
 # Scale down to 1 replica
-kubectl scale deployment auslaw-mcp -n auslaw-mcp --replicas=1
+kubectl scale deployment jurisd -n jurisd --replicas=1
 ```
 
 ### Resource Allocation
@@ -149,13 +149,13 @@ resources:
 
 ```bash
 # All pods
-kubectl logs -n auslaw-mcp -l app=auslaw-mcp --tail=100 -f
+kubectl logs -n jurisd -l app=jurisd --tail=100 -f
 
 # Specific pod
-kubectl logs -n auslaw-mcp <pod-name> -f
+kubectl logs -n jurisd <pod-name> -f
 
 # Previous instance (if pod crashed)
-kubectl logs -n auslaw-mcp <pod-name> --previous
+kubectl logs -n jurisd <pod-name> --previous
 ```
 
 ### Updating the Application
@@ -164,23 +164,23 @@ kubectl logs -n auslaw-mcp <pod-name> --previous
 # Rebuild and re-import image (see step 1)
 
 # Restart deployment to use new image
-kubectl rollout restart deployment/auslaw-mcp -n auslaw-mcp
+kubectl rollout restart deployment/jurisd -n jurisd
 
 # Monitor rollout status
-kubectl rollout status deployment/auslaw-mcp -n auslaw-mcp
+kubectl rollout status deployment/jurisd -n jurisd
 
 # Check rollout history
-kubectl rollout history deployment/auslaw-mcp -n auslaw-mcp
+kubectl rollout history deployment/jurisd -n jurisd
 ```
 
 ### Rolling Back
 
 ```bash
 # Rollback to previous version
-kubectl rollout undo deployment/auslaw-mcp -n auslaw-mcp
+kubectl rollout undo deployment/jurisd -n jurisd
 
 # Rollback to specific revision
-kubectl rollout undo deployment/auslaw-mcp -n auslaw-mcp --to-revision=2
+kubectl rollout undo deployment/jurisd -n jurisd --to-revision=2
 ```
 
 ## Troubleshooting
@@ -189,13 +189,13 @@ kubectl rollout undo deployment/auslaw-mcp -n auslaw-mcp --to-revision=2
 
 ```bash
 # Check pod status
-kubectl get pods -n auslaw-mcp
+kubectl get pods -n jurisd
 
 # Describe pod for events
-kubectl describe pod <pod-name> -n auslaw-mcp
+kubectl describe pod <pod-name> -n jurisd
 
 # Check logs
-kubectl logs <pod-name> -n auslaw-mcp
+kubectl logs <pod-name> -n jurisd
 ```
 
 ### Image Pull Issues
@@ -204,13 +204,13 @@ If you see `ImagePullBackOff`:
 
 ```bash
 # Verify image is imported on all nodes
-ssh node1 "sudo k3s ctr images list | grep auslaw-mcp"
-ssh node2 "sudo k3s ctr images list | grep auslaw-mcp"
+ssh node1 "sudo k3s ctr images list | grep jurisd"
+ssh node2 "sudo k3s ctr images list | grep jurisd"
 
 # Re-import if needed
-docker save auslaw-mcp:latest -o auslaw-mcp.tar
-scp auslaw-mcp.tar node1:/tmp/ && ssh node1 "sudo k3s ctr images import /tmp/auslaw-mcp.tar"
-scp auslaw-mcp.tar node2:/tmp/ && ssh node2 "sudo k3s ctr images import /tmp/auslaw-mcp.tar"
+docker save jurisd:latest -o jurisd.tar
+scp jurisd.tar node1:/tmp/ && ssh node1 "sudo k3s ctr images import /tmp/jurisd.tar"
+scp jurisd.tar node2:/tmp/ && ssh node2 "sudo k3s ctr images import /tmp/jurisd.tar"
 ```
 
 ### Pods Not Distributed Across Nodes
@@ -222,7 +222,7 @@ If both pods are on the same node:
 kubectl get nodes --show-labels
 
 # Check pod anti-affinity
-kubectl describe deployment auslaw-mcp -n auslaw-mcp | grep -A 10 Affinity
+kubectl describe deployment jurisd -n jurisd | grep -A 10 Affinity
 ```
 
 The deployment uses `preferredDuringSchedulingIgnoredDuringExecution`, which is a soft requirement. If resource constraints exist, both pods may end up on the same node.
@@ -231,21 +231,21 @@ The deployment uses `preferredDuringSchedulingIgnoredDuringExecution`, which is 
 
 ```bash
 # Verify ConfigMap
-kubectl get configmap auslaw-mcp-config -n auslaw-mcp -o yaml
+kubectl get configmap jurisd-config -n jurisd -o yaml
 
 # Restart pods to pick up changes
-kubectl rollout restart deployment/auslaw-mcp -n auslaw-mcp
+kubectl rollout restart deployment/jurisd -n jurisd
 ```
 
 ## Accessing the MCP Server
 
-MCP servers communicate via stdio (standard input/output), not HTTP. To use AusLaw MCP in k8s:
+MCP servers communicate via stdio (standard input/output), not HTTP. To use jurisd in k8s:
 
 ### Option 1: Direct Pod Interaction
 
 ```bash
 # Execute commands in a pod
-kubectl exec -it -n auslaw-mcp <pod-name> -- node dist/index.js
+kubectl exec -it -n jurisd <pod-name> -- node dist/index.js
 ```
 
 ### Option 2: Job-Based Execution
@@ -256,18 +256,18 @@ Create a Kubernetes Job that runs queries:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: auslaw-query
-  namespace: auslaw-mcp
+  name: jurisd-query
+  namespace: jurisd
 spec:
   template:
     spec:
       containers:
         - name: query
-          image: auslaw-mcp:latest
+          image: jurisd:latest
           command: ["node", "dist/index.js"]
           envFrom:
             - configMapRef:
-                name: auslaw-mcp-config
+                name: jurisd-config
       restartPolicy: Never
 ```
 
@@ -277,7 +277,7 @@ Integrate with MCP clients (like Claude Desktop) by exposing the service or usin
 
 ```bash
 # Port forward to local machine
-kubectl port-forward -n auslaw-mcp service/auslaw-mcp 3000:3000
+kubectl port-forward -n jurisd service/jurisd 3000:3000
 ```
 
 ## Uninstalling
@@ -287,7 +287,7 @@ kubectl port-forward -n auslaw-mcp service/auslaw-mcp 3000:3000
 kubectl delete -f k8s/
 
 # Or delete namespace (removes everything)
-kubectl delete namespace auslaw-mcp
+kubectl delete namespace jurisd
 ```
 
 ## k3s Cluster Setup
@@ -337,12 +337,12 @@ Example NetworkPolicy:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: auslaw-mcp-netpol
-  namespace: auslaw-mcp
+  name: jurisd-netpol
+  namespace: jurisd
 spec:
   podSelector:
     matchLabels:
-      app: auslaw-mcp
+      app: jurisd
   policyTypes:
     - Ingress
     - Egress

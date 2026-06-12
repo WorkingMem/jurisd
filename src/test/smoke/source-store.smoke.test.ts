@@ -26,7 +26,7 @@ describe("storeSource", () => {
   it.skipIf(CI)(
     "downloads and writes a markdown source file",
     async () => {
-      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "auslaw-smoke-"));
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "jurisd-smoke-"));
       try {
         const result = await storeSource("mabo1992", MABO_URL, null, tmpDir);
         expect(result.changed).toBe(true);
@@ -46,7 +46,7 @@ describe("storeSource", () => {
   it.skipIf(CI)(
     "returns changed:false on second download when content hash matches",
     async () => {
-      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "auslaw-smoke-"));
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "jurisd-smoke-"));
       try {
         const first = await storeSource("mabo1992", MABO_URL, null, tmpDir);
         expect(first.changed).toBe(true);

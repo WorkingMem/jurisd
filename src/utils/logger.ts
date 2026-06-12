@@ -1,5 +1,5 @@
 /**
- * AusLaw MCP - Structured logging utility
+ * jurisd - Structured logging utility
  * Copyright (c) 2024 Russell Brenner
  * Licensed under the MIT License
  *

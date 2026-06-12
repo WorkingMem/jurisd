@@ -1,5 +1,5 @@
 /**
- * AusLaw MCP - Local citation cache
+ * jurisd - Local citation cache
  *
  * Persists citations as a JSON file in <cacheDir>/.auslaw/citations.json.
  * Each entry is embedding-ready: metadata fields are rich enough to attach
@@ -139,9 +139,9 @@ export async function loadCache(cacheDir: string): Promise<CitationCache> {
     const parsed = JSON.parse(raw) as CitationCache;
     if (parsed.version !== undefined && parsed.version > AUSLAW_CACHE_VERSION) {
       console.warn(
-        `auslaw-mcp: citation cache at ${cachePath} was written by a newer version ` +
+        `jurisd: citation cache at ${cachePath} was written by a newer version ` +
           `(schema v${parsed.version}, current v${AUSLAW_CACHE_VERSION}). ` +
-          `Some fields may be ignored. Update auslaw-mcp to avoid data loss.`,
+          `Some fields may be ignored. Update jurisd to avoid data loss.`,
       );
     }
     return parsed;

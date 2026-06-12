@@ -1,4 +1,4 @@
-# AusLaw MCP
+# jurisd
 
 Model Context Protocol (MCP) server for Australian and New Zealand legal research. Searches AustLII for case law and legislation, retrieves full-text judgements with paragraph numbers preserved, and supports OCR for scanned PDFs.
 
@@ -52,7 +52,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full development history and futu
 ### Run with npx (no local clone required)
 
 ```bash
-npx -y github:russellbrenner/auslaw-mcp
+npx -y github:russellbrenner/jurisd
 ```
 
 `npx` clones the repository, installs dependencies, builds, and launches the
@@ -62,8 +62,8 @@ when configuring an MCP-compatible client (see [MCP Registration](#mcp-registrat
 ### Local Development
 
 ```bash
-git clone https://github.com/russellbrenner/auslaw-mcp.git
-cd auslaw-mcp
+git clone https://github.com/russellbrenner/jurisd.git
+cd jurisd
 npm install
 npm run dev  # hot reload for local development
 ```
@@ -79,13 +79,13 @@ npm start
 
 ```bash
 # Build the Docker image
-docker build -t auslaw-mcp:latest .
+docker build -t jurisd:latest .
 
 # Run with Docker Compose
 docker-compose up
 
 # Or run directly
-docker run -it --rm auslaw-mcp:latest
+docker run -it --rm jurisd:latest
 ```
 
 See [docs/DOCKER.md](docs/DOCKER.md) for detailed Docker deployment instructions.
@@ -94,8 +94,8 @@ See [docs/DOCKER.md](docs/DOCKER.md) for detailed Docker deployment instructions
 
 ```bash
 # Build and import image to k3s nodes
-docker build -t auslaw-mcp:latest .
-docker save auslaw-mcp:latest -o auslaw-mcp.tar
+docker build -t jurisd:latest .
+docker save jurisd:latest -o jurisd.tar
 
 # Deploy to k3s cluster
 kubectl apply -f k8s/
@@ -113,9 +113,9 @@ to launch the server.
 ```json
 {
   "mcpServers": {
-    "auslaw-mcp": {
+    "jurisd": {
       "command": "npx",
-      "args": ["-y", "github:russellbrenner/auslaw-mcp"]
+      "args": ["-y", "github:russellbrenner/jurisd"]
     }
   }
 }
@@ -123,7 +123,7 @@ to launch the server.
 
 The first invocation clones the repo, installs deps, and builds. Subsequent
 launches reuse the cached install. To pin to a specific commit or branch,
-append `#<ref>` to the URL — eg. `github:russellbrenner/auslaw-mcp#main`.
+append `#<ref>` to the URL — eg. `github:russellbrenner/jurisd#main`.
 
 ### Option B — Local clone
 
@@ -132,15 +132,15 @@ For Claude Desktop, edit `~/Library/Application Support/Claude/claude_desktop_co
 ```json
 {
   "mcpServers": {
-    "auslaw-mcp": {
+    "jurisd": {
       "command": "node",
-      "args": ["/path/to/auslaw-mcp/dist/index.js"]
+      "args": ["/path/to/jurisd/dist/index.js"]
     }
   }
 }
 ```
 
-Replace `/path/to/auslaw-mcp` with the actual path to your installation.
+Replace `/path/to/jurisd` with the actual path to your installation.
 
 ## Example Queries for AI Assistants
 
@@ -554,7 +554,7 @@ export JADE_SESSION_COOKIE="IID=abc123; alcsessionid=xyz789; cf_clearance=..."
 For Kubernetes deployment, store it in a Secret (not a ConfigMap, as it is a credential):
 
 ```bash
-kubectl create secret generic auslaw-mcp-secrets \
+kubectl create secret generic jurisd-secrets \
   --from-literal=JADE_SESSION_COOKIE="IID=abc123; alcsessionid=xyz789; cf_clearance=..."
 ```
 

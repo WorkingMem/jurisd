@@ -2,21 +2,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: auslaw-mcp
-  namespace: auslaw-mcp
+  name: jurisd
+  namespace: jurisd
   labels:
-    app.kubernetes.io/name: auslaw-mcp
+    app.kubernetes.io/name: jurisd
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: auslaw-mcp
+      app.kubernetes.io/name: jurisd
   strategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: auslaw-mcp
+        app.kubernetes.io/name: jurisd
     spec:
       affinity:
         podAntiAffinity:
@@ -28,7 +28,7 @@ spec:
                     - key: app.kubernetes.io/name
                       operator: In
                       values:
-                        - auslaw-mcp
+                        - jurisd
                 topologyKey: kubernetes.io/hostname
       imagePullSecrets:
         - name: gitea-registry
@@ -37,15 +37,15 @@ spec:
           - name: ndots
             value: "1"
       containers:
-        - name: auslaw-mcp
-          image: git.itsa.house/rbrenner/auslaw-mcp:latest
+        - name: jurisd
+          image: git.itsa.house/rbrenner/jurisd:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
               name: http
           envFrom:
             - configMapRef:
-                name: auslaw-mcp-config
+                name: jurisd-config
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
@@ -85,7 +85,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: auslaw-mcp-config
+            name: jurisd-config
             items:
               - key: config.yaml
                 path: config.yaml

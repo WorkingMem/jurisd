@@ -1,6 +1,6 @@
 # Deployment Checklist
 
-This checklist helps ensure successful deployment of AusLaw MCP to Docker or Kubernetes environments.
+This checklist helps ensure successful deployment of jurisd to Docker or Kubernetes environments.
 
 ## Pre-Deployment
 
@@ -26,20 +26,20 @@ This checklist helps ensure successful deployment of AusLaw MCP to Docker or Kub
 - [ ] Run `npm install` to ensure dependencies are up to date
 - [ ] Run `npm run build` to verify TypeScript compilation
 - [ ] Run `npm test` to verify tests pass (may fail in restricted network)
-- [ ] Run `docker build -t auslaw-mcp:latest .` or `./build.sh`
-- [ ] Verify image built successfully: `docker images auslaw-mcp`
+- [ ] Run `docker build -t jurisd:latest .` or `./build.sh`
+- [ ] Verify image built successfully: `docker images jurisd`
 
 ### Test Locally
 
-- [ ] Test with Docker: `docker run -it --rm auslaw-mcp:latest`
+- [ ] Test with Docker: `docker run -it --rm jurisd:latest`
 - [ ] Test with Docker Compose: `docker-compose up`
-- [ ] Verify environment variables work: `docker run -e DEFAULT_SEARCH_LIMIT=20 -it auslaw-mcp:latest`
+- [ ] Verify environment variables work: `docker run -e DEFAULT_SEARCH_LIMIT=20 -it jurisd:latest`
 - [ ] Check logs for errors
 - [ ] Verify Tesseract OCR is available in container
 
 ### Deploy
 
-- [ ] Push to registry if using one: `docker push your-registry/auslaw-mcp:latest`
+- [ ] Push to registry if using one: `docker push your-registry/jurisd:latest`
 - [ ] Update docker-compose.yaml with registry URL if needed
 - [ ] Deploy with `docker-compose up -d`
 - [ ] Check container health: `docker ps`
@@ -57,36 +57,36 @@ This checklist helps ensure successful deployment of AusLaw MCP to Docker or Kub
 
 ### Build and Import Image
 
-- [ ] Build image: `docker build -t auslaw-mcp:latest .`
-- [ ] Export image: `docker save auslaw-mcp:latest -o auslaw-mcp.tar`
-- [ ] Copy to node 1: `scp auslaw-mcp.tar node1:/tmp/`
-- [ ] Copy to node 2: `scp auslaw-mcp.tar node2:/tmp/`
-- [ ] Import on node 1: `ssh node1 "sudo k3s ctr images import /tmp/auslaw-mcp.tar"`
-- [ ] Import on node 2: `ssh node2 "sudo k3s ctr images import /tmp/auslaw-mcp.tar"`
-- [ ] Verify import: `ssh node1 "sudo k3s ctr images list | grep auslaw"`
+- [ ] Build image: `docker build -t jurisd:latest .`
+- [ ] Export image: `docker save jurisd:latest -o jurisd.tar`
+- [ ] Copy to node 1: `scp jurisd.tar node1:/tmp/`
+- [ ] Copy to node 2: `scp jurisd.tar node2:/tmp/`
+- [ ] Import on node 1: `ssh node1 "sudo k3s ctr images import /tmp/jurisd.tar"`
+- [ ] Import on node 2: `ssh node2 "sudo k3s ctr images import /tmp/jurisd.tar"`
+- [ ] Verify import: `ssh node1 "sudo k3s ctr images list | grep jurisd"`
 
 ### Deploy to Cluster
 
 - [ ] Apply manifests: `kubectl apply -f k8s/` or `./deploy-k8s.sh`
-- [ ] Verify namespace: `kubectl get namespace auslaw-mcp`
-- [ ] Verify ConfigMap: `kubectl get configmap -n auslaw-mcp`
-- [ ] Verify Deployment: `kubectl get deployment -n auslaw-mcp`
-- [ ] Verify Service: `kubectl get service -n auslaw-mcp`
-- [ ] Check rollout status: `kubectl rollout status deployment/auslaw-mcp -n auslaw-mcp`
+- [ ] Verify namespace: `kubectl get namespace jurisd`
+- [ ] Verify ConfigMap: `kubectl get configmap -n jurisd`
+- [ ] Verify Deployment: `kubectl get deployment -n jurisd`
+- [ ] Verify Service: `kubectl get service -n jurisd`
+- [ ] Check rollout status: `kubectl rollout status deployment/jurisd -n jurisd`
 
 ### Verify Deployment
 
-- [ ] Check pods are running: `kubectl get pods -n auslaw-mcp`
-- [ ] Verify pods are on different nodes: `kubectl get pods -n auslaw-mcp -o wide`
-- [ ] Check pod logs: `kubectl logs -n auslaw-mcp -l app=auslaw-mcp`
+- [ ] Check pods are running: `kubectl get pods -n jurisd`
+- [ ] Verify pods are on different nodes: `kubectl get pods -n jurisd -o wide`
+- [ ] Check pod logs: `kubectl logs -n jurisd -l app=jurisd`
 - [ ] Verify no error messages in logs
-- [ ] Check resource usage: `kubectl top pods -n auslaw-mcp`
+- [ ] Check resource usage: `kubectl top pods -n jurisd`
 
 ### Test Functionality
 
-- [ ] Port forward to test: `kubectl port-forward -n auslaw-mcp service/auslaw-mcp 3000:3000`
-- [ ] Execute test in pod: `kubectl exec -it -n auslaw-mcp <pod-name> -- node --version`
-- [ ] Verify environment variables: `kubectl exec -n auslaw-mcp <pod-name> -- env | grep AUSTLII`
+- [ ] Port forward to test: `kubectl port-forward -n jurisd service/jurisd 3000:3000`
+- [ ] Execute test in pod: `kubectl exec -it -n jurisd <pod-name> -- node --version`
+- [ ] Verify environment variables: `kubectl exec -n jurisd <pod-name> -- env | grep AUSTLII`
 
 ## Post-Deployment
 
@@ -101,7 +101,7 @@ This checklist helps ensure successful deployment of AusLaw MCP to Docker or Kub
 
 - [ ] Set up log aggregation (optional)
 - [ ] Set up monitoring/alerting (optional)
-- [ ] Create backup of ConfigMap: `kubectl get configmap auslaw-mcp-config -n auslaw-mcp -o yaml > backup-configmap.yaml`
+- [ ] Create backup of ConfigMap: `kubectl get configmap jurisd-config -n jurisd -o yaml > backup-configmap.yaml`
 - [ ] Schedule regular health checks
 
 ### Maintenance Plan
@@ -133,7 +133,7 @@ This checklist helps ensure successful deployment of AusLaw MCP to Docker or Kub
 #### Configuration Not Applied
 
 - **Symptom**: Environment variables not taking effect
-- **Solution**: Restart pods with `kubectl rollout restart deployment/auslaw-mcp -n auslaw-mcp`
+- **Solution**: Restart pods with `kubectl rollout restart deployment/jurisd -n jurisd`
 
 #### Resource Constraints
 
@@ -145,25 +145,25 @@ This checklist helps ensure successful deployment of AusLaw MCP to Docker or Kub
 #### Rollback Deployment
 
 ```bash
-kubectl rollout undo deployment/auslaw-mcp -n auslaw-mcp
+kubectl rollout undo deployment/jurisd -n jurisd
 ```
 
 #### Restart All Pods
 
 ```bash
-kubectl rollout restart deployment/auslaw-mcp -n auslaw-mcp
+kubectl rollout restart deployment/jurisd -n jurisd
 ```
 
 #### View Detailed Pod Status
 
 ```bash
-kubectl describe pod <pod-name> -n auslaw-mcp
+kubectl describe pod <pod-name> -n jurisd
 ```
 
 #### Access Pod Shell
 
 ```bash
-kubectl exec -it <pod-name> -n auslaw-mcp -- /bin/sh
+kubectl exec -it <pod-name> -n jurisd -- /bin/sh
 ```
 
 ## Success Criteria
@@ -180,9 +180,8 @@ Deployment is considered successful when:
 
 ## Sign-off
 
-- Deployed by: _______________
-- Date: _______________
-- Environment: _______________
-- Version: _______________
-- Notes: _______________
-
+- Deployed by: ******\_\_\_******
+- Date: ******\_\_\_******
+- Environment: ******\_\_\_******
+- Version: ******\_\_\_******
+- Notes: ******\_\_\_******

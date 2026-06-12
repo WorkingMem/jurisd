@@ -1,14 +1,14 @@
 #!/bin/bash
-# Build and package script for AusLaw MCP
+# Build and package script for jurisd
 # This script builds the Docker image and optionally exports it for k3s deployment
 
 set -e
 
 VERSION=${1:-latest}
-IMAGE_NAME="auslaw-mcp:${VERSION}"
-EXPORT_TAR="auslaw-mcp-${VERSION}.tar"
+IMAGE_NAME="jurisd:${VERSION}"
+EXPORT_TAR="jurisd-${VERSION}.tar"
 
-echo "🏗️  Building AusLaw MCP Docker image..."
+echo "🏗️  Building jurisd Docker image..."
 echo "   Image: ${IMAGE_NAME}"
 echo ""
 

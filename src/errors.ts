@@ -1,5 +1,5 @@
 /**
- * AusLaw MCP - Custom error classes
+ * jurisd - Custom error classes
  * Copyright (c) 2024 Russell Brenner
  * Licensed under the MIT License
  *

@@ -15,7 +15,7 @@
   "excludePrivate": true,
   "includeVersion": true,
   "readme": "README.md",
-  "name": "AusLaw MCP API Documentation",
+  "name": "jurisd API Documentation",
   "plugin": [],
   "tsconfig": "tsconfig.json"
 }

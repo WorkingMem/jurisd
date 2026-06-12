@@ -1,9 +1,9 @@
 ---
-# AusLaw MCP Configuration
+# jurisd Configuration
 # This file contains default configuration values that can be overridden via environment variables
 
 server:
-  name: auslaw-mcp
+  name: jurisd
   version: 0.1.0
   description: Australian legislation and case law searcher with OCR-aware document retrieval.
 
@@ -25,7 +25,7 @@ jade:
   baseUrl: ${JADE_BASE_URL:-https://jade.io}
 
   # User agent for jade.io requests
-  userAgent: ${JADE_USER_AGENT:-auslaw-mcp/0.1.0 (legal research tool)}
+  userAgent: ${JADE_USER_AGENT:-jurisd/0.1.0 (legal research tool)}
 
   # Request timeout in milliseconds
   timeout: ${JADE_TIMEOUT:-15000}

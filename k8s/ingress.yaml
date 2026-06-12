@@ -2,24 +2,24 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: auslaw-mcp
-  namespace: auslaw-mcp
+  name: jurisd
+  namespace: jurisd
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
 spec:
   tls:
     - hosts:
-        - auslaw.itsa.house
-      secretName: auslaw-mcp-tls
+        - jurisd.itsa.house
+      secretName: jurisd-tls
   rules:
-    - host: auslaw.itsa.house
+    - host: jurisd.itsa.house
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: auslaw-mcp
+                name: jurisd
                 port:
                   number: 3000

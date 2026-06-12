@@ -1,6 +1,6 @@
-# auslaw-mcp Agent Usage Guide
+# jurisd Agent Usage Guide
 
-**For:** AI agents using auslaw-mcp via MCP protocol  
+**For:** AI agents using jurisd via MCP protocol  
 **Transport:** stdio (local) or HTTP (k8s deployment)
 
 ---
@@ -8,6 +8,7 @@
 ## Quick Reference
 
 ### Search Cases
+
 ```json
 {
   "tool": "search_cases",
@@ -22,6 +23,7 @@
 ```
 
 ### Search Legislation
+
 ```json
 {
   "tool": "search_legislation",
@@ -34,6 +36,7 @@
 ```
 
 ### Fetch Document
+
 ```json
 {
   "tool": "fetch_document_text",
@@ -44,6 +47,7 @@
 ```
 
 ### Format Citation
+
 ```json
 {
   "tool": "format_citation",
@@ -88,11 +92,13 @@
 | boolean | SINO query syntax (power users) |
 
 **Example Queries:**
+
 - "Donoghue v Stevenson" → method: title
 - "negligence duty of care" → method: auto or phrase
 - "s 52 Trade Practices Act misleading" → method: boolean
 
 **Response Format (JSON):**
+
 ```json
 {
   "results": [
@@ -118,9 +124,11 @@
 **Purpose:** Search Australian and New Zealand legislation.
 
 **Parameters:** Same as search_cases, except:
+
 - method: adds legis option (searches legislation titles)
 
 **Example:**
+
 ```json
 {
   "query": "Privacy Act",
@@ -143,11 +151,13 @@
 | format | string | No | json, text, markdown, html |
 
 **Supported URLs:**
+
 - AustLII HTML: https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html
 - AustLII PDF: https://www.austlii.edu.au/...
 - jade.io: https://jade.io/article/68901
 
 **Response Format:**
+
 ```json
 {
   "text": "Full judgment text...",
@@ -186,6 +196,7 @@
 | citation | string | Yes | Neutral citation to validate |
 
 **Response:**
+
 ```json
 {
   "valid": true,
@@ -209,9 +220,10 @@
 | phrase | string | No* | Phrase to find |
 | caseCitation | string | No | Citation to prepend |
 
-*At least one of paragraphNumber or phrase required.
+\*At least one of paragraphNumber or phrase required.
 
 **Response:**
+
 ```json
 {
   "paragraphNumber": 64,
@@ -234,6 +246,7 @@
 | format | string | No | Output format |
 
 **Behavior:**
+
 - If neutral citation detected (e.g., [1992] HCA 23), validates and returns direct URL
 - Otherwise falls back to text search
 
@@ -249,6 +262,7 @@
 | articleId | number | Yes | jade.io article ID |
 
 **Response:**
+
 ```json
 {
   "articleId": 68901,
@@ -272,6 +286,7 @@
 | citation | string | Yes | Neutral citation |
 
 **Response:**
+
 ```json
 {
   "citation": "[2008] NSWSC 323",
@@ -292,6 +307,7 @@
 | format | string | No | Output format |
 
 **Response:**
+
 ```json
 {
   "totalCount": 847,
@@ -310,6 +326,7 @@
 ## Search Strategy Patterns
 
 ### Finding a Specific Case
+
 ```json
 {
   "query": "Mabo v Queensland",
@@ -319,6 +336,7 @@
 ```
 
 ### Recent Cases on a Topic
+
 ```json
 {
   "query": "adverse possession",
@@ -329,6 +347,7 @@
 ```
 
 ### High Court Authority Search
+
 ```json
 {
   "query": "duty of care negligence",
@@ -339,6 +358,7 @@
 ```
 
 ### Exact Phrase Search
+
 ```json
 {
   "query": "reasonable person",
@@ -348,6 +368,7 @@
 ```
 
 ### Boolean Query
+
 ```json
 {
   "query": "negligence + duty + care",
@@ -356,6 +377,7 @@
 ```
 
 ### Pagination
+
 ```json
 {
   "query": "contract breach",
@@ -369,6 +391,7 @@
 ## Error Handling
 
 ### Rate Limiting
+
 ```json
 {
   "error": "Rate limit exceeded for AustLII (10 req/min). Retry after 60 seconds."
@@ -378,6 +401,7 @@
 **Resolution:** Wait and retry, or reduce query frequency.
 
 ### jade.io Auth Required
+
 ```json
 {
   "error": "jade.io authentication required. Set JADE_SESSION_COOKIE."
@@ -387,6 +411,7 @@
 **Resolution:** Provide session cookie via environment variable.
 
 ### Invalid URL
+
 ```json
 {
   "error": "URL not allowed. Only AustLII and jade.io domains permitted."
@@ -420,23 +445,30 @@
 **Task:** Research the development of duty of care in Australian negligence law.
 
 **Step 1:** Find leading cases
+
 ```json
-{"tool": "search_cases", "arguments": {"query": "duty of care negligence", "jurisdiction": "cth", "limit": 10}}
+{
+  "tool": "search_cases",
+  "arguments": { "query": "duty of care negligence", "jurisdiction": "cth", "limit": 10 }
+}
 ```
 
 **Step 2:** Fetch full text of top result
+
 ```json
-{"tool": "fetch_document_text", "arguments": {"url": "https://www.austlii.edu.au/..."}}
+{ "tool": "fetch_document_text", "arguments": { "url": "https://www.austlii.edu.au/..." } }
 ```
 
 **Step 3:** Format citation for reference
+
 ```json
-{"tool": "format_citation", "arguments": {"title": "...", "neutralCitation": "[2024] HCA 1"}}
+{ "tool": "format_citation", "arguments": { "title": "...", "neutralCitation": "[2024] HCA 1" } }
 ```
 
 **Step 4:** Find citing cases
+
 ```json
-{"tool": "search_citing_cases", "arguments": {"caseName": "[2024] HCA 1"}}
+{ "tool": "search_citing_cases", "arguments": { "caseName": "[2024] HCA 1" } }
 ```
 
 ---
@@ -445,20 +477,20 @@
 
 ### Environment Variables (User-Provided)
 
-| Variable | Purpose | Required |
-|----------|---------|----------|
-| JADE_SESSION_COOKIE | jade.io authenticated access | For premium content |
-| ISAACUS_API_KEY | Isaacus enrichment tools | For AI features |
-| LITELLM_BASE_URL | LiteLLM gateway | For generative fallback |
+| Variable            | Purpose                      | Required                |
+| ------------------- | ---------------------------- | ----------------------- |
+| JADE_SESSION_COOKIE | jade.io authenticated access | For premium content     |
+| ISAACUS_API_KEY     | Isaacus enrichment tools     | For AI features         |
+| LITELLM_BASE_URL    | LiteLLM gateway              | For generative fallback |
 
 ---
 
 ## Rate Limits
 
-| Source | Limit | Window |
-|--------|-------|--------|
+| Source  | Limit       | Window   |
+| ------- | ----------- | -------- |
 | AustLII | 10 requests | 1 minute |
-| jade.io | 5 requests | 1 minute |
+| jade.io | 5 requests  | 1 minute |
 
 **Note:** These are enforced server-side. Exceeding limits returns errors, not cached results.
 

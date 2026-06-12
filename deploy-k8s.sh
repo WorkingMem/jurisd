@@ -1,13 +1,13 @@
 #!/bin/bash
-# Deploy script for AusLaw MCP to k3s cluster
-# This script deploys or updates the AusLaw MCP service on a k3s cluster
+# Deploy script for jurisd to k3s cluster
+# This script deploys or updates the jurisd service on a k3s cluster
 
 set -e
 
 ACTION=${1:-apply}
-NAMESPACE="auslaw-mcp"
+NAMESPACE="jurisd"
 
-echo "🚀 Deploying AusLaw MCP to Kubernetes..."
+echo "🚀 Deploying jurisd to Kubernetes..."
 echo "   Action: ${ACTION}"
 echo "   Namespace: ${NAMESPACE}"
 echo ""
@@ -30,10 +30,10 @@ echo ""
 
 # Apply or delete based on action
 if [ "$ACTION" == "delete" ] || [ "$ACTION" == "remove" ] || [ "$ACTION" == "uninstall" ]; then
-    echo "🗑️  Removing AusLaw MCP from cluster..."
+    echo "🗑️  Removing jurisd from cluster..."
     kubectl delete -f k8s/ --ignore-not-found=true
     echo ""
-    echo "✅ AusLaw MCP removed successfully"
+    echo "✅ jurisd removed successfully"
     exit 0
 fi
 
@@ -54,12 +54,12 @@ kubectl apply -f k8s/service.yaml
 echo "   ✓ Service created/updated"
 
 echo ""
-echo "✅ AusLaw MCP deployed successfully"
+echo "✅ jurisd deployed successfully"
 echo ""
 
 # Wait for rollout
 echo "⏳ Waiting for deployment to complete..."
-kubectl rollout status deployment/auslaw-mcp -n ${NAMESPACE} --timeout=300s
+kubectl rollout status deployment/jurisd -n ${NAMESPACE} --timeout=300s
 
 echo ""
 echo "📊 Deployment status:"
@@ -72,13 +72,13 @@ echo ""
 echo "🎉 Deployment complete!"
 echo ""
 echo "To view logs:"
-echo "  kubectl logs -n ${NAMESPACE} -l app=auslaw-mcp -f"
+echo "  kubectl logs -n ${NAMESPACE} -l app=jurisd -f"
 echo ""
 echo "To check pod status:"
 echo "  kubectl get pods -n ${NAMESPACE}"
 echo ""
 echo "To access the service:"
-echo "  kubectl port-forward -n ${NAMESPACE} service/auslaw-mcp 3000:3000"
+echo "  kubectl port-forward -n ${NAMESPACE} service/jurisd 3000:3000"
 echo ""
 echo "To remove the deployment:"
 echo "  ./deploy-k8s.sh delete"

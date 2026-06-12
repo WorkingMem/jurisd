@@ -45,7 +45,7 @@ const mockConfig = vi.hoisted(() => ({
     acceptLanguage: "en-AU,en;q=0.9",
   },
   jade: {
-    userAgent: "auslaw-mcp-test",
+    userAgent: "jurisd-test",
     timeout: 5000,
     sessionCookie: undefined as string | undefined,
     baseUrl: "https://jade.io",
@@ -99,7 +99,7 @@ describe("fetchDocumentText AustLII routing (transport seam)", () => {
     const opts = getMock.mock.calls[0]?.[1] as { headers: Record<string, string> };
     expect(opts.headers["User-Agent"]).toBe("test-austlii-ua/1.0");
     // Must NOT be the jade UA (the precise v1 defect).
-    expect(opts.headers["User-Agent"]).not.toBe("auslaw-mcp-test");
+    expect(opts.headers["User-Agent"]).not.toBe("jurisd-test");
     expect(opts.headers["Accept-Language"]).toBe("en-AU,en;q=0.9");
   });
 

@@ -1,6 +1,6 @@
-# Contributing to AusLaw MCP
+# Contributing to jurisd
 
-Thank you for considering contributing to AusLaw MCP! This document provides guidelines for contributing to this project.
+Thank you for considering contributing to jurisd! This document provides guidelines for contributing to this project.
 
 ## Code of Conduct
 
@@ -21,8 +21,8 @@ Please be respectful and constructive in all interactions. We are committed to p
 
    ```bash
    # Click "Fork" on GitHub, then clone your fork
-   git clone https://github.com/YOUR_USERNAME/auslaw-mcp.git
-   cd auslaw-mcp
+   git clone https://github.com/YOUR_USERNAME/jurisd.git
+   cd jurisd
    ```
 
 2. **Install dependencies**
@@ -339,6 +339,7 @@ For this workflow to function properly, the repository must have the following s
 Alternatively, you can create a Personal Access Token (PAT) with `repo` and `workflow` scopes and add it as a repository secret named `PAT_TOKEN`.
 
 Without this configuration, the workflow will fail with:
+
 ```
 GitHub Actions is not permitted to create or approve pull requests.
 ```

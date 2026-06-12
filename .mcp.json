@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "auslaw-mcp": {
+    "jurisd": {
       "type": "stdio",
       "command": "node",
       "args": ["dist/index.js"],

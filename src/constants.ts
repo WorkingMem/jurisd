@@ -1,5 +1,5 @@
 /**
- * AusLaw MCP - Shared constants
+ * jurisd - Shared constants
  * Copyright (c) 2024 Russell Brenner
  * Licensed under the MIT License
  *

@@ -1,4 +1,4 @@
-# auslaw-mcp Roadmap
+# jurisd Roadmap
 
 ## Current State
 
@@ -16,7 +16,7 @@
 
 ## Product Boundary
 
-`auslaw-mcp` is an on-demand legal citation resolution and extraction server.
+`jurisd` is an on-demand legal citation resolution and extraction server.
 
 In scope:
 
@@ -39,7 +39,7 @@ Out of scope:
 
 ### Goal
 
-Use Tavily search/extract/fetch capabilities to make AustLII discovery and extraction more resilient without turning `auslaw-mcp` into a corpus/RAG system.
+Use Tavily search/extract/fetch capabilities to make AustLII discovery and extraction more resilient without turning `jurisd` into a corpus/RAG system.
 
 ### Planned capabilities
 

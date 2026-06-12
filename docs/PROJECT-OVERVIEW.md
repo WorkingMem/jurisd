@@ -1,24 +1,24 @@
-# auslaw-mcp Project Overview
+# jurisd Project Overview
 
-**Purpose:** Entry point for auslaw-mcp documentation.
+**Purpose:** Entry point for jurisd documentation.
 
 ---
 
 ## Quick Navigation
 
-| Document | Audience | Purpose |
-|----------|----------|---------|
-| [README.md](../README.md) | End users | Quick start, tool catalog, example queries |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Engineers | System design, components |
-| [DECISIONS.md](./DECISIONS.md) | Engineers | Architectural decisions with rationale |
-| [AGENT-GUIDE.md](./AGENT-GUIDE.md) | AI agents | Tool usage reference |
-| [DOCKER.md](./DOCKER.md) | DevOps | Docker deployment |
-| [ROADMAP.md](./ROADMAP.md) | All | Development history |
-| [jade-gwt-protocol.md](./jade-gwt-protocol.md) | Engineers | jade.io GWT-RPC protocol |
+| Document                                       | Audience  | Purpose                                    |
+| ---------------------------------------------- | --------- | ------------------------------------------ |
+| [README.md](../README.md)                      | End users | Quick start, tool catalog, example queries |
+| [ARCHITECTURE.md](./ARCHITECTURE.md)           | Engineers | System design, components                  |
+| [DECISIONS.md](./DECISIONS.md)                 | Engineers | Architectural decisions with rationale     |
+| [AGENT-GUIDE.md](./AGENT-GUIDE.md)             | AI agents | Tool usage reference                       |
+| [DOCKER.md](./DOCKER.md)                       | DevOps    | Docker deployment                          |
+| [ROADMAP.md](./ROADMAP.md)                     | All       | Development history                        |
+| [jade-gwt-protocol.md](./jade-gwt-protocol.md) | Engineers | jade.io GWT-RPC protocol                   |
 
 ---
 
-## What is auslaw-mcp?
+## What is jurisd?
 
 MCP server for Australian/NZ legal research:
 
@@ -33,10 +33,11 @@ MCP server for Australian/NZ legal research:
 ## Architecture Summary
 
 ```
-MCP Clients → auslaw-mcp → AustLII, jade.io, Isaacus (optional)
+MCP Clients → jurisd → AustLII, jade.io, Isaacus (optional)
 ```
 
 **Key Features:**
+
 - Dual-source search with deduplication
 - OCR for scanned PDFs
 - AGLC4 citations
@@ -47,8 +48,8 @@ MCP Clients → auslaw-mcp → AustLII, jade.io, Isaacus (optional)
 ## Getting Started
 
 ```bash
-git clone https://github.com/russellbrenner/auslaw-mcp.git
-cd auslaw-mcp
+git clone https://github.com/russellbrenner/jurisd.git
+cd jurisd
 npm install
 npm run dev
 ```

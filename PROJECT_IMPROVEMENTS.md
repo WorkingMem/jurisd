@@ -1,4 +1,4 @@
-# AusLaw MCP - Project Improvements Plan
+# jurisd - Project Improvements Plan
 
 **Date:** 2026-02-11  
 **Reviewer:** GitHub Copilot AI Agent  
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-AusLaw MCP is a well-structured Model Context Protocol (MCP) server for Australian legal research. The project demonstrates good software engineering practices with TypeScript strict mode, comprehensive documentation, and real-world integration tests. This review identifies both strengths and areas for improvement across code quality, documentation, security, and compliance.
+jurisd is a well-structured Model Context Protocol (MCP) server for Australian legal research. The project demonstrates good software engineering practices with TypeScript strict mode, comprehensive documentation, and real-world integration tests. This review identifies both strengths and areas for improvement across code quality, documentation, security, and compliance.
 
 **Overall Assessment:** ✅ **Good** - Project is production-ready with some recommended improvements
 
@@ -424,9 +424,9 @@ Add the following files:
 
 1. **CONTRIBUTING.md**
 ```markdown
-# Contributing to AusLaw MCP
+# Contributing to jurisd
 
-Thank you for considering contributing to AusLaw MCP! This document provides guidelines for contributing.
+Thank you for considering contributing to jurisd! This document provides guidelines for contributing.
 
 ## Code of Conduct
 
@@ -435,7 +435,7 @@ Please be respectful and constructive in all interactions.
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/auslaw-mcp.git`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/jurisd.git`
 3. Create a branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Run tests: `npm test`
@@ -504,7 +504,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial release of AusLaw MCP server
+- Initial release of jurisd server
 - AustLII search integration
 - Intelligent search relevance
 - jade.io URL support
@@ -621,8 +621,8 @@ Download from: https://github.com/UB-Mannheim/tesseract/wiki
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/russellbrenner/auslaw-mcp.git
-cd auslaw-mcp
+git clone https://github.com/russellbrenner/jurisd.git
+cd jurisd
 ```
 
 2. Install dependencies:
@@ -679,9 +679,9 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "auslaw-mcp": {
+    "jurisd": {
       "command": "node",
-      "args": ["/path/to/auslaw-mcp/dist/index.js"],
+      "args": ["/path/to/jurisd/dist/index.js"],
       "env": {
         "LOG_LEVEL": "2"
       }
@@ -700,9 +700,9 @@ Edit `.cursor/config.json` in your workspace:
 {
   "mcp": {
     "servers": {
-      "auslaw-mcp": {
+      "jurisd": {
         "command": "node",
-        "args": ["<absolute-path>/auslaw-mcp/dist/index.js"]
+        "args": ["<absolute-path>/jurisd/dist/index.js"]
       }
     }
   }
@@ -793,19 +793,20 @@ npm run licenses
 ```
 
 Last verified: [DATE]
-
 ````
 
 ```bash
 npm run licenses
-````
-````
+```
+
+```
 
 Last verified: [DATE]
 
-````
+```
 
 **Action Items:**
+
 - [x] Install license-checker
 - [x] Verify all dependency licenses are compatible with MIT
 - [x] Create LICENSE-THIRD-PARTY.md
@@ -821,17 +822,19 @@ While not required for MIT license, consider adding headers to main source files
 
 ```typescript
 /**
- * AusLaw MCP - Australian Legal Research MCP Server
+ * jurisd - Australian Legal Research MCP Server
  * Copyright (c) 2024 Russell Brenner
  * Licensed under the MIT License
  *
  * @file austlii.ts - AustLII search integration
  */
 ```
- *
- * @file austlii.ts - AustLII search integration
- */
-````
+
+-
+- @file austlii.ts - AustLII search integration
+  \*/
+
+`````
 
 This is **optional** but provides clarity, especially for files that might be distributed separately.
 
@@ -1696,7 +1699,7 @@ LOG_LEVEL=1  # 0=DEBUG, 1=INFO, 2=WARN, 3=ERROR
 # AustLII Configuration
 AUSTLII_BASE_URL=https://www.austlii.edu.au
 AUSTLII_TIMEOUT=30000
-USER_AGENT=Mozilla/5.0 (compatible; AusLaw-MCP/0.1.0)
+USER_AGENT=Mozilla/5.0 (compatible; jurisd/0.1.0)
 
 # jade.io Configuration
 JADE_ENABLED=true
@@ -1766,7 +1769,7 @@ Add to `package.json`:
     "*.{json,md,yml,yaml}": ["prettier --write"]
   }
 }
-````
+`````
 
 **Action Items:**
 
@@ -1934,7 +1937,7 @@ Create `.vscode/settings.json`:
 
 ### Overall Assessment
 
-AusLaw MCP is a **well-architected project** with strong fundamentals:
+jurisd is a **well-architected project** with strong fundamentals:
 
 - ✅ Clean TypeScript codebase
 - ✅ Good documentation

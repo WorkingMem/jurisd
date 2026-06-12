@@ -1,8 +1,8 @@
-# GitHub Copilot Instructions for AusLaw MCP
+# GitHub Copilot Instructions for jurisd
 
 ## Project Context
 
-AusLaw MCP is a Model Context Protocol (MCP) server for Australian legal research. It searches AustLII and jade.io databases, retrieves full-text judgements with citation support, and preserves legal citation formatting.
+jurisd is a Model Context Protocol (MCP) server for Australian legal research. It searches AustLII and jade.io databases, retrieves full-text judgements with citation support, and preserves legal citation formatting.
 
 **Primary users**: Legal researchers, law students, lawyers
 **Key requirement**: Return the most authoritative, relevant legal materials

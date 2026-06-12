@@ -1,6 +1,6 @@
 # Docker Deployment Guide
 
-This guide covers building and running AusLaw MCP as a Docker container.
+This guide covers building and running jurisd as a Docker container.
 
 ## Prerequisites
 
@@ -12,20 +12,20 @@ This guide covers building and running AusLaw MCP as a Docker container.
 ### Quick Build
 
 ```bash
-docker build -t auslaw-mcp:latest .
+docker build -t jurisd:latest .
 ```
 
 ### Build with Custom Tag
 
 ```bash
-docker build -t auslaw-mcp:v0.1.0 .
+docker build -t jurisd:v0.1.0 .
 ```
 
 ### Build for Registry
 
 ```bash
-docker build -t your-registry.com/auslaw-mcp:latest .
-docker push your-registry.com/auslaw-mcp:latest
+docker build -t your-registry.com/jurisd:latest .
+docker push your-registry.com/jurisd:latest
 ```
 
 ## Running with Docker
@@ -33,7 +33,7 @@ docker push your-registry.com/auslaw-mcp:latest
 ### Basic Run
 
 ```bash
-docker run -it --rm auslaw-mcp:latest
+docker run -it --rm jurisd:latest
 ```
 
 ### Run with Custom Environment Variables
@@ -43,7 +43,7 @@ docker run -it --rm \
   -e AUSTLII_SEARCH_BASE=https://www.austlii.edu.au/cgi-bin/sinosrch.cgi \
   -e DEFAULT_SEARCH_LIMIT=20 \
   -e OCR_LANGUAGE=eng \
-  auslaw-mcp:latest
+  jurisd:latest
 ```
 
 ### Run with Environment File
@@ -58,7 +58,7 @@ cp .env.example .env
 Then run:
 
 ```bash
-docker run -it --rm --env-file .env auslaw-mcp:latest
+docker run -it --rm --env-file .env jurisd:latest
 ```
 
 ### Run with Volume Mount for Config
@@ -66,7 +66,7 @@ docker run -it --rm --env-file .env auslaw-mcp:latest
 ```bash
 docker run -it --rm \
   -v $(pwd)/config.yaml:/app/config.yaml:ro \
-  auslaw-mcp:latest
+  jurisd:latest
 ```
 
 ## Running with Docker Compose
@@ -117,7 +117,7 @@ All configuration can be set via environment variables:
 | `AUSTLII_USER_AGENT`    | Mozilla/5.0...                                    | User agent string            |
 | `AUSTLII_TIMEOUT`       | `60000`                                           | Request timeout (ms)         |
 | `JADE_BASE_URL`         | `https://jade.io`                                 | jade.io base URL             |
-| `JADE_USER_AGENT`       | `auslaw-mcp/0.1.0 (legal research tool)`          | jade.io user agent           |
+| `JADE_USER_AGENT`       | `jurisd/0.1.0 (legal research tool)`              | jade.io user agent           |
 | `JADE_TIMEOUT`          | `15000`                                           | jade.io request timeout (ms) |
 | `OCR_LANGUAGE`          | `eng`                                             | Tesseract language           |
 | `OCR_OEM`               | `1`                                               | OCR Engine Mode              |
@@ -160,7 +160,7 @@ docker run --rm node:20-alpine apk update && apk search tesseract
 MCP servers communicate via stdio. To keep the container running for testing:
 
 ```bash
-docker run -it auslaw-mcp:latest /bin/sh
+docker run -it jurisd:latest /bin/sh
 ```
 
 ### Permission Issues
@@ -183,7 +183,7 @@ chmod 644 config.yaml
 The multi-stage build keeps the final image size minimal:
 
 ```bash
-docker images auslaw-mcp
+docker images jurisd
 ```
 
 ### Security Features
@@ -210,7 +210,7 @@ docker images auslaw-mcp
 Override the entrypoint for debugging:
 
 ```bash
-docker run -it --rm --entrypoint /bin/sh auslaw-mcp:latest
+docker run -it --rm --entrypoint /bin/sh jurisd:latest
 ```
 
 ### Resource Limits
@@ -221,7 +221,7 @@ Limit container resources:
 docker run -it --rm \
   --memory="512m" \
   --cpus="0.5" \
-  auslaw-mcp:latest
+  jurisd:latest
 ```
 
 ### Health Checks
@@ -238,10 +238,10 @@ Export for offline deployment:
 
 ```bash
 # Export
-docker save auslaw-mcp:latest -o auslaw-mcp.tar
+docker save jurisd:latest -o jurisd.tar
 
 # Import on another machine
-docker load -i auslaw-mcp.tar
+docker load -i jurisd.tar
 ```
 
 ## Integration with MCP Clients
@@ -259,9 +259,9 @@ Example Claude Desktop config:
 ```json
 {
   "mcpServers": {
-    "auslaw-mcp": {
+    "jurisd": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "auslaw-mcp:latest"]
+      "args": ["run", "-i", "--rm", "jurisd:latest"]
     }
   }
 }
@@ -279,4 +279,4 @@ For issues with Docker deployment:
 
 1. Check logs: `docker logs <container-id>`
 2. Inspect container: `docker inspect <container-id>`
-3. Check GitHub Issues: https://github.com/russellbrenner/auslaw-mcp/issues
+3. Check GitHub Issues: https://github.com/russellbrenner/jurisd/issues

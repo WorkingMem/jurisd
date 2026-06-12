@@ -105,7 +105,7 @@ function citedBySourceKey(parentCiteKey: string, neutralCitation: string): strin
  */
 function createMcpServer(): McpServer {
   const server = new McpServer({
-    name: "auslaw-mcp",
+    name: "jurisd",
     version: "0.1.0",
     description: "Australian legislation and case law searcher with OCR-aware document retrieval.",
   });
@@ -1196,7 +1196,7 @@ async function main() {
         const body = bodyStr ? (JSON.parse(bodyStr) as Record<string, unknown>) : undefined;
         await transport.handleRequest(req, res, body);
       } catch (err) {
-        console.error("auslaw-mcp request error:", err);
+        console.error("jurisd request error:", err);
         if (!res.headersSent) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(
@@ -1207,7 +1207,7 @@ async function main() {
         }
       }
     }).listen(port, () => {
-      console.error(`auslaw-mcp HTTP transport listening on :${port}`);
+      console.error(`jurisd HTTP transport listening on :${port}`);
     });
   } else {
     const server = createMcpServer();

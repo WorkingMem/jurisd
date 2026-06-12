@@ -1,4 +1,4 @@
-# auslaw-mcp - Claude Code Project Instructions
+# jurisd - Claude Code Project Instructions
 
 ## Project Overview
 
