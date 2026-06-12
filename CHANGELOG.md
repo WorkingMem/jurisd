@@ -46,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   podman; asserts the 15-tool surface), and `docs/DOCKER.md` covering Claude Code wiring
   (`docker run -i ...`), `/data/modules` volume mounting via `JURISD_MODULES_DIR`, and the
   container env vars.
+- **`jurisd-research` Claude Code skill** (`skills/jurisd-research/`): a bundled skill
+  giving the agent expert jurisd usage from day 0 — tool decision guidance (local-first
+  vs live fallback, `resolve_citation` vs `search_cases`, `find_citing` vs
+  `search_citing_cases`), AGLC4 citation workflows, the typical research flow, module
+  management, and a worked example transcript (`examples/research-session.md`).
+  Documented in the README and `docs/INSTALL.md` (copy into `~/.claude/skills/`).
 
 ### Changed
 
