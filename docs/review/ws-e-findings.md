@@ -82,3 +82,47 @@ the resulting `status` per design §1.2. ajv 8.18.0 is present, so the schema pa
   closed before any view is created.
 
 **Verdict: PASS.**
+
+---
+
+## Check 3 — The 5 recall tools return correct shapes on the vendored fixture
+
+**Probe:** ran each tool against the vendored fixtures (`fixture` for the
+deterministic/graph tools, `fixture-embedded` for the vector path), asserting the
+response shape and provenance metadata. DuckDB is present, so none of the
+DuckDB-gated cases skipped. The embedded path uses the in-repo test seam
+(`setQueryEmbedderForTest`) with the fixture's toy 4-dim descriptor, so the cosine
+path is exercised without the absent `@huggingface/transformers` dependency.
+
+**Evidence (`src/test/unit/recall-tools-shapes.test.ts`, 7 tests, all PASS):**
+
+- `list_data_modules` — metadata-only summary (no attach): name/status/coverage/
+  embedding=null/snapshot_date correct; `stale=false` (fixture snapshot is recent).
+- `get_provision` — deterministic single chunk for ACL `s 18` with the expected
+  text and `metadata.source = "local_module"` + name + module_version; a miss
+  (`s 999`) returns the typed `{ found: false }`, not a throw (so the router can
+  descend to Layer 2).
+- `get_act_structure` — nested tree, root `parent_id=null` / `depth=0`, children
+  array present, provenance metadata attached.
+- `find_citing` — fixture's single `cites` edge (Mabo → ACL s 18) is honoured:
+  target = ACL returns Mabo as the citing doc with `kind`, provenance span and
+  per-module metadata.
+- `semantic_search_local` — query vector `[1,0,0,0]` ranks `s 18` first (its toy
+  vector `[0.98,…]` is closest), scores sorted descending, provenance attached.
+  With the embedder cleared it degrades visibly: `{ found: false }` + a `notes`
+  entry naming the missing embedder (never a throw).
+
+**Test-fixture corrections made (the design doc and the data disagreed on two
+incidental points — the _data_ is the ground truth, so the tests were corrected,
+not the code):**
+
+- design §6.2 anticipates a "deliberately old fixture snapshot" to exercise the
+  staleness advisory; the _vendored_ fixture's snapshot (`2026-06-12`) is in fact
+  recent, so `stale` is correctly `false`. The staleness-advisory path is instead
+  covered directly in `buildMetadata`/`ageInDays` (a separate unit could pin an
+  old date) — noted as a **deferred test gap**, not a code defect.
+- `find_citing` is directional: the fixture's lone `cites` edge is Mabo → ACL, so
+  the citable _target_ is the ACL, not Mabo. This is correct closed-world
+  behaviour, not a miss.
+
+**Verdict: PASS.**
