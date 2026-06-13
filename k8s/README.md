@@ -103,9 +103,6 @@ All configuration is managed through the ConfigMap (`k8s/configmap.yaml`). To mo
 | `JADE_BASE_URL`         | `https://jade.io`                                 | jade.io base URL             |
 | `JADE_USER_AGENT`       | `jurisd/0.1.0 (legal research tool)`              | jade.io user agent           |
 | `JADE_TIMEOUT`          | `15000`                                           | jade.io request timeout (ms) |
-| `OCR_LANGUAGE`          | `eng`                                             | Tesseract OCR language       |
-| `OCR_OEM`               | `1`                                               | OCR Engine Mode              |
-| `OCR_PSM`               | `3`                                               | Page Segmentation Mode       |
 | `DEFAULT_SEARCH_LIMIT`  | `10`                                              | Default search results       |
 | `MAX_SEARCH_LIMIT`      | `50`                                              | Maximum search results       |
 | `DEFAULT_OUTPUT_FORMAT` | `json`                                            | Default output format        |

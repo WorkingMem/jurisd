@@ -162,7 +162,6 @@
 {
   "text": "Full judgment text...",
   "citations": ["[1992] HCA 23"],
-  "ocrUsed": false,
   "paragraphs": ["[1] ...", "[2] ..."]
 }
 ```

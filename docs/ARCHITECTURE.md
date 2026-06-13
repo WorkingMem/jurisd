@@ -11,46 +11,32 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 
 **Key Features:**
 
-- Dual-source search (AustLII + jade.io)
-- OCR-capable PDF extraction
+- AustLII case + legislation search, with jade.io citation enhancement
+- Digital PDF text extraction (pdf-parse)
 - AGLC4 citation formatting
-- jade.io citator integration
+- jade.io citator integration (runtime)
 
 ---
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────┐
-│ MCP Clients (Claude Code, Cursor, etc.) │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌──────────────────────────────────────────────┐
-│ jurisd Server (15 Tools)                       │
-│ ┌──────────────────────────────────────────┐  │
-│ │ Live + citation (10):                     │  │
-│ │  search_cases, search_legislation,        │  │
-│ │  fetch_document_text, format_citation,    │  │
-│ │  resolve_citation, jade_lookup,           │  │
-│ │  search_citing_cases, cite,               │  │
-│ │  bibliography, cache_cited_by             │  │
-│ ├──────────────────────────────────────────┤  │
-│ │ Local data-module recall (5, offline):    │  │
-│ │  get_provision, get_act_structure,        │  │
-│ │  find_citing, semantic_search_local,      │  │
-│ │  list_data_modules                        │  │
-│ └──────────────────────────────────────────┘  │
-└──────────────────────────────────────────────┘
-        │            │              │
-        ▼            ▼              ▼
-   ┌─────────┐  ┌─────────┐  ┌──────────────────┐
-   │ Live    │  │ Local   │  │ Domain adapter   │
-   │ sources │  │ data    │  │ slot (optional)  │
-   │ AustLII │  │ modules │  │ baseline ↔       │
-   │ jade.io │  │ (DuckDB │  │ domain-special-  │
-   │         │  │ parquet)│  │ ised, BYOK       │
-   └─────────┘  └─────────┘  └──────────────────┘
+```mermaid
+flowchart TD
+    Clients["MCP Clients (Claude Code, Cursor, etc.)"]
+
+    subgraph Server["jurisd Server (15 tools)"]
+        Live["Live + citation (10):<br/>search_cases, search_legislation, fetch_document_text,<br/>format_citation, resolve_citation, jade_lookup,<br/>search_citing_cases, cite, bibliography, cache_cited_by"]
+        Local["Local data-module recall (5, offline):<br/>get_provision, get_act_structure, find_citing,<br/>semantic_search_local, list_data_modules"]
+    end
+
+    LiveSrc["Live sources:<br/>AustLII (primary search),<br/>jade.io (runtime citation enhancement)"]
+    Modules["Local data modules<br/>(DuckDB over parquet)"]
+    Adapter["Domain-adapter slot (optional):<br/>baseline vs domain-specialised, BYOK"]
+
+    Clients --> Server
+    Live --> LiveSrc
+    Local --> Modules
+    Local --> Adapter
 ```
 
 The domain-adapter slot is **vendor-neutral**: the baseline adapter (pure local
@@ -70,9 +56,9 @@ The distinction is capability presence, never a paid/free tier.
 Live + citation (10):
 | Tool | Description |
 |------|-------------|
-| search_cases | Dual AustLII + jade.io case search |
+| search_cases | AustLII case search, cross-referenced with jade.io citation data |
 | search_legislation | AustLII legislation search |
-| fetch_document_text | Full-text retrieval (HTML/PDF/OCR) |
+| fetch_document_text | Full-text retrieval (HTML/PDF) |
 | format_citation | AGLC4 formatting: `mode: full\|short\|ibid\|subsequent\|pinpoint` |
 | resolve_citation | Citation resolution: `mode: auto\|validate\|search` |
 | jade_lookup | jade.io lookup: `by: article_id\|citation` |
@@ -96,16 +82,17 @@ Local data-module recall (5; offline, closed-world over installed modules):
 - Authority-based ranking (HCA > FCAFC > FCA > state courts)
 - Rate limiting: 10 req/min
 
-### 3. jade.io Service
+### 3. jade.io Service (runtime citation enhancement)
 
 - GWT-RPC reverse-engineering
-- Protocols: proposeCitables (search), avd2Request (fetch), LeftoverRemoteService (citator)
+- Protocols: proposeCitables (citable lookup), avd2Request (fetch), LeftoverRemoteService (citator)
+- Cross-references jade.io citation data into live results; AustLII remains the primary search backend
 - Rate limiting: 5 req/min
 
 ### 4. Document Fetcher
 
 - HTML: Cheerio parse
-- PDF: pdf-parse + Tesseract OCR fallback
+- PDF: pdf-parse (digital text only)
 - Extracts paragraphs for pinpoint citations
 
 ### 5. Citation Service
@@ -165,7 +152,6 @@ MCP_TRANSPORT=http npm start
 | ------------------- | ----------------- | --------------------------------------------- |
 | AUSTLII_SEARCH_BASE | AustLII URL       | Search endpoint                               |
 | AUSTLII_TIMEOUT     | 60000             | Request timeout (ms)                          |
-| OCR_LANGUAGE        | eng               | Tesseract language                            |
 | JADE_SESSION_COOKIE | —                 | jade.io auth cookie                           |
 | MCP_TRANSPORT       | stdio             | stdio or http                                 |
 | ISAACUS_API_KEY     | —                 | BYOK key for the optional domain-adapter slot |

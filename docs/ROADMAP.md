@@ -297,7 +297,7 @@ function calculateAuthorityScore(result: SearchResult): number {
 3. ✅ `decodeGwtInt(encoded)` - inverse of existing `encodeGwtInt` for article ID decoding
 4. ✅ `parseProposeCitablesResponse(text)` - extracts case names, neutral + reported citations, and jade article IDs from "document in Jade" descriptor anchors in the string table
 5. ✅ `searchJade(query, options)` - replaces placeholder, calls `proposeCitables` via POST to `/jadeService.do`
-6. ✅ `search_cases` MCP tool now runs AustLII and jade.io in parallel, deduplicates by neutral citation
+6. ✅ `search_cases` MCP tool merges jade.io citation data into AustLII case-search results at runtime, deduplicating by neutral citation
 7. ✅ Graceful degradation: returns `[]` when `JADE_SESSION_COOKIE` is unset (no error to caller)
 8. ✅ HAR fixture files for deterministic testing: `propose-citables-mabo.txt` (75KB) and `propose-citables-rice.txt`
 
