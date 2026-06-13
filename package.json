@@ -1,7 +1,7 @@
 {
   "name": "jurisd",
   "version": "0.1.0",
-  "description": "Model Context Protocol server for Australian legislation and case law search with OCR fallbacks.",
+  "description": "Model Context Protocol server for Australian legislation and case law search.",
   "main": "dist/index.js",
   "bin": {
     "jurisd": "dist/index.js"
@@ -54,7 +54,6 @@
     "dotenv": "^17.4.2",
     "file-type": "^21.3.0",
     "pdf-parse": "^2.4.5",
-    "tmp": "^0.2.6",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -62,7 +61,6 @@
     "@eslint/js": "^9.39.4",
     "@types/cheerio": "^1.0.0",
     "@types/node": "^24.13.1",
-    "@types/tmp": "^0.2.6",
     "@typescript-eslint/eslint-plugin": "^8.60.1",
     "@typescript-eslint/parser": "^8.55.0",
     "@vitest/coverage-v8": "^4.1.8",

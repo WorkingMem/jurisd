@@ -22,7 +22,6 @@ const mockConfig = vi.hoisted(() => ({
     sessionCookie: undefined as string | undefined,
     baseUrl: "https://jade.io",
   },
-  ocr: { language: "eng", oem: 1, psm: 3 },
   austlii: {
     searchBase: "",
     referer: "",

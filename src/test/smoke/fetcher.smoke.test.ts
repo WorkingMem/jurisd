@@ -16,7 +16,6 @@ describe("fetchDocumentText", () => {
       );
       expect(result.text).toContain("Mabo");
       expect(result.contentType).toMatch(/text\/html/);
-      expect(result.ocrUsed).toBe(false);
       expect(result.sourceUrl).toContain("HCA/1992/23");
     },
     30_000,

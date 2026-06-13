@@ -2,15 +2,6 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import { fileTypeFromBuffer } from "file-type";
 import { PDFParse } from "pdf-parse";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import * as tmp from "tmp";
-import * as fs from "fs/promises";
-
-// Promisified execFile — passes argv as an array so shell metacharacters in
-// any argument are not interpreted. Replaces the abandoned node-tesseract-ocr
-// package (GHSA-8j44-735h-w4w2: OS command injection via recognize() params).
-const execFileAsync = promisify(execFile);
 import { config } from "../config.js";
 import { MAX_CONTENT_LENGTH } from "../constants.js";
 import { isJadeUrl, extractArticleId, fetchJadeArticleContent } from "./jade.js";
@@ -39,73 +30,22 @@ export interface FetchResponse {
   html?: string;
   contentType: string;
   sourceUrl: string;
-  ocrUsed: boolean;
   metadata?: Record<string, string>;
   paragraphs?: ParagraphBlock[];
   etag?: string;
   lastModified?: string;
 }
 
-async function extractTextFromPdf(
-  buffer: Buffer,
-  url: string,
-): Promise<{ text: string; ocrUsed: boolean }> {
+async function extractTextFromPdf(buffer: Buffer, url: string): Promise<string> {
   try {
-    // First try to extract text from PDF directly using pdf-parse v2 API
+    // Extract the embedded text layer of the PDF via pdf-parse v2.
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     const textResult = await parser.getText();
     await parser.destroy();
-    const extractedText = textResult.text.trim();
-
-    // If we got substantial text, return it
-    if (extractedText.length > 100) {
-      return { text: extractedText, ocrUsed: false };
-    }
-
-    // Otherwise, fall back to OCR
-    console.warn(`PDF at ${url} has minimal text, attempting OCR...`);
-    return await performOcr(buffer);
+    return textResult.text.trim();
   } catch (error) {
-    console.warn(`PDF parsing failed for ${url}, attempting OCR:`, error);
-    return await performOcr(buffer);
-  }
-}
-
-/**
- * Tesseract OCR via direct execFile (no shell). All arguments are passed
- * as an argv array so shell metacharacters cannot be interpreted. The input
- * path is a locally-generated tempfile (not user-controlled), and the OCR
- * config values come from env-var-backed `config.ocr.*` fields.
- */
-async function performOcr(buffer: Buffer): Promise<{ text: string; ocrUsed: boolean }> {
-  const tmpFile = tmp.fileSync({ postfix: ".pdf" });
-  try {
-    await fs.writeFile(tmpFile.name, buffer);
-
-    // tesseract CLI: `tesseract <input> stdout -l <lang> --oem <n> --psm <n>`
-    // Writing to stdout avoids a second tempfile for the output.
-    const args = [
-      tmpFile.name,
-      "stdout",
-      "-l",
-      String(config.ocr.language),
-      "--oem",
-      String(config.ocr.oem),
-      "--psm",
-      String(config.ocr.psm),
-    ];
-
-    const { stdout } = await execFileAsync("tesseract", args, {
-      // Allow up to 50 MB of recognised text — PDFs of full judgments can be large.
-      maxBuffer: 50 * 1024 * 1024,
-      // Fail fast on stuck tesseract (should never take more than a couple minutes).
-      timeout: 180_000,
-    });
-    return { text: stdout.trim(), ocrUsed: true };
-  } catch (error) {
-    throw new Error(`OCR failed: ${error instanceof Error ? error.message : String(error)}`);
-  } finally {
-    tmpFile.removeCallback();
+    console.warn(`PDF parsing failed for ${url}:`, error);
+    return "";
   }
 }
 
@@ -253,7 +193,7 @@ function extractParagraphBlocks(html: string): ParagraphBlock[] {
 
 /**
  * Parses a fetched document body (Buffer + content-type) into a
- * {@link FetchResponse}, driving the PDF/OCR, HTML and plain-text paths off the
+ * {@link FetchResponse}, driving the PDF, HTML and plain-text paths off the
  * detected content type. Shared by the AustLII (impit) and generic (axios)
  * fetch paths so both parse identically.
  *
@@ -275,14 +215,11 @@ async function parseDocumentBuffer(
 
   let text: string;
   let cleanedHtml: string | undefined;
-  let ocrUsed = false;
   let paragraphs: ParagraphBlock[] | undefined;
 
   // Handle PDF documents
   if (contentType.includes("application/pdf") || detectedType?.mime === "application/pdf") {
-    const result = await extractTextFromPdf(buffer, url);
-    text = result.text;
-    ocrUsed = result.ocrUsed;
+    text = await extractTextFromPdf(buffer, url);
   }
   // Handle HTML documents
   else if (contentType.includes("text/html") || detectedType?.mime === "text/html") {
@@ -315,7 +252,6 @@ async function parseDocumentBuffer(
     html: cleanedHtml,
     contentType: contentType || detectedType?.mime || "unknown",
     sourceUrl: url,
-    ocrUsed,
     metadata,
     paragraphs,
     etag: extra?.etag,
@@ -383,8 +319,7 @@ async function fetchAustliiDocument(url: string): Promise<FetchResponse> {
 /**
  * Fetches a legal document from a URL and extracts its text content.
  *
- * Supports HTML pages, PDF documents, and plain text. For scanned PDFs
- * with minimal extractable text the function falls back to Tesseract OCR.
+ * Supports HTML pages, PDF documents, and plain text.
  *
  * AustLII URLs are routed through the impit transport with Cloudflare-challenge
  * detection and an OALC corpus fallback; jade.io and all other URLs are
@@ -441,7 +376,6 @@ export async function fetchDocumentText(url: string): Promise<FetchResponse> {
       html: cleanedHtml,
       contentType: "text/html",
       sourceUrl: url,
-      ocrUsed: false,
       metadata: {
         contentLength: String(html.length),
         contentType: "text/html",

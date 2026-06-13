@@ -51,7 +51,6 @@ const mockConfig = vi.hoisted(() => ({
     baseUrl: "https://jade.io",
   },
   oalc: { enabled: true, source: "/tmp/fixture.jsonl" },
-  ocr: { language: "eng", oem: 1, psm: 3 },
 }));
 
 vi.mock("../../config.js", () => ({ config: mockConfig }));

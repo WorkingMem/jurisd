@@ -4,7 +4,6 @@ import {
   REPORTED_CITATION_PATTERNS,
   SEARCH_METHODS,
   JURISDICTIONS,
-  OCR_MIN_TEXT_LENGTH,
   DEFAULT_TIMEOUT_MS,
   LONG_TIMEOUT_MS,
   MAX_CONTENT_LENGTH,
@@ -60,7 +59,6 @@ describe("Constants", () => {
 
   describe("Numeric constants", () => {
     it("should have sensible values", () => {
-      expect(OCR_MIN_TEXT_LENGTH).toBe(100);
       expect(DEFAULT_TIMEOUT_MS).toBe(30_000);
       expect(LONG_TIMEOUT_MS).toBe(60_000);
       expect(MAX_CONTENT_LENGTH).toBe(50 * 1024 * 1024);

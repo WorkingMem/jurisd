@@ -114,7 +114,7 @@ export function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "jurisd",
     version: "0.1.0",
-    description: "Australian legislation and case law searcher with OCR-aware document retrieval.",
+    description: "Australian legislation and case law searcher with document retrieval.",
   });
 
   // ── search_legislation ────────────────────────────────────────────────────
@@ -206,7 +206,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Fetch Document Text",
       description:
-        "Fetch full text for a legislation or case URL (AustLII or jade.io), with OCR fallback for scanned PDFs. When a `citeKey` is supplied and AUSLAW_FETCH_SOURCES is not set to 'false', also saves a local markdown copy to the sources directory and updates the cache entry's HTTP freshness headers. Without `citeKey`, only the document text is returned.",
+        "Fetch full text for a legislation or case URL (AustLII or jade.io). When a `citeKey` is supplied and AUSLAW_FETCH_SOURCES is not set to 'false', also saves a local markdown copy to the sources directory and updates the cache entry's HTTP freshness headers. Without `citeKey`, only the document text is returned.",
       inputSchema: fetchDocumentShape,
     },
     async (rawInput) => {

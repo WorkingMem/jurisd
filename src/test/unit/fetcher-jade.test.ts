@@ -28,7 +28,6 @@ vi.mock("../../config.js", () => ({
       sessionCookie: "IID=test; alcsessionid=abc",
       baseUrl: "https://jade.io",
     },
-    ocr: { language: "eng", oem: 1, psm: 3 },
     austlii: { searchBase: "", referer: "", userAgent: "", timeout: 5000 },
     defaults: { searchLimit: 10, maxSearchLimit: 50, outputFormat: "json", sortBy: "auto" },
   },
@@ -143,7 +142,6 @@ describe("fetchDocumentText — jade.io GWT-RPC paths", () => {
 
     const result = await fetchDocumentText(JADE_ARTICLE_URL);
     expect(result.contentType).toBe("text/html");
-    expect(result.ocrUsed).toBe(false);
     expect(result.sourceUrl).toBe(JADE_ARTICLE_URL);
     expect(result.metadata?.source).toBe("jade-gwt-rpc");
   });

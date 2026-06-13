@@ -126,7 +126,7 @@ export function formatFetchResponse(
       }
       return {
         content: ensureContent(
-          `<article data-source="${escapeHtml(response.sourceUrl)}" data-ocr="${String(response.ocrUsed)}"><pre>${escapeHtml(response.text)}</pre></article>`,
+          `<article data-source="${escapeHtml(response.sourceUrl)}"><pre>${escapeHtml(response.text)}</pre></article>`,
         ),
       };
     case "markdown":

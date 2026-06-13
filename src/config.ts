@@ -39,11 +39,6 @@ export interface Config {
     timeout: number;
     sessionCookie?: string;
   };
-  ocr: {
-    language: string;
-    oem: number;
-    psm: number;
-  };
   defaults: {
     searchLimit: number;
     maxSearchLimit: number;
@@ -148,11 +143,6 @@ export function loadConfig(): Config {
       userAgent: process.env.JADE_USER_AGENT || "jurisd/0.1.0 (legal research tool)",
       timeout: parseInt(process.env.JADE_TIMEOUT || "15000", 10),
       sessionCookie: process.env.JADE_SESSION_COOKIE || undefined,
-    },
-    ocr: {
-      language: process.env.OCR_LANGUAGE || "eng",
-      oem: parseInt(process.env.OCR_OEM || "1", 10),
-      psm: parseInt(process.env.OCR_PSM || "3", 10),
     },
     defaults: {
       searchLimit: parseInt(process.env.DEFAULT_SEARCH_LIMIT || "10", 10),
