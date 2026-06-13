@@ -4,7 +4,10 @@
       "type": "stdio",
       "command": "node",
       "args": ["dist/index.js"],
-      "env": {}
+      "env": {
+        "JADE_SESSION_COOKIE": "${JADE_SESSION_COOKIE:-}",
+        "JADE_USER_AGENT": "${JADE_USER_AGENT:-}"
+      }
     }
   }
 }
