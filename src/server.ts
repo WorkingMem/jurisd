@@ -1201,7 +1201,7 @@ export function createMcpServer(): McpServer {
   );
 
   // ── get_provision ─────────────────────────────────────────────────────────
-  // WS-E Layer-1 deterministic recall over installed data modules.
+  // Layer-1 deterministic recall over installed data modules.
   const getProvisionShape = {
     act: z
       .string()

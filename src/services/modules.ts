@@ -1,5 +1,5 @@
 /**
- * Data-module store + loader (WS-E Layer 1).
+ * Data-module store + loader (Layer 1).
  *
  * Discovers parquet "data modules" under the modules root (default
  * `~/.jurisd/modules/`), validates each module's `manifest.json` against the

@@ -19,7 +19,7 @@ const EXPECTED_TOOLS = [
   "cite",
   "bibliography",
   "cache_cited_by",
-  // WS-E deterministic / graph / semantic recall tools.
+  // deterministic / graph / semantic recall tools.
   "get_provision",
   "get_act_structure",
   "list_data_modules",
@@ -27,7 +27,7 @@ const EXPECTED_TOOLS = [
   "semantic_search_local",
 ];
 
-/** Old tool names removed in the R5 breaking cut — must NOT be registered. */
+/** Old tool names removed in the tool-surface breaking cut — must NOT be registered. */
 const REMOVED_TOOLS = [
   "generate_pinpoint",
   "format_short_citation",
@@ -59,7 +59,7 @@ describe("createMcpServer tool surface", () => {
     expect(names).toEqual([...EXPECTED_TOOLS].sort());
   });
 
-  it("does not register any pre-R5 tool names (no aliases)", async () => {
+  it("does not register any pre-consolidation tool names (no aliases)", async () => {
     const client = await connectedClient();
     const { tools } = await client.listTools();
     const names = new Set(tools.map((t) => t.name));

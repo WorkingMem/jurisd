@@ -40,7 +40,7 @@ afterEach(() => {
   fs.rmSync(modulesDir, { recursive: true, force: true });
 });
 
-describe("WS-E fetch-module — sha256 verification (design §5)", () => {
+describe("fetch-module — sha256 verification", () => {
   it("installs a clean module when every file's sha256 matches", async () => {
     const r = await fetchModule(MANIFEST.name, { modulesDir, io: fixtureIO() });
     expect(r.ok).toBe(true);

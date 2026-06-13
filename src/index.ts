@@ -10,10 +10,10 @@ import { runCli } from "./cli.js";
 
 async function main() {
   // CLI subcommands (fetch-module / verify-module / list-modules) run before
-  // the server starts and exit when handled (WS-E §5.1).
+  // the server starts and exit when handled.
   if (await runCli(process.argv.slice(2))) return;
 
-  // Startup capability probe (WS-E §4.1 / ROUTING.md). Reports the data-layer
+  // Startup capability probe (per ROUTING.md). Reports the data-layer
   // capabilities without changing routing precedence; logged for the operator.
   try {
     const caps = await probeCapabilities();

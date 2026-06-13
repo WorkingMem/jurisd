@@ -1,5 +1,5 @@
 /**
- * fetch-module: obtain + verify data modules (WS-E §5).
+ * fetch-module: obtain + verify data modules.
  *
  * Modules are published as GitHub release assets on the jurisd-data repo: each
  * module version is a release whose assets are the four parquet files +

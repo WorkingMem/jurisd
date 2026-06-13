@@ -1,5 +1,5 @@
 /**
- * Thin CLI subcommand dispatch (WS-E §5.1).
+ * Thin CLI subcommand dispatch.
  *
  * The entry point branches on `process.argv` before the server starts. No
  * heavyweight CLI framework — a thin switch over the first positional arg:

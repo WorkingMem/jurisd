@@ -35,7 +35,7 @@ afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-describe("WS-E optional-dependency absence degrades with typed signals (design §1.2/§3/§4)", () => {
+describe("optional-dependency absence degrades with typed signals", () => {
   it("the local embedder dependency is genuinely absent in this environment", async () => {
     // This whole suite asserts the REAL absence path; guard the premise.
     expect(await isEmbedderAvailable()).toBe(false);

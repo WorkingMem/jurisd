@@ -21,7 +21,7 @@ afterEach(() => {
   delete process.env.ISAACUS_BASE_URL;
 });
 
-describe("WS-E capability probe — baseline vs domain adapter (design §4)", () => {
+describe("Capability probe — baseline vs domain adapter", () => {
   it("no key → baseline, fully offline, configured=false", async () => {
     discoverModules(true);
     // Override is irrelevant when no key is set; the adapter never reaches out.

@@ -1,5 +1,5 @@
 /**
- * Vendor-neutral provider adapter (WS-E §4.2).
+ * Vendor-neutral provider adapter.
  *
  * The semantic path has two OPTIONAL enhancement slots that operate over the
  * top-k LOCAL results and never replace local recall:

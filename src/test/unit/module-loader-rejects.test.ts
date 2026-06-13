@@ -36,7 +36,7 @@ afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-describe("WS-E loader — rejects invalid/tampered manifests (design §1.2)", () => {
+describe("loader — rejects invalid/tampered manifests", () => {
   it("refuses an unimplemented schema_version (status unsupported_schema_version)", () => {
     const m = cloneValid();
     m.name = "future-mod";

@@ -97,7 +97,7 @@ function loadSchema(): object {
 function tryGetAjvValidator(): ((data: unknown) => ValidationResult) | null {
   try {
     // ajv is a common transitive dependency; require lazily so its absence is
-    // non-fatal (mirrors the optional-dependency posture of the rest of WS-E).
+    // non-fatal (mirrors the optional-dependency posture of the rest of the data layer).
     const AjvModule = require("ajv") as { default?: unknown } | unknown;
     const Ajv = (
       typeof AjvModule === "function" ? AjvModule : (AjvModule as { default: unknown }).default

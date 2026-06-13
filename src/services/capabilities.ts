@@ -1,7 +1,7 @@
 /**
- * Startup capability probe (WS-E §4.1).
+ * Startup capability probe.
  *
- * ROUTING.md mandates a startup capability probe; WS-E extends it with the
+ * ROUTING.md mandates a startup capability probe; the data layer extends it with the
  * data-layer capabilities. The probe reports, WITHOUT changing routing
  * precedence:
  *

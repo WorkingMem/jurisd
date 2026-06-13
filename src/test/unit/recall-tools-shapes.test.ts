@@ -40,7 +40,7 @@ afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-describe("WS-E recall tools — shapes on the vendored fixture (design §2)", () => {
+describe("recall tools — shapes on the vendored fixture", () => {
   it("list_data_modules returns the metadata summary with no DuckDB attach", () => {
     installFixture(root, "fixture");
     const list = listDataModules({ refresh: true });

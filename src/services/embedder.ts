@@ -1,5 +1,5 @@
 /**
- * Local query embedding (WS-E §3).
+ * Local query embedding.
  *
  * Embeds a natural-language query into the same space the module chunks were
  * embedded in (bge-small-en-v1.5, 384-dim, L2-normalised) using transformers.js
@@ -77,7 +77,7 @@ interface TransformersModule {
 
 /**
  * Lazily load `@huggingface/transformers`. Returns null when not installed,
- * matching the optional-dependency posture of the rest of WS-E.
+ * matching the optional-dependency posture of the rest of the data layer.
  */
 async function tryLoadTransformers(): Promise<TransformersModule | null> {
   if (_embedderUnavailable) return null;
