@@ -4,9 +4,10 @@
  * Embeds a natural-language query into the same space the module chunks were
  * embedded in (bge-small-en-v1.5, 384-dim, L2-normalised) using transformers.js
  * (`@huggingface/transformers`) with its bundled tokeniser + onnxruntime-node
- * backend. The dependency is OPTIONAL and lazy-imported with the same
- * graceful-degrade pattern as oalc.ts and the module loader: its absence
- * disables only `semantic_search_local`, reported by the capability probe, and
+ * backend. The dependency ships by default but is lazy-imported with a
+ * graceful-degrade safety net: if it is missing (e.g. an `--omit=optional`
+ * install or a failed native build) or its model cannot be loaded, only
+ * `semantic_search_local` is disabled, reported by the capability probe, and it
  * never throws into a tool result.
  *
  * The model is pinned by id + revision and cached under `~/.jurisd/models/`.
@@ -140,7 +141,16 @@ export async function getQueryEmbedder(): Promise<QueryEmbedder | null> {
           `${QUERY_MODEL_ID}. Original error: ${(err as Error).message}`,
       );
     }
-    throw err;
+    // Honour the never-throw contract: a model-load failure (corrupt cache or an
+    // incompatible native build) disables semantic_search_local rather than
+    // throwing into a tool result. The probe reports it; the cause is logged.
+    _embedderUnavailable = true;
+    console.warn(
+      `[embedder] failed to load ${QUERY_MODEL_ID} from ${config.modules.modelsDir}; ` +
+        `semantic_search_local disabled. Delete the cached model and re-run online to ` +
+        `re-fetch it. Original error: ${(err as Error).message}`,
+    );
+    return null;
   }
 
   _embedder = async (query: string): Promise<Float32Array> => {
