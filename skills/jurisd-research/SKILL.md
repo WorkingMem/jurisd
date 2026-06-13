@@ -128,6 +128,10 @@ Filter to one logical document with `document`. List/inspect with `op=list` / `o
   jurisd list-modules                             # list installed (incl. refused)
   ```
 
+  **No modules are published yet** — the `jurisd-data` release repo is still being built,
+  so `fetch-module` currently fails fast with a `404`. Lead with the live tools until the
+  first module lands; `list_data_modules` will report an empty store in the meantime.
+
   Install root defaults to `~/.jurisd/modules/` (override `JURISD_MODULES_DIR`). Local
   tools need optional `@duckdb/node-api`; `semantic_search_local` also needs
   `@huggingface/transformers`. Pin a specific module with the `module` arg on any recall tool.

@@ -134,10 +134,17 @@ Full parameter tables for every tool are in
 
 A **data module** is a self-describing parquet bundle (documents, chunks, edges,
 unmatched citations, plus a `manifest.json`) published as a GitHub release asset
-on the [`jurisd-data`](https://github.com/russellbrenner/jurisd-data) repository.
-Everything needed to load and query a module — schema version, coverage,
-embedding descriptor, file hashes, and licence posture — is in its manifest. No
-out-of-band config.
+on the `jurisd-data` repository. Everything needed to load and query a module —
+schema version, coverage, embedding descriptor, file hashes, and licence posture
+— is in its manifest. No out-of-band config.
+
+> **Status: no modules published yet.** The `jurisd-data` publishing repo and its
+> first release are still being built, so `jurisd fetch-module` has nothing to
+> download today (it resolves the release and fails fast with a `404`). The
+> server runs without any module — the live AustLII layer and citation tools work
+> standalone, and the five local-recall tools report "no modules" (degrade
+> visibly). The CLI flow below is implemented and ready for the first publish;
+> this section documents the intended install once modules land.
 
 Modules are queried in place: DuckDB scans the parquet on disk and never
 materialises a whole table into memory, so a host can install many modules
@@ -198,10 +205,10 @@ into a tool result.
 ## Quality
 
 jurisd's local data layer is built and scored honestly against a gold set. The
-[`jurisd-data` gold-set evaluation](https://github.com/russellbrenner/jurisd-data/blob/main/docs/eval/gold-set-report.md)
-measures the local enricher (segments, defined terms, citation crossrefs) against
-90 Open Australian Legal Corpus / Kanon ILDGS documents, under two parallel
-metrics:
+`jurisd-data` gold-set evaluation (to be published alongside the first module
+release; the `jurisd-data` repo is still being built) measures the local enricher
+(segments, defined terms, citation crossrefs) against 90 Open Australian Legal
+Corpus / Kanon ILDGS documents, under two parallel metrics:
 
 - **strict** — the conservative audit metric: every typed prediction unmatched
   within its type is a false positive.
@@ -236,8 +243,10 @@ state, not a marketing number.
     case-law sources are redistributable under the CC-BY-4.0 aggregate, subject to
     per-source confirmation before each module publishes.
 
-See [`jurisd-data/LICENSING.md`](https://github.com/russellbrenner/jurisd-data/blob/main/LICENSING.md)
-for the full per-source verdict table.
+The full per-source verdict table ships as `jurisd-data/LICENSING.md` with the
+first module release (the `jurisd-data` repo is still being built); each
+published module also carries its own `licence` block in `manifest.json`, surfaced
+at `fetch-module` install time.
 
 ## Documentation
 

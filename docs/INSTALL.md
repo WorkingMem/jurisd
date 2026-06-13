@@ -166,7 +166,16 @@ for every default.
 Data modules are **operator-installed via the CLI** — deliberately off the MCP
 tool surface so an AI assistant never triggers a multi-hundred-MB download
 mid-conversation. Modules are published as GitHub release assets on the
-[`jurisd-data`](https://github.com/russellbrenner/jurisd-data) repository.
+`jurisd-data` repository.
+
+> **Status: module publishing in progress — no modules available to fetch yet.**
+> The `jurisd-data` publishing repo and its first release are still being built,
+> so `jurisd fetch-module` currently resolves the release URL and fails fast with
+> a `404` (it never installs a partial or unverified module). This is expected
+> pre-publish. jurisd runs fully without any module: the live AustLII layer and
+> citation tools work standalone, and the five local-recall tools report "no
+> modules" (degrade visibly). The CLI flow below is implemented and ready for the
+> first publish.
 
 ```bash
 jurisd fetch-module <name> [--version X.Y.Z] [--modules-dir DIR]
