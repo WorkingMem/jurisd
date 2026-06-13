@@ -109,8 +109,6 @@ Prefix types:
 
 ### Code Style
 
-**For detailed guidance, see [AGENTS.md](AGENTS.md).**
-
 Key principles:
 
 - **TypeScript strict mode**: All code must type-check
@@ -142,8 +140,7 @@ Update documentation when:
 Files to update:
 
 - `README.md` - User-facing documentation
-- `AGENTS.md` - AI agent development guidelines
-- `ROADMAP.md` - Feature planning (if major changes)
+- `docs/ROADMAP.md` - Feature planning (if major changes)
 - JSDoc comments - All exported functions
 
 ## Pull Request Process
@@ -311,7 +308,6 @@ src/
 ## Resources
 
 - **Project Documentation**: [README.md](README.md)
-- **AI Agent Guidelines**: [AGENTS.md](AGENTS.md)
 - **Development Roadmap**: [docs/ROADMAP.md](docs/ROADMAP.md)
 - **AustLII Search Help**: https://www.austlii.edu.au/austlii/help/search.html
 - **MCP Specification**: https://modelcontextprotocol.io/
@@ -320,29 +316,8 @@ src/
 
 - **Questions**: Open a GitHub Discussion
 - **Bugs**: Open a GitHub Issue
-- **Security**: Email russell@lawquarter.com
+- **Security**: Email contact@workingmem.ai
 - **General**: Comment on relevant issues
-
-## GitHub Actions Workflows
-
-### Automated Documentation Sync
-
-This repository includes a nightly workflow (`.github/workflows/docs-sync.yml`) that automatically syncs documentation with the repository state.
-
-**Repository Setup Required:**
-
-For this workflow to function properly, the repository must have the following setting enabled:
-
-1. Go to **Settings** > **Actions** > **General** > **Workflow permissions**
-2. Enable **"Allow GitHub Actions to create and approve pull requests"**
-
-Alternatively, you can create a Personal Access Token (PAT) with `repo` and `workflow` scopes and add it as a repository secret named `PAT_TOKEN`.
-
-Without this configuration, the workflow will fail with:
-
-```
-GitHub Actions is not permitted to create or approve pull requests.
-```
 
 ## License
 

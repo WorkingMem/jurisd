@@ -10,7 +10,7 @@
 
 **Please do not open public issues for security vulnerabilities.**
 
-To report a security vulnerability, please email: russell@lawquarter.com
+To report a security vulnerability, please email: contact@workingmem.ai
 
 We will respond within 48 hours and provide updates as the issue is addressed.
 
@@ -80,6 +80,6 @@ Security updates are released as soon as possible after a vulnerability is confi
 
 ## Contact
 
-For security-related questions: russell@lawquarter.com
+For security-related questions: contact@workingmem.ai
 
 For general questions: Open a GitHub issue

@@ -30,15 +30,16 @@ spec:
                       values:
                         - jurisd
                 topologyKey: kubernetes.io/hostname
+      # Only needed when pulling from a private registry; remove for public images.
       imagePullSecrets:
-        - name: gitea-registry
+        - name: registry-credentials
       dnsConfig:
         options:
           - name: ndots
             value: "1"
       containers:
         - name: jurisd
-          image: git.itsa.house/rbrenner/jurisd:latest
+          image: ghcr.io/OWNER/jurisd:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

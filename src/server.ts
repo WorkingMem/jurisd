@@ -100,9 +100,8 @@ function citedBySourceKey(parentCiteKey: string, neutralCitation: string): strin
 /**
  * Build a fresh McpServer with all tools registered.
  *
- * Tool surface follows the R5 consolidation decision
- * (docs/decisions/tool-surface.md): 10 base tools, with mode/op/action
- * dispatch replacing the former one-tool-per-operation layout.
+ * Tool surface follows the tool-surface consolidation: 10 base tools, with
+ * mode/op/action dispatch replacing the former one-tool-per-operation layout.
  *
  * In stateless HTTP mode (`sessionIdGenerator: undefined`), each request
  * requires its own server + transport instance because

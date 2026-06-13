@@ -301,7 +301,7 @@ function calculateAuthorityScore(result: SearchResult): number {
 7. ✅ Graceful degradation: returns `[]` when `SESSION_COOKIE` is unset (no error to caller)
 8. ✅ HAR fixture files for deterministic testing: `propose-citables-mabo.txt` (75KB) and `propose-citables-rice.txt`
 
-**Protocol notes** (see `docs/source-rpc-protocol.md`):
+**Protocol notes**:
 
 - Authentication: same `SESSION_COOKIE` as `fetch_document_text`
 - Token staleness: if requests return `//EX`, refresh `SOURCE_TOKEN` from `X-Variant` header

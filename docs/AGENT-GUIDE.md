@@ -526,4 +526,4 @@
 ---
 
 **License:** MIT  
-**Contact:** russellbrenner@users.noreply.github.com
+**Contact:** contact@workingmem.ai
