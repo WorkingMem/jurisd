@@ -87,8 +87,7 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 ## Tools
 
 15 tools in three groups. Operation variants are selected via a
-`mode` / `op` / `action` / `by` discriminator on the relevant tool (see
-[docs/decisions/tool-surface.md](docs/decisions/tool-surface.md)).
+`mode` / `op` / `action` / `by` discriminator on the relevant tool.
 
 ### Live research (AustLII + removed.invalid)
 
@@ -127,8 +126,7 @@ and snapshot date (plus a staleness advisory when the snapshot is old).
 | `list_data_modules`     | Introspect installed modules: coverage, doc/chunk counts, embedding descriptor, load status, snapshot date and staleness.                              |
 
 Full parameter tables for every tool are in
-[docs/AGENT-GUIDE.md](docs/AGENT-GUIDE.md); the local-module design is in
-[docs/design/data-layer.md](docs/design/data-layer.md).
+[docs/AGENT-GUIDE.md](docs/AGENT-GUIDE.md).
 
 ## Data modules
 
@@ -255,13 +253,9 @@ at `fetch-module` install time.
 | [INSTALL.md](docs/INSTALL.md)                            | Day-0 install paths, Claude Code config, env vars, module flow             |
 | [jurisd-research skill](skills/jurisd-research/SKILL.md) | Claude Code skill: tool decision guidance, AGLC4 workflows, worked example |
 | [AGENT-GUIDE.md](docs/AGENT-GUIDE.md)                    | Agent-facing usage guide with full tool catalog and examples               |
-| [data-layer.md](docs/design/data-layer.md)               | Local data-module design (loader, the five recall tools, BYOK)             |
-| [tool-surface.md](docs/decisions/tool-surface.md)        | The R5 tool-consolidation decision (15-tool surface)                       |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md)                  | System architecture, deployment topology, CI/CD                            |
-| [DECISIONS.md](docs/DECISIONS.md)                        | Architectural decision records (ADRs)                                      |
 | [DOCKER.md](docs/DOCKER.md)                              | Docker deployment guide                                                    |
 | [ROADMAP.md](docs/ROADMAP.md)                            | Development history and future plans                                       |
-| [source-rpc-protocol.md](docs/source-rpc-protocol.md)        | removed.invalid RPC reverse-engineering details                                |
 
 ## Jurisdictions
 
@@ -321,13 +315,12 @@ See [docs/DOCKER.md](docs/DOCKER.md) for details.
 ./deploy-k8s.sh
 ```
 
-See [k8s/README.md](k8s/README.md) and
-[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md).
+See [k8s/README.md](k8s/README.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [AGENTS.md](AGENTS.md) for AI-agent
-instructions, and [SECURITY.md](SECURITY.md) for responsible disclosure.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) for
+responsible disclosure.
 
 **Key principles:**
 
