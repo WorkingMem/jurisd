@@ -13,11 +13,14 @@ import {
   semanticSearchLocal,
   listDataModules,
 } from "../../services/modules.js";
-import { setQueryEmbedderForTest, resetEmbedder } from "../../services/embedder.js";
+import { setQueryEmbedderForTest, resetEmbedder, isEmbedderAvailable } from "../../services/embedder.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(__dirname, "../fixtures/modules");
 const duckdbAvailable = (await tryLoadDuckDB()) !== null;
+// The "no embedder present" degradation test can only hold when the optional
+// embedder is genuinely absent (as in CI); skip it where it is installed.
+const embedderPresent = await isEmbedderAvailable();
 
 function installFixture(root: string, name: string): void {
   const src = path.join(FIXTURES, name);
@@ -143,7 +146,7 @@ describe("recall tools — shapes on the vendored fixture", () => {
     },
   );
 
-  it.skipIf(!duckdbAvailable)(
+  it.skipIf(!duckdbAvailable || embedderPresent)(
     "semantic_search_local degrades visibly when no embedder is present",
     async () => {
       installFixture(root, "fixture-embedded");
