@@ -4,7 +4,10 @@
       "type": "stdio",
       "command": "node",
       "args": ["dist/index.js"],
-      "env": {}
+      "env": {
+        "SESSION_COOKIE": "${SESSION_COOKIE:-}",
+        "SOURCE_USER_AGENT": "${SOURCE_USER_AGENT:-}"
+      }
     }
   }
 }
