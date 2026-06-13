@@ -31,10 +31,16 @@ docs/api
 # OS
 Thumbs.db
 
-# agentic artefacts
+# agentic artefacts and local harness/agent config (kept out of the public repo;
+# local project context lives in a gitignored CLAUDE.md / CLAUDE.local.md)
 plans/*
 plans
 CLAUDE.md
+CLAUDE.local.md
 AGENTS.md
+.github/copilot-instructions.md
+.claude/settings.local.json
+.claude/worktrees/
+.remember/
 scratch/*
 scratch

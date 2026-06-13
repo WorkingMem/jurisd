@@ -5,8 +5,8 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "../../server.js";
 
 /**
- * The consolidated tool surface per docs/decisions/tool-surface.md (R5): 10
- * base tools, plus the WS-E Layer-1 local-module recall tools as they land.
+ * The consolidated tool surface: 10 base tools, plus the Layer-1 local-module
+ * recall tools as they land.
  */
 const EXPECTED_TOOLS = [
   "search_legislation",

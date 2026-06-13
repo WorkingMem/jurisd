@@ -301,7 +301,7 @@ function calculateAuthorityScore(result: SearchResult): number {
 7. ✅ Graceful degradation: returns `[]` when `JADE_SESSION_COOKIE` is unset (no error to caller)
 8. ✅ HAR fixture files for deterministic testing: `propose-citables-mabo.txt` (75KB) and `propose-citables-rice.txt`
 
-**Protocol notes** (see `docs/jade-gwt-protocol.md`):
+**Protocol notes**:
 
 - Authentication: same `JADE_SESSION_COOKIE` as `fetch_document_text`
 - Strong name staleness: if requests return `//EX`, refresh `JADE_STRONG_NAME` from `X-GWT-Permutation` header

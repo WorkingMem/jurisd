@@ -55,9 +55,8 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 
 The domain-adapter slot is **vendor-neutral**: the baseline adapter (pure local
 cosine order, no key, always present) is selected unless a provider is both
-configured and reachable, in which case a provider-interpolated label is reported
-(see [design/data-layer.md](design/data-layer.md) §4.2). The distinction is
-capability presence, never a paid/free tier.
+configured and reachable, in which case a provider-interpolated label is reported.
+The distinction is capability presence, never a paid/free tier.
 
 ---
 
@@ -66,8 +65,7 @@ capability presence, never a paid/free tier.
 ### 1. MCP Server
 
 **Tools** (15; live/citation operation variants selected via
-`mode`/`op`/`action`/`by` — see
-[decisions/tool-surface.md](decisions/tool-surface.md)):
+`mode`/`op`/`action`/`by`):
 
 Live + citation (10):
 | Tool | Description |
@@ -83,8 +81,7 @@ Live + citation (10):
 | bibliography | Citation cache read: `op: get\|list\|export\|cited_by` |
 | cache_cited_by | Fetch + cache citing cases locally |
 
-Local data-module recall (5; offline, closed-world over installed modules — see
-[design/data-layer.md](design/data-layer.md)):
+Local data-module recall (5; offline, closed-world over installed modules):
 | Tool | Description |
 |------|-------------|
 | get_provision | Deterministic provision lookup (no embedding, no ranking) |
@@ -117,7 +114,7 @@ Local data-module recall (5; offline, closed-world over installed modules — se
 - Validates against AustLII
 - Generates pinpoint citations
 
-### 6. Local Data Layer (WS-E)
+### 6. Local Data Layer
 
 - Installed parquet "data modules" under `~/.jurisd/modules/`, each a closed
   world validated against the vendored manifest schema (`src/data/manifest.ts`)
@@ -126,8 +123,7 @@ Local data-module recall (5; offline, closed-world over installed modules — se
 - Local query embedding (`@huggingface/transformers`, optional) for
   `semantic_search_local`; absence degrades visibly, never crashes
 - Optional vendor-neutral domain-adapter slot refines the LOCAL top-k (rerank /
-  extractive-QA); baseline cosine order is the floor (see
-  [design/data-layer.md](design/data-layer.md))
+  extractive-QA); baseline cosine order is the floor
 - Module acquisition is a CLI subcommand (`jurisd fetch-module`), not a tool:
   manifest is schema-validated and every file sha256-verified before an atomic
   temp-then-rename install
@@ -200,7 +196,6 @@ npx vitest run src/test/unit/   # Unit only (fast, no network)
 - [AGENT-GUIDE.md](./AGENT-GUIDE.md) — Agent usage guide
 - [DOCKER.md](./DOCKER.md) — Docker deployment
 - [ROADMAP.md](./ROADMAP.md) — Development history
-- [jade-gwt-protocol.md](./jade-gwt-protocol.md) — GWT-RPC details
 
 ---
 

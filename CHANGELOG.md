@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **WS-E local-module data layer**: a Layer-1 offline recall path over installed
-  parquet **data modules** (`docs/design/data-layer.md`). Adds a module store/loader
+- **Local-module data layer**: a Layer-1 offline recall path over installed
+  parquet **data modules**. Adds a module store/loader
   with manifest validation against a vendored schema and lazy per-module DuckDB
   attach over parquet (`src/services/modules.ts`, `src/data/`), holding metadata only
   in RSS and degrading gracefully when `@duckdb/node-api` is absent.
@@ -55,8 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING**: Consolidated the MCP tool surface from 18 tools to 10 per the R5 decision
-  (`docs/decisions/tool-surface.md`). Variants of a single intent are now merged behind a
+- **BREAKING**: Consolidated the MCP tool surface from 18 tools to 10 (tool-surface
+  consolidation). Variants of a single intent are now merged behind a
   `mode`/`op`/`action`/`by` discriminator. Underlying behaviour is unchanged; only tool names
   and input shapes changed. No aliases are provided for the old names (pre-1.0 breaking cut).
 
@@ -117,7 +117,7 @@ legal research across AustLII and jade.io.
 - **Documents**: `fetch_document_text` (HTML, PDF, OCR via Tesseract; jade.io via GWT-RPC when a
   session cookie is configured), `check_source_freshness`
 - **jade.io**: `resolve_jade_article`, `jade_citation_lookup`, `search_citing_cases` (citator via
-  reverse-engineered GWT-RPC; see `docs/jade-gwt-protocol.md`)
+  reverse-engineered GWT-RPC)
 - **Citations (AGLC4)**: `format_citation`, `format_short_citation`, `validate_citation`,
   `generate_pinpoint`
 - **Caching and bibliography**: `cache_citation`, `get_cached_citation`, `cache_cited_by`,

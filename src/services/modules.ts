@@ -7,8 +7,6 @@
  * parquet bytes, no embeddings are held in RSS. DuckDB is attached lazily
  * per-module on first query, mirroring the graceful-degrade lazy-import pattern
  * of `oalc.ts`.
- *
- * Design: docs/design/data-layer.md §1.
  */
 
 import * as fs from "node:fs";

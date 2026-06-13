@@ -10,10 +10,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - jurisd.itsa.house
+        - jurisd.example.com
       secretName: jurisd-tls
   rules:
-    - host: jurisd.itsa.house
+    - host: jurisd.example.com
       http:
         paths:
           - path: /

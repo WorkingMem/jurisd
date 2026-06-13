@@ -228,8 +228,7 @@ a key.
 
 ## Docker and Kubernetes
 
-For container and k3s deployment, see [DOCKER.md](DOCKER.md),
-[../k8s/README.md](../k8s/README.md), and
-[../DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md). Store
+For container and k3s deployment, see [DOCKER.md](DOCKER.md) and
+[../k8s/README.md](../k8s/README.md). Store
 `JADE_SESSION_COOKIE` and `ISAACUS_API_KEY` in a Kubernetes Secret (not a
 ConfigMap) and reference them via `envFrom` or `env[].valueFrom.secretKeyRef`.
