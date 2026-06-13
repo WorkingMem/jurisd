@@ -1,11 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  AustLiiError,
-  CloudflareBlockedError,
-  NetworkError,
-  ParseError,
-  OcrError,
-} from "../../errors.js";
+import { AustLiiError, CloudflareBlockedError, NetworkError, ParseError } from "../../errors.js";
 
 describe("Custom error classes", () => {
   describe("AustLiiError", () => {
@@ -84,15 +78,6 @@ describe("Custom error classes", () => {
       const err = new ParseError("invalid html", "<html>broken");
       expect(err.name).toBe("ParseError");
       expect(err.content).toBe("<html>broken");
-      expect(err).toBeInstanceOf(Error);
-    });
-  });
-
-  describe("OcrError", () => {
-    it("should store filePath", () => {
-      const err = new OcrError("tesseract crashed", "/tmp/doc.pdf");
-      expect(err.name).toBe("OcrError");
-      expect(err.filePath).toBe("/tmp/doc.pdf");
       expect(err).toBeInstanceOf(Error);
     });
   });

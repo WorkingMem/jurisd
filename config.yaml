@@ -5,7 +5,7 @@
 server:
   name: jurisd
   version: 0.1.0
-  description: Australian legislation and case law searcher with OCR-aware document retrieval.
+  description: Australian legislation and case law searcher with document retrieval.
 
 austlii:
   # Base URL for AustLII search
@@ -29,16 +29,6 @@ source:
 
   # Request timeout in milliseconds
   timeout: ${SOURCE_TIMEOUT:-15000}
-
-ocr:
-  # OCR language (default: English)
-  language: ${OCR_LANGUAGE:-eng}
-
-  # OCR Engine Mode (0-3, default 1 for LSTM neural network)
-  oem: ${OCR_OEM:-1}
-
-  # Page Segmentation Mode (default 3 for automatic)
-  psm: ${OCR_PSM:-3}
 
 defaults:
   # Default number of search results

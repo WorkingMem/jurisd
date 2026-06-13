@@ -82,9 +82,6 @@ export const JURISDICTIONS = {
   NEW_ZEALAND: "nz",
 } as const;
 
-/** Minimum text length before OCR fallback is triggered */
-export const OCR_MIN_TEXT_LENGTH = 100;
-
 /** Default HTTP timeout in milliseconds */
 export const DEFAULT_TIMEOUT_MS = 30_000;
 

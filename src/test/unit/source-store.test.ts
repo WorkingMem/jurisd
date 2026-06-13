@@ -104,7 +104,6 @@ describe("storeSource", () => {
       text: SAMPLE_TEXT,
       contentType: "text/html",
       sourceUrl: TEST_URL,
-      ocrUsed: false,
     });
     // HEAD for ETag capture after fetch
     vi.mocked(axios.head).mockResolvedValue({

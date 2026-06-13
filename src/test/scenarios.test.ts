@@ -146,7 +146,6 @@ describeLive("Real-world legal search scenarios", () => {
       expect(doc.text.length).toBeGreaterThan(100);
       expect(doc.sourceUrl).toBe(results[0].url);
       expect(doc.contentType).toBeTruthy();
-      expect(typeof doc.ocrUsed).toBe("boolean");
     }
   }, 60000); // Longer timeout for fetch
 });

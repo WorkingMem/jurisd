@@ -34,7 +34,6 @@ const sampleFetch: FetchResponse = {
   text: "This is a sample judgement text.",
   contentType: "text/html",
   sourceUrl: "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
-  ocrUsed: false,
   metadata: { contentLength: "123" },
 };
 
@@ -117,7 +116,6 @@ it("ensureContent returns empty-text content item when given empty string", () =
     text: "",
     contentType: "text/plain",
     sourceUrl: "https://example.com",
-    ocrUsed: false,
   };
   const result = formatFetchResponse(response as Parameters<typeof formatFetchResponse>[0], "text");
   expect(result.content).toHaveLength(1);
@@ -207,7 +205,6 @@ describe("formatFetchResponse", () => {
     expect(() => JSON.parse(text)).not.toThrow();
     const parsed = JSON.parse(text);
     expect(parsed.sourceUrl).toBe(sampleFetch.sourceUrl);
-    expect(parsed.ocrUsed).toBe(false);
   });
 
   it("should format fetch response as text", () => {
@@ -229,7 +226,6 @@ describe("formatFetchResponse", () => {
     const text = getText(result.content);
     expect(text).toContain("<article");
     expect(text).toContain("data-source=");
-    expect(text).toContain("data-ocr=");
   });
 
   it("should use preserved HTML structure when available", () => {

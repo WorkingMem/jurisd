@@ -86,6 +86,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and documentation. Configuration env vars (`AUSLAW_*`) and the `.auslaw/` cache directory
   are unchanged.
 
+### Removed
+
+- Removed the Tesseract OCR fallback for scanned PDFs in `fetch_document_text` (`pdf-parse` digital-text extraction retained).
+
 ### Documentation
 
 - Day-0 front-door docs overhaul for public release: rewrote `README.md` around the
