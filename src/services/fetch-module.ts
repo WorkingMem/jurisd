@@ -1,10 +1,10 @@
 /**
  * fetch-module: obtain + verify data modules.
  *
- * Modules are published as GitHub release assets on the jurisd-data repo: each
- * module version is a release whose assets are the four parquet files +
- * manifest.json. The manifest's `base_uri` points at the canonical asset
- * location and `files[].sha256` is the integrity contract.
+ * Modules are published as Hugging Face datasets under the workingmem org: the
+ * four parquet files + manifest.json are the dataset files. The manifest's
+ * `base_uri` points at the canonical asset location (the dataset resolve URL)
+ * and `files[].sha256` is the integrity contract.
  *
  * This is an install-time / operator action driven by the CLI subcommand
  * (`jurisd fetch-module <name>`), NOT an MCP tool — keeping a multi-hundred-MB
@@ -86,7 +86,7 @@ function resolveAsset(baseUri: string, relPath: string): string {
  * file, sha256-verify (and abort+cleanup on any mismatch), then temp-then-rename
  * into the modules dir. Never installs a partially-verified module.
  *
- * `manifestUrl` defaults to the canonical jurisd-data release-asset location for
+ * `manifestUrl` defaults to the canonical Hugging Face dataset location for
  * `name`; callers (and tests) may pass an explicit URL.
  */
 export async function fetchModule(
@@ -106,7 +106,7 @@ export async function fetchModule(
 
   const manifestUrl =
     opts.manifestUrl ??
-    `https://github.com/russellbrenner/jurisd-data/releases/download/${name}/manifest.json`;
+    `https://huggingface.co/datasets/workingmem/${name}/resolve/main/manifest.json`;
 
   // 1-2. Resolve + validate the manifest before downloading any parquet.
   let manifestRaw: unknown;
