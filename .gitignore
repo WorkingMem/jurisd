@@ -39,8 +39,9 @@ CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
 .github/copilot-instructions.md
-.claude/settings.local.json
-.claude/worktrees/
+.claude/*
 .remember/
 scratch/*
 scratch
+.vscode/*
+.husky/*
