@@ -165,8 +165,10 @@
         "properties": {
           "path": {
             "type": "string",
-            "description": "Path relative to base_uri.",
-            "minLength": 1
+            "description": "Path relative to base_uri. Must be a safe relative path: alphanumeric-led segments separated by '/', no '..' traversal, no absolute paths.",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$"
           },
           "sha256": {
             "type": "string",

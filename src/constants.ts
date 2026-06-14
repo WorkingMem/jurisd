@@ -88,8 +88,14 @@ export const DEFAULT_TIMEOUT_MS = 30_000;
 /** Extended timeout for slow endpoints */
 export const LONG_TIMEOUT_MS = 60_000;
 
-/** Maximum document size we will attempt to download (50 MB) */
-export const MAX_CONTENT_LENGTH = 50 * 1024 * 1024;
+/**
+ * Maximum document size we will attempt to download (10 MB).
+ *
+ * Legal documents (HTML/PDF) are well under this; a smaller cap bounds the
+ * CPU/memory a single hostile or oversized response can cost during cheerio DOM
+ * construction + per-node parsing (DoS hardening).
+ */
+export const MAX_CONTENT_LENGTH = 10 * 1024 * 1024;
 
 /** Maximum number of removed.invalid articles to resolve concurrently during search */
 export const MAX_RESOLUTIONS = 5;

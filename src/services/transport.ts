@@ -19,6 +19,29 @@
 import { config } from "../config.js";
 import { isCloudflareChallengeHtml, isCloudflareBotBlock, cfBlockMessage } from "./cloudflare.js";
 import { isAustliiUrl } from "./austlii-url.js";
+import { assertFetchableUrl, assertRedirectAllowed, MAX_REDIRECTS } from "../utils/url-guard.js";
+
+/**
+ * impit follows redirects internally (bounded by {@link MAX_REDIRECTS}), so we
+ * cannot re-check each hop the way axios' `beforeRedirect` does. Instead, after
+ * the fetch, reject when the chain changed host to one that is not itself
+ * allowlisted — this blocks an allowlisted origin from bouncing us to an
+ * internal/metadata address (SSRF) while still permitting same-host redirects
+ * and AustLII's www<->classic hops. A same-host (or no) redirect is always fine.
+ */
+function assertNoUnsafeImpitRedirect(initialUrl: string, finalUrl: string | undefined): void {
+  if (!finalUrl) return;
+  let init: URL;
+  let fin: URL;
+  try {
+    init = new URL(initialUrl);
+    fin = new URL(finalUrl);
+  } catch {
+    return;
+  }
+  if (fin.hostname === init.hostname) return;
+  assertFetchableUrl(finalUrl);
+}
 
 export interface TransportResponse {
   body: string;
@@ -71,12 +94,13 @@ async function fetchWithImpit(url: string, options: TransportOptions): Promise<T
   }
 
   const browser = (config.transport.imitBrowser as import("impit").Browser) ?? "chrome";
-  const client = new mod.Impit({ browser });
+  const client = new mod.Impit({ browser, maxRedirects: MAX_REDIRECTS });
 
   const method = (options.method ?? "GET").toUpperCase() as import("impit").HttpMethod;
   const headers = options.headers ?? {};
 
   const response = await client.fetch(url, { method, headers });
+  assertNoUnsafeImpitRedirect(url, response.url);
 
   const body = await response.text();
   const status = response.status;
@@ -107,6 +131,8 @@ async function fetchWithAxios(url: string, options: TransportOptions): Promise<T
     headers: options.headers ?? {},
     timeout,
     responseType: "text",
+    maxRedirects: MAX_REDIRECTS,
+    beforeRedirect: assertRedirectAllowed,
   });
 
   const body = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
@@ -194,17 +220,21 @@ class ImpitFetcher implements HttpFetcher {
       );
     }
     const browser = (config.transport.imitBrowser as import("impit").Browser) ?? "chrome";
-    const client = new mod.Impit({ browser });
+    const client = new mod.Impit({ browser, maxRedirects: MAX_REDIRECTS });
     const response = await client.fetch(url, {
       method: "GET",
       headers: opts.headers,
     });
+    // impit follows redirects internally; reject before consuming the body if
+    // the chain bounced cross-host to a disallowed address (SSRF hardening).
+    const finalUrl = response.url || url;
+    assertNoUnsafeImpitRedirect(url, response.url);
     const headers: Record<string, string> = {};
     response.headers.forEach((value: string, key: string) => {
       headers[key] = value;
     });
     const body = Buffer.from(await response.bytes());
-    return { status: response.status, headers, body, finalUrl: url, via: "impit" };
+    return { status: response.status, headers, body, finalUrl, via: "impit" };
   }
 }
 
@@ -215,6 +245,8 @@ class AxiosFetcher implements HttpFetcher {
       responseType: "arraybuffer",
       headers: opts.headers,
       timeout: opts.timeoutMs,
+      maxRedirects: MAX_REDIRECTS,
+      beforeRedirect: assertRedirectAllowed,
     });
     const headers: Record<string, string> = {};
     for (const [k, v] of Object.entries(response.headers)) {

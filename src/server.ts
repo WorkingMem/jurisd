@@ -870,7 +870,7 @@ export function createMcpServer(): McpServer {
       .string()
       .optional()
       .describe(
-        "Write the .bib file to this absolute path (op=export). Defaults to <cacheDir>/<projectName>.bib",
+        "Write the .bib file to this path (op=export). Relative to the cache dir, or an absolute path that resolves within it; must end in .bib. Defaults to <cacheDir>/<projectName>.bib",
       ),
   };
   const bibliographyParser = z.object(bibliographyShape).superRefine((d, ctx) => {
@@ -934,7 +934,18 @@ export function createMcpServer(): McpServer {
           AUSLAW_CACHE_DIR_NAME,
           `${config.cache.projectName}.bib`,
         );
-        const writePath = input.outputPath ?? defaultPath;
+        // Confine the (caller-supplied) outputPath to the cache directory so a
+        // malicious/prompt-injected MCP client cannot write bib text to an
+        // arbitrary location (e.g. an autostart dir or a config file).
+        const cacheRoot = path.resolve(config.cache.dir);
+        const writePath = path.resolve(cacheRoot, input.outputPath ?? defaultPath);
+        const relToCache = path.relative(cacheRoot, writePath);
+        if (relToCache.startsWith("..") || path.isAbsolute(relToCache)) {
+          throw new Error("outputPath must resolve within the cache directory");
+        }
+        if (!writePath.endsWith(".bib")) {
+          throw new Error("outputPath must end in .bib");
+        }
 
         const { promises: fs } = await import("node:fs");
         await fs.mkdir(path.dirname(writePath), { recursive: true });

@@ -27,8 +27,63 @@ import {
   type Manifest,
   IMPLEMENTED_SCHEMA_VERSION,
   MODULE_NAME_PATTERN,
+  isSafeModuleFilePath,
   validateManifest,
 } from "../data/manifest.js";
+
+/**
+ * Hosts a module manifest and its parquet assets may be fetched from. Modules
+ * are published as Hugging Face datasets; large files are served via a 302 to
+ * the HF LFS CDN (`cdn-lfs*.huggingface.co` / `*.hf.co`), so the allowlist is
+ * the HF domain families. This is the SSRF guard for the module-fetch path:
+ * neither an operator-supplied `--manifest-url` nor a hostile manifest
+ * `base_uri` may point fetches at internal/metadata addresses.
+ */
+const MODULE_ALLOWED_HOSTS = new Set(["huggingface.co", "hf.co"]);
+const MODULE_ALLOWED_HOST_SUFFIXES = [".huggingface.co", ".hf.co"];
+/** Bounded redirect chain for module asset fetches (HF resolve -> LFS CDN). */
+const MODULE_MAX_REDIRECTS = 5;
+
+/** Assert a module URL is HTTPS on an allowed Hugging Face host. Throws otherwise. */
+export function assertModuleUrl(raw: string): void {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error(`invalid module URL: ${raw}`);
+  }
+  if (u.protocol !== "https:") {
+    throw new Error(`module URL must use https (got ${u.protocol}): ${raw}`);
+  }
+  const host = u.hostname.toLowerCase();
+  const allowed =
+    MODULE_ALLOWED_HOSTS.has(host) || MODULE_ALLOWED_HOST_SUFFIXES.some((s) => host.endsWith(s));
+  if (!allowed) {
+    throw new Error(`module host '${host}' is not an allowed Hugging Face host`);
+  }
+}
+
+/**
+ * Fetch a module URL, re-validating the host on every redirect hop. Uses
+ * `redirect: "manual"` so an allowlisted HF URL cannot 302 us to an internal
+ * address (DNS-rebind / open-redirect SSRF); each hop must itself be an allowed
+ * HF host.
+ */
+async function secureModuleFetch(url: string): Promise<Response> {
+  let current = url;
+  for (let hop = 0; hop <= MODULE_MAX_REDIRECTS; hop++) {
+    assertModuleUrl(current);
+    const res = await fetch(current, { redirect: "manual" });
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (!location) return res;
+      current = new URL(location, current).toString();
+      continue;
+    }
+    return res;
+  }
+  throw new Error(`too many redirects while fetching ${url}`);
+}
 
 /** Result of a fetch or verify operation. */
 export interface FetchResult {
@@ -52,12 +107,12 @@ export interface FetchIO {
 /** The default IO backed by global fetch. */
 export const defaultIO: FetchIO = {
   async fetchBytes(url: string): Promise<Buffer> {
-    const res = await fetch(url);
+    const res = await secureModuleFetch(url);
     if (!res.ok) throw new Error(`GET ${url} -> HTTP ${res.status}`);
     return Buffer.from(await res.arrayBuffer());
   },
   async fetchJson(url: string): Promise<unknown> {
-    const res = await fetch(url);
+    const res = await secureModuleFetch(url);
     if (!res.ok) throw new Error(`GET ${url} -> HTTP ${res.status}`);
     return res.json();
   },
@@ -146,7 +201,16 @@ export async function fetchModule(
     // Persist the validated manifest alongside the parquet.
     fs.writeFileSync(path.join(tmpDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
 
+    const tmpRoot = path.resolve(tmpDir);
     for (const file of manifest.files) {
+      // Defence-in-depth: validateManifest already rejects unsafe paths, but
+      // re-check at the write sink (the source-store.ts prefix-check pattern) so
+      // a path can never escape the temp dir even if validation is bypassed.
+      const destPath = path.resolve(tmpRoot, file.path);
+      if (!isSafeModuleFilePath(file.path) || !destPath.startsWith(tmpRoot + path.sep)) {
+        cleanup(tmpDir);
+        return { ok: false, name, error: `unsafe file path in manifest: ${file.path}` };
+      }
       const assetUrl = resolveAsset(manifest.base_uri, file.path);
       let bytes: Buffer;
       try {
@@ -170,7 +234,7 @@ export async function fetchModule(
             `Refusing to install a partially-verified module.`,
         };
       }
-      fs.writeFileSync(path.join(tmpDir, file.path), bytes);
+      fs.writeFileSync(destPath, bytes);
     }
 
     // 5. Atomic install: temp-then-rename so a half-written module never appears.
@@ -227,8 +291,12 @@ export function verifyModule(name: string, opts: { modulesDir?: string } = {}): 
   if (!validation.valid) {
     return { ok: false, name, error: `manifest failed schema validation: ${validation.error}` };
   }
+  const verifyRoot = path.resolve(dir);
   for (const file of manifest.files) {
-    const filePath = path.join(dir, file.path);
+    const filePath = path.resolve(verifyRoot, file.path);
+    if (!isSafeModuleFilePath(file.path) || !filePath.startsWith(verifyRoot + path.sep)) {
+      return { ok: false, name, error: `unsafe file path in manifest: ${file.path}` };
+    }
     if (!fs.existsSync(filePath)) {
       return { ok: false, name, error: `missing file ${file.path}` };
     }

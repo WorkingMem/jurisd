@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assertFetchableUrl } from "../../utils/url-guard.js";
+import { assertFetchableUrl, assertRedirectAllowed, MAX_REDIRECTS } from "../../utils/url-guard.js";
 
 describe("assertFetchableUrl", () => {
   it("permits AustLII HTTPS URL", () => {
@@ -28,5 +28,37 @@ describe("assertFetchableUrl", () => {
   });
   it("throws on invalid URL", () => {
     expect(() => assertFetchableUrl("not-a-url")).toThrow(/Invalid URL/);
+  });
+});
+
+describe("assertRedirectAllowed", () => {
+  it("permits a redirect to an allowlisted host (via href)", () => {
+    expect(() =>
+      assertRedirectAllowed({ href: "https://classic.austlii.edu.au/au/cases/x.html" }),
+    ).not.toThrow();
+  });
+  it("permits a redirect reconstructed from protocol/host/path", () => {
+    expect(() =>
+      assertRedirectAllowed({ protocol: "https:", host: "removed.invalid", path: "/article/1" }),
+    ).not.toThrow();
+  });
+  it("blocks a redirect to a cloud-metadata address", () => {
+    expect(() =>
+      assertRedirectAllowed({ href: "https://169.254.169.254/latest/meta-data/" }),
+    ).toThrow(/not in permitted/);
+  });
+  it("blocks a redirect to localhost", () => {
+    expect(() =>
+      assertRedirectAllowed({ protocol: "https:", host: "localhost", path: "/" }),
+    ).toThrow(/not in permitted/);
+  });
+  it("blocks a redirect downgraded to http", () => {
+    expect(() => assertRedirectAllowed({ href: "http://www.austlii.edu.au/x" })).toThrow(
+      /Only HTTPS/,
+    );
+  });
+  it("bounds the redirect chain to a small number", () => {
+    expect(MAX_REDIRECTS).toBeLessThanOrEqual(5);
+    expect(MAX_REDIRECTS).toBeGreaterThan(0);
   });
 });

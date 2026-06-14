@@ -27,7 +27,7 @@
     "format:check": "prettier --check \"src/**/*.ts\"",
     "docs": "typedoc",
     "docs:serve": "npx serve docs/api",
-    "prepare": "(husky || exit 0) && node -e \"const p=require('path'),cp=require('child_process');if(process.env.INIT_CWD&&p.resolve(process.env.INIT_CWD)!==process.cwd())cp.execSync('npm run build',{stdio:'inherit'})\""
+    "prepare": "node -e \"if(require('fs').existsSync('.git'))require('child_process').execSync('husky',{stdio:'inherit'})\""
   },
   "keywords": [
     "model-context-protocol",
@@ -88,6 +88,6 @@
     ]
   },
   "optionalDependencies": {
-    "impit": "^0.14.1"
+    "impit": "0.14.1"
   }
 }

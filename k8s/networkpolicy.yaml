@@ -1,0 +1,61 @@
+---
+# Default-deny + least-privilege egress for the jurisd workload.
+#
+# jurisd's whole purpose is making OUTBOUND HTTP requests to legal sources
+# (AustLII, removed.invalid) with a TLS-impersonating client. Without a NetworkPolicy a
+# compromised pod (e.g. via a dependency parsing attacker-influenced fetched
+# content) has unrestricted egress to the internet AND to internal cluster
+# services / the cloud metadata endpoint — ideal for SSRF pivoting and exfil.
+#
+# This policy denies all ingress/egress by default, then allows only:
+#   - DNS resolution (kube-dns)
+#   - outbound HTTPS to public addresses, with private + link-local/metadata
+#     ranges explicitly excluded (network-layer SSRF backstop)
+#   - inbound to :3000 from the ingress controller
+#
+# NOTE: requires a NetworkPolicy-enforcing CNI (Calico, Cilium, etc.). Tighten
+# the ingress `namespaceSelector` to your actual ingress-controller namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jurisd-default-deny
+  namespace: jurisd
+  labels:
+    app.kubernetes.io/name: jurisd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: jurisd
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Inbound to the HTTP port. Tighten `from` to the ingress-controller
+    # namespace (e.g. namespaceSelector matchLabels kubernetes.io/metadata.name: traefik).
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    # DNS (kube-dns / CoreDNS).
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Outbound HTTPS to public hosts only. Private RFC1918, CGNAT, and
+    # link-local/metadata (169.254.0.0/16, incl. 169.254.169.254) are excluded
+    # so a compromised pod cannot reach internal services or cloud metadata.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+              - 100.64.0.0/10
+      ports:
+        - protocol: TCP
+          port: 443

@@ -9,6 +9,7 @@
  */
 
 import { createRequire } from "node:module";
+import path from "node:path";
 
 const require = createRequire(import.meta.url);
 
@@ -81,6 +82,43 @@ export const IMPLEMENTED_SCHEMA_VERSION = 1;
 /** Module names must be safe SQL identifiers and safe path segments. */
 export const MODULE_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
+/**
+ * A `files[].path` must be a safe relative path: one or more dot/dash/underscore
+ * segments separated by `/`, each segment starting with an alphanumeric. This
+ * forbids absolute paths, `..` traversal, leading slashes, backslashes, and NUL —
+ * the manifest is fetched from a remote (Hugging Face) and an unconstrained path
+ * is a zip-slip-equivalent arbitrary-file-write/read vector (see
+ * `fetchModule`/`verifyModule`).
+ */
+export const SAFE_MODULE_FILE_PATH =
+  /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
+
+/** True when `p` is a safe relative module file path (see {@link SAFE_MODULE_FILE_PATH}). */
+export function isSafeModuleFilePath(p: unknown): p is string {
+  if (typeof p !== "string" || p.length === 0 || p.length > 255) return false;
+  if (p.includes("\0") || p.includes("..") || p.includes("\\")) return false;
+  if (path.isAbsolute(p)) return false;
+  return SAFE_MODULE_FILE_PATH.test(p);
+}
+
+/** Keys whose presence in a parsed manifest indicates a prototype-pollution attempt. */
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
+ * Recursively detect a `__proto__`/`constructor`/`prototype` key in a parsed
+ * (remote) manifest object. `JSON.parse` materialises these as own enumerable
+ * properties, so `Object.entries` sees them; reject rather than risk a later
+ * merge/spread polluting `Object.prototype`.
+ */
+function hasDangerousKey(value: unknown, depth = 0): boolean {
+  if (depth > 8 || value === null || typeof value !== "object") return false;
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (DANGEROUS_KEYS.has(k)) return true;
+    if (hasDangerousKey(v, depth + 1)) return true;
+  }
+  return false;
+}
+
 let _schema: object | null = null;
 
 function loadSchema(): object {
@@ -140,6 +178,12 @@ function structuralValidate(data: unknown): ValidationResult {
     return { valid: false, error: "(root) manifest must be an object" };
   }
   const m = data as Record<string, unknown>;
+  if (hasDangerousKey(m)) {
+    return {
+      valid: false,
+      error: "manifest contains a forbidden key (__proto__/constructor/prototype)",
+    };
+  }
   const requireString = (k: string): string | undefined =>
     typeof m[k] === "string" && (m[k] as string).length > 0
       ? undefined
@@ -148,6 +192,17 @@ function structuralValidate(data: unknown): ValidationResult {
   for (const k of ["name", "module_version", "base_uri"]) {
     const err = requireString(k);
     if (err) return { valid: false, error: err };
+  }
+  // base_uri resolves files[].path; it must be an absolute HTTPS URL so a hostile
+  // manifest cannot point asset fetches at file:/data:/javascript: or plain HTTP.
+  let baseUrl: URL;
+  try {
+    baseUrl = new URL(m.base_uri as string);
+  } catch {
+    return { valid: false, error: "base_uri must be a valid absolute URL" };
+  }
+  if (baseUrl.protocol !== "https:") {
+    return { valid: false, error: `base_uri must use https (got ${baseUrl.protocol})` };
   }
   if (typeof m.schema_version !== "number" || !Number.isInteger(m.schema_version)) {
     return { valid: false, error: "schema_version must be an integer" };
@@ -172,6 +227,12 @@ function structuralValidate(data: unknown): ValidationResult {
     const file = f as Record<string, unknown>;
     if (typeof file.path !== "string" || typeof file.sha256 !== "string") {
       return { valid: false, error: "files[].path and files[].sha256 are required" };
+    }
+    if (!isSafeModuleFilePath(file.path)) {
+      return {
+        valid: false,
+        error: `files[].path '${String(file.path)}' is not a safe relative path`,
+      };
     }
     if (!/^[a-f0-9]{64}$/.test(file.sha256)) {
       return { valid: false, error: `files[].sha256 must be lowercase hex sha256 (${file.path})` };

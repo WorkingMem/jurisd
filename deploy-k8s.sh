@@ -2,7 +2,7 @@
 # Deploy script for jurisd to k3s cluster
 # This script deploys or updates the jurisd service on a k3s cluster
 
-set -e
+set -euo pipefail
 
 ACTION=${1:-apply}
 NAMESPACE="jurisd"
@@ -46,6 +46,9 @@ echo "   ✓ Namespace created/updated"
 
 kubectl apply -f k8s/configmap.yaml
 echo "   ✓ ConfigMap created/updated"
+
+kubectl apply -f k8s/networkpolicy.yaml
+echo "   ✓ NetworkPolicy created/updated"
 
 kubectl apply -f k8s/deployment.yaml
 echo "   ✓ Deployment created/updated"

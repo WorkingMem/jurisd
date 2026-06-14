@@ -33,9 +33,21 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
-        
+
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    reviewers:
+      - "russellbrenner"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Keep the Dockerfile base-image digest pin current.
+  - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"

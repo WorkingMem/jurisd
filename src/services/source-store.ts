@@ -11,7 +11,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import axios from "axios";
 import { fetchDocumentText } from "./fetcher.js";
-import { assertFetchableUrl } from "../utils/url-guard.js";
+import { assertFetchableUrl, assertRedirectAllowed, MAX_REDIRECTS } from "../utils/url-guard.js";
 
 export interface FreshnessResult {
   /** True when the server confirmed the local copy is current (HTTP 304). */
@@ -73,6 +73,8 @@ export async function checkSourceFreshness(
       headers,
       validateStatus: (s) => s === 200 || s === 304,
       timeout: 10_000,
+      maxRedirects: MAX_REDIRECTS,
+      beforeRedirect: assertRedirectAllowed,
     });
 
     return {
@@ -144,7 +146,11 @@ export async function storeSource(
   if (!etag && !lastModified) {
     try {
       assertFetchableUrl(url);
-      const headResp = await axios.head(url, { timeout: 10_000 });
+      const headResp = await axios.head(url, {
+        timeout: 10_000,
+        maxRedirects: MAX_REDIRECTS,
+        beforeRedirect: assertRedirectAllowed,
+      });
       etag = (headResp.headers["etag"] as string) ?? undefined;
       lastModified = (headResp.headers["last-modified"] as string) ?? undefined;
     } catch {

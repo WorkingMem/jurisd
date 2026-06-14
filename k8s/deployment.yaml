@@ -39,8 +39,14 @@ spec:
             value: "1"
       containers:
         - name: jurisd
+          # SECURITY: pin to an immutable digest in production. CI publishes an
+          # immutable ghcr.io/<owner>/jurisd:<git-sha> tag per build (see
+          # .github/workflows/docker.yml) alongside a floating :latest. Replace
+          # the tag below with @sha256:<digest> of the build you intend to run.
           image: ghcr.io/OWNER/jurisd:latest
-          imagePullPolicy: IfNotPresent
+          # Always re-pull while a floating tag is in use so a node cannot serve
+          # a stale or poisoned cached :latest (no effect once pinned by digest).
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
               name: http
@@ -52,6 +58,14 @@ spec:
               mountPath: /app/config.yaml
               subPath: config.yaml
               readOnly: true
+            # Writable scratch + state mounts so the container can run with a
+            # read-only root filesystem (securityContext below). /tmp holds
+            # fetch-module downloads + DuckDB scratch; /data holds installed
+            # modules and the citation cache (AUSLAW_CACHE_DIR=/data/cache).
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
           resources:
             requests:
               memory: "256Mi"
@@ -79,7 +93,9 @@ spec:
             runAsNonRoot: true
             runAsUser: 1001
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop:
                 - ALL
@@ -90,5 +106,11 @@ spec:
             items:
               - key: config.yaml
                 path: config.yaml
+        - name: tmp
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
       securityContext:
         fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault

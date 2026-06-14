@@ -61,7 +61,9 @@ describe("Constants", () => {
     it("should have sensible values", () => {
       expect(DEFAULT_TIMEOUT_MS).toBe(30_000);
       expect(LONG_TIMEOUT_MS).toBe(60_000);
-      expect(MAX_CONTENT_LENGTH).toBe(50 * 1024 * 1024);
+      // Bounded to 10 MB so a single hostile/oversized response can't drive
+      // unbounded cheerio DOM + parse cost (DoS hardening).
+      expect(MAX_CONTENT_LENGTH).toBe(10 * 1024 * 1024);
     });
   });
 });

@@ -22,6 +22,11 @@ data:
   # Node Environment
   NODE_ENV: "production"
 
+  # Writable state dir on the read-only-rootfs pod. The citation cache (and its
+  # sources/ subdir) default to the process cwd (/app), which is read-only in
+  # the deployment; point them at the /data emptyDir mount instead.
+  AUSLAW_CACHE_DIR: "/data/cache"
+
   # Transport: http for k8s deployment, stdio for local MCP usage
   MCP_TRANSPORT: "http"
 

@@ -2,7 +2,7 @@
 # Build and package script for jurisd
 # This script builds the Docker image and optionally exports it for k3s deployment
 
-set -e
+set -euo pipefail
 
 VERSION=${1:-latest}
 IMAGE_NAME="jurisd:${VERSION}"
@@ -23,7 +23,7 @@ echo ""
 read -p "Export image for k3s deployment? (y/n) " -n 1 -r
 echo ""
 
-if [[ $REPLY =~ ^[Yy]$ ]]; then
+if [[ ${REPLY:-} =~ ^[Yy]$ ]]; then
     echo "📦 Exporting image to ${EXPORT_TAR}..."
     docker save "${IMAGE_NAME}" -o "${EXPORT_TAR}"
     echo ""

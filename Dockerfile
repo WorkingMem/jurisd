@@ -9,7 +9,9 @@
 # prebuilt artefact for the build arch directly.
 
 # ── Stage 1: build the TypeScript ──────────────────────────────────────────
-FROM node:20-bookworm-slim AS builder
+# Base image pinned by multi-arch manifest digest (supply-chain: an immutable
+# base, not a mutable tag). Update the digest with the tag when bumping Node.
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS builder
 
 WORKDIR /app
 
@@ -30,7 +32,7 @@ COPY src ./src
 RUN npm run build
 
 # ── Stage 2: slim runtime ──────────────────────────────────────────────────
-FROM node:20-bookworm-slim AS runtime
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS runtime
 
 WORKDIR /app
 
