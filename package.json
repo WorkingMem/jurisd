@@ -43,7 +43,7 @@
     "url": "https://github.com/russellbrenner/jurisd/issues"
   },
   "author": "Russell Brenner",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "engines": {
     "node": ">=20.18.1"

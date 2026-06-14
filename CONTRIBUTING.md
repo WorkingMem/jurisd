@@ -10,7 +10,7 @@ Please be respectful and constructive in all interactions. We are committed to p
 
 ### Prerequisites
 
-- Node.js 18.x or higher
+- Node.js 20.18.1 or higher
 - npm or yarn package manager
 - Git
 
@@ -139,7 +139,6 @@ Update documentation when:
 Files to update:
 
 - `README.md` - User-facing documentation
-- `docs/ROADMAP.md` - Feature planning (if major changes)
 - JSDoc comments - All exported functions
 
 ## Pull Request Process
@@ -215,8 +214,7 @@ Files to update:
 
 **Before submitting:**
 
-- Check ROADMAP.md for planned features
-- Search existing issues/discussions
+- Search existing issues/discussions for planned or in-flight work
 
 **Include:**
 
@@ -237,7 +235,6 @@ Files to update:
 **Major features:**
 
 - Discuss in an issue first
-- Follow the ROADMAP.md priorities
 - Break into smaller PRs when possible
 
 ## Testing
@@ -283,31 +280,32 @@ describe("searchAustLii", () => {
 
 ## Project Structure
 
+Representative tree (not exhaustive):
+
 ```
 src/
-├── index.ts              # MCP server entry point
+├── index.ts              # Entry point: bootstrap + transport (stdio / HTTP)
+├── server.ts             # MCP server — registers the tool surface
+├── cli.ts                # CLI: module management + each tool as a subcommand
 ├── config.ts             # Configuration management
 ├── constants.ts          # Shared constants
 ├── errors.ts             # Custom error classes
+├── data/                 # Data-module manifest schema + types
 ├── services/
 │   ├── austlii.ts       # AustLII search integration
 │   ├── source.ts          # removed.invalid citation resolution & cross-referencing
 │   └── fetcher.ts       # Document text retrieval
 ├── utils/
-│   ├── formatter.ts     # Output formatting
-│   └── logger.ts        # Structured logging
-└── test/
-    ├── unit/            # Unit tests
-    ├── fixtures/        # Test fixtures (HTML responses)
-    ├── performance/     # Performance benchmarks
-    ├── scenarios.test.ts # Integration test scenarios
-    └── source.test.ts     # removed.invalid integration tests
+│   ├── formatter.ts      # Output formatting
+│   ├── logger.ts         # Structured logging
+│   ├── rate-limiter.ts   # Per-source rate limiting
+│   └── url-guard.ts      # URL validation / SSRF guard
+└── test/                 # unit / integration / performance / scenarios
 ```
 
 ## Resources
 
 - **Project Documentation**: [README.md](README.md)
-- **Development Roadmap**: [docs/ROADMAP.md](docs/ROADMAP.md)
 - **AustLII Search Help**: https://www.austlii.edu.au/austlii/help/search.html
 - **MCP Specification**: https://modelcontextprotocol.io/
 
@@ -320,7 +318,9 @@ src/
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions are licensed under the project's
+[Apache License 2.0](LICENSE), per section 5 of that licence (inbound = outbound).
+Retain the `NOTICE` file's attribution in any redistribution.
 
 ---
 

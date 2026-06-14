@@ -1,0 +1,15 @@
+jurisd
+Copyright 2024 Russell Brenner and contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+jurisd formats and verifies legal citations against the Australian Guide to Legal
+Citation (4th ed) ("AGLC4"), published by the Melbourne University Law Review
+Association Inc in collaboration with the Melbourne Journal of International Law Inc.
+AGLC4 is a separate copyrighted work and is not distributed with, or licensed by,
+this project; its citation rules are used to produce and check conformant output,
+not to reproduce the guide.
+
+jurisd queries third-party legal databases (including AustLII and removed.invalid) at
+runtime. Content retrieved from those sources remains the property of its respective
+owners and is not redistributed as part of this project.
