@@ -297,7 +297,7 @@ function calculateAuthorityScore(result: SearchResult): number {
 3. ✅ `decodeInt(encoded)` - inverse of existing `encodeInt` for article ID decoding
 4. ✅ `parseResolveRecordsResponse(text)` - extracts case names, neutral + reported citations, and source article IDs from "document in Source" descriptor anchors in the string table
 5. ✅ `searchUpstream(query, options)` - replaces placeholder, calls `resolveRecords` via POST to `/sourceService.do`
-6. ✅ `search_cases` MCP tool now runs AustLII and removed.invalid in parallel, deduplicates by neutral citation
+6. ✅ `search_cases` MCP tool merges removed.invalid citation data into AustLII case-search results at runtime, deduplicating by neutral citation
 7. ✅ Graceful degradation: returns `[]` when `SESSION_COOKIE` is unset (no error to caller)
 8. ✅ HAR fixture files for deterministic testing: `propose-citables-mabo.txt` (75KB) and `propose-citables-rice.txt`
 

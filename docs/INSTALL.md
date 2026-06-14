@@ -107,11 +107,11 @@ both work. Set them only to enable the feature each one gates.
 
 ### Authentication / BYOK
 
-| Variable              | Enables                                                                                              |
-| --------------------- | ---------------------------------------------------------------------------------------------------- |
-| `SESSION_COOKIE` | removed.invalid authenticated search, full-text fetch, and the citator. Your own subscription cookie.        |
-| `ISAACUS_API_KEY`     | The optional **domain-specialised** adapter slot (rerank + extractive-QA) over local results (BYOK). |
-| `ISAACUS_BASE_URL`    | Override the domain-adapter endpoint (optional; defaults to the provider's base URL).                |
+| Variable              | Enables                                                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_COOKIE` | removed.invalid citation/article resolution, the citator (citing-cases), and authenticated full-text fetch at runtime. Your own subscription cookie. |
+| `ISAACUS_API_KEY`     | The optional **domain-specialised** adapter slot (rerank + extractive-QA) over local results (BYOK).                                         |
+| `ISAACUS_BASE_URL`    | Override the domain-adapter endpoint (optional; defaults to the provider's base URL).                                                        |
 
 **`SESSION_COOKIE`** — log in to removed.invalid in your browser, open DevTools →
 Network, navigate to any article, copy the full `Cookie` request header value
@@ -142,7 +142,7 @@ distinction is capability presence, framed as baseline vs domain-specialised.
 | `JURISD_MODELS_DIR`            | `~/.jurisd/models`  | Cache dir for the local embedding model.                                                                           |
 | `JURISD_EMBED_OFFLINE`         | `false`             | Hard-fail rather than reach the network for the embedding model (air-gapped installs must pre-seed the model dir). |
 
-### Live layer / OCR / search defaults
+### Live layer / search defaults
 
 | Variable                | Effect                                                 |
 | ----------------------- | ------------------------------------------------------ |
@@ -151,8 +151,6 @@ distinction is capability presence, framed as baseline vs domain-specialised.
 | `AUSTLII_REFERER`       | Referer header.                                        |
 | `AUSTLII_USER_AGENT`    | User-agent string.                                     |
 | `AUSTLII_TIMEOUT`       | Request timeout (ms).                                  |
-| `OCR_LANGUAGE`          | Tesseract OCR language (default `eng`).                |
-| `OCR_OEM`, `OCR_PSM`    | OCR engine + page-segmentation modes.                  |
 | `DEFAULT_SEARCH_LIMIT`  | Default search results (default 10).                   |
 | `MAX_SEARCH_LIMIT`      | Maximum search results (default 50).                   |
 | `DEFAULT_OUTPUT_FORMAT` | Default format: `json` / `text` / `markdown` / `html`. |

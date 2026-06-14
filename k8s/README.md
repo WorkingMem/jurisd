@@ -103,9 +103,6 @@ All configuration is managed through the ConfigMap (`k8s/configmap.yaml`). To mo
 | `SOURCE_BASE_URL`         | `https://removed.invalid`                                 | removed.invalid base URL             |
 | `SOURCE_USER_AGENT`       | `jurisd/0.1.0 (legal research tool)`              | removed.invalid user agent           |
 | `SOURCE_TIMEOUT`          | `15000`                                           | removed.invalid request timeout (ms) |
-| `OCR_LANGUAGE`          | `eng`                                             | Tesseract OCR language       |
-| `OCR_OEM`               | `1`                                               | OCR Engine Mode              |
-| `OCR_PSM`               | `3`                                               | Page Segmentation Mode       |
 | `DEFAULT_SEARCH_LIMIT`  | `10`                                              | Default search results       |
 | `MAX_SEARCH_LIMIT`      | `50`                                              | Maximum search results       |
 | `DEFAULT_OUTPUT_FORMAT` | `json`                                            | Default output format        |
