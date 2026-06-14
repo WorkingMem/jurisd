@@ -27,7 +27,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
+# tsconfig.build.json (extends tsconfig.json) is the project the build script
+# compiles; both must be present or `tsc -p tsconfig.build.json` fails (TS5058).
+COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 RUN npm run build
 

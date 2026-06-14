@@ -1,0 +1,278 @@
+name: Security Scan
+
+# Layered scanning stack (mirrors the house pattern from lawgraphlm/voicetree,
+# adapted to GitHub Actions + SHA-pinned actions + SARIF code-scanning):
+#   - Secrets:   gitleaks (BLOCKING, introduced commits) + TruffleHog (verified)
+#   - SAST:      Semgrep (OWASP/Node/TS) -> SARIF
+#   - SCA + IaC: Trivy fs (vuln,secret,config) -> SARIF
+#   - Container: Trivy image scan of the built Docker image -> SARIF
+#   - Runtime:   container smoke (boots http transport under the hardened
+#                runtime posture and probes /health) -- BLOCKING
+#   - CI lint:   actionlint (BLOCKING) + hadolint
+#
+# Gating policy: secrets + workflow lint + container smoke block; SAST/SCA/image
+# scans are report-only (upload to the Security tab) until the baseline is clean,
+# then tighten to fail on HIGH/CRITICAL.
+#
+# Scanners are installed as pinned binaries (no unpinned marketplace actions);
+# upload-sarif is the one action, SHA-pinned.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          VERSION=8.30.1
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+          sudo install /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Determine scan range
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            echo "log_opts=${PR_BASE}..${PR_HEAD}" >> "$GITHUB_OUTPUT"
+          elif [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "log_opts=${SHA}~1..${SHA}" >> "$GITHUB_OUTPUT"
+          else
+            echo "log_opts=${BEFORE}..${SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Scan introduced commits for secrets (blocking)
+        env:
+          LOG_OPTS: ${{ steps.range.outputs.log_opts }}
+        run: |
+          set -euo pipefail
+          gitleaks git . \
+            --redact --no-banner --exit-code 1 \
+            --config .gitleaks.toml \
+            --log-opts="$LOG_OPTS"
+
+      - name: Install TruffleHog
+        run: |
+          set -euo pipefail
+          VERSION=3.95.5
+          curl -fsSL "https://github.com/trufflesecurity/trufflehog/releases/download/v${VERSION}/trufflehog_${VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C /tmp trufflehog
+          sudo install /tmp/trufflehog /usr/local/bin/trufflehog
+          trufflehog --version
+
+      - name: TruffleHog verified secrets (non-blocking)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          trufflehog filesystem . --only-verified --fail
+
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Run Semgrep
+        run: |
+          set -euo pipefail
+          pip install --quiet semgrep==1.166.0
+          # Report-only: emit SARIF, never fail the job (findings land in the
+          # Security tab). Drop the trailing '|| true' and add --error to block.
+          semgrep scan \
+            --sarif --output semgrep.sarif \
+            --config p/security-audit \
+            --config p/secrets \
+            --config p/owasp-top-10 \
+            --config p/xss \
+            --config p/nodejs \
+            --config p/typescript \
+            --exclude dist --exclude node_modules --exclude 'src/test' \
+            || true
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  sca:
+    name: SCA + IaC (Trivy fs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Install Trivy
+        run: |
+          set -euo pipefail
+          VERSION=0.71.0
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${VERSION}/trivy_${VERSION}_Linux-64bit.tar.gz" \
+            | tar -xz -C /tmp trivy
+          sudo install /tmp/trivy /usr/local/bin/trivy
+          trivy --version
+
+      - name: Trivy filesystem scan (vuln, secret, config) -> SARIF
+        run: |
+          set -euo pipefail
+          trivy fs \
+            --scanners vuln,secret,config \
+            --severity CRITICAL,HIGH,MEDIUM \
+            --format sarif --output trivy-fs.sarif \
+            --exit-code 0 \
+            .
+
+      - name: Upload Trivy fs SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+  image-scan:
+    name: Container image scan (Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Build image
+        run: docker build -t jurisd:scan .
+
+      - name: Install Trivy
+        run: |
+          set -euo pipefail
+          VERSION=0.71.0
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${VERSION}/trivy_${VERSION}_Linux-64bit.tar.gz" \
+            | tar -xz -C /tmp trivy
+          sudo install /tmp/trivy /usr/local/bin/trivy
+
+      - name: Trivy image scan -> SARIF
+        run: |
+          set -euo pipefail
+          trivy image \
+            --scanners vuln,secret \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            --format sarif --output trivy-image.sarif \
+            --exit-code 0 \
+            jurisd:scan
+
+      - name: Upload Trivy image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+  container-smoke:
+    name: Container smoke (/health)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Build image
+        run: docker build -t jurisd:smoke .
+
+      - name: Run container under the hardened runtime posture
+        run: |
+          set -euo pipefail
+          # Mirrors the k8s securityContext (read-only rootfs, tmpfs /tmp + /data,
+          # all caps dropped, no privilege escalation) so the smoke also proves
+          # the image runs under the deployment's M4 hardening.
+          docker run -d --name jurisd-smoke \
+            -e MCP_TRANSPORT=http \
+            -p 3000:3000 \
+            --read-only --tmpfs /tmp --tmpfs /data \
+            --cap-drop ALL --security-opt no-new-privileges \
+            jurisd:smoke
+
+      - name: Wait for /health
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/health >/dev/null 2>&1; then
+              echo "container healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::container did not become healthy within 30s"
+          docker logs jurisd-smoke || true
+          exit 1
+
+      - name: Teardown
+        if: always()
+        run: docker rm -f jurisd-smoke || true
+
+  workflow-lint:
+    name: Workflow + Dockerfile lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: actionlint (blocking)
+        env:
+          # actionlint runs shellcheck over run: blocks. Block on real issues
+          # (warning/error) but not style/info nits like SC2129.
+          SHELLCHECK_OPTS: "--severity=warning"
+        run: |
+          set -euo pipefail
+          VERSION=1.7.12
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C /tmp actionlint
+          sudo install /tmp/actionlint /usr/local/bin/actionlint
+          actionlint -color
+
+      - name: hadolint Dockerfile (non-blocking)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          VERSION=2.14.0
+          curl -fsSL "https://github.com/hadolint/hadolint/releases/download/v${VERSION}/hadolint-Linux-x86_64" \
+            -o /tmp/hadolint
+          sudo install /tmp/hadolint /usr/local/bin/hadolint
+          hadolint Dockerfile

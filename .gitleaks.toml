@@ -1,0 +1,23 @@
+# gitleaks config for jurisd.
+# Extends the upstream default ruleset; allowlists known non-secret placeholders
+# and test fixtures so the CI secret gate (.github/workflows/security.yml) and a
+# local pre-commit run stay free of false positives.
+title = "jurisd gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders and test fixtures (no real credentials)"
+paths = [
+  '''\.env\.example$''',
+  '''(^|/)src/test/.*''',
+  '''package-lock\.json$''',
+  '''(^|/)CHANGELOG\.md$''',
+]
+# The committed sample/config values are templates, not live secrets.
+regexes = [
+  '''SESSION_COOKIE=\$\{?SESSION_COOKIE''',
+  '''ISAACUS_API_KEY=\$\{?ISAACUS_API_KEY''',
+  '''your-[a-z-]*-here''',
+]
