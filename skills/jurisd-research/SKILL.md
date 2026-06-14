@@ -5,8 +5,8 @@ description: Expert Australian/NZ legal research and AGLC4 citation using the ju
 
 # jurisd: Australian/NZ legal research
 
-jurisd is an MCP server for AU/NZ legal research. It searches AustLII and jade.io,
-fetches full-text judgments (with OCR fallback), formats AGLC4 citations, manages a
+jurisd is an MCP server for AU/NZ legal research. It searches AustLII (with jade.io
+citation enhancement at runtime), fetches full-text judgments, formats AGLC4 citations, manages a
 local citation cache + bibliography, and serves offline recall from installed data
 modules. There are **15 tools**; operation variants are picked via a
 `mode`/`op`/`action`/`by` discriminator, not separate tools.
@@ -33,12 +33,12 @@ with module name, version, and snapshot date; mind the staleness advisory.
 
 ### Live research
 
-- **`search_cases`** — NL case-law search across all AU/NZ jurisdictions (AustLII +
-  jade.io merged, authority-ranked). `method`: auto/title/phrase/all/any/near/boolean;
+- **`search_cases`** — NL case-law search across all AU/NZ jurisdictions (AustLII,
+  authority-ranked; jade.io citation data cross-referenced into results at runtime). `method`: auto/title/phrase/all/any/near/boolean;
   `jurisdiction`; `sortBy` auto/relevance/date; `offset` for pagination.
 - **`search_legislation`** — same controls for legislation (`method` adds `legis`).
-- **`fetch_document_text`** — full text from an AustLII or jade.io URL (HTML, PDF+OCR,
-  jade.io GWT-RPC). Pass `citeKey` to also save a local source copy + freshness headers.
+- **`fetch_document_text`** — full text from an AustLII or jade.io URL (HTML, PDF via
+  pdf-parse, jade.io GWT-RPC). Pass `citeKey` to also save a local source copy + freshness headers.
 
 ### Citation + bibliography (AGLC4)
 
