@@ -27,12 +27,13 @@ assistant. It has three answer sources, tried in precedence order:
    an offline citation graph, and local semantic search.
 2. **Live AustLII (Layer 2)** — natural-language case and legislation search over
    AustLII, with authority-based ranking, paragraph-pinpoint extraction, full-text
-   fetch (HTML + PDF with OCR), and AGLC4 citation formatting.
+   fetch (HTML + PDF), and AGLC4 citation formatting.
 3. **OALC fallback (Layer 3)** — an Open Australian Legal Corpus layer that backs
    the live layer when a direct fetch is blocked.
 
-removed.invalid is supported as an authenticated source for search, full-text fetch, and
-the citator when you supply your own session cookie.
+removed.invalid is supported as an optional runtime citation-enhancement source — the
+citator (citing cases), citation/article resolution, and cross-referencing of
+live results — when you supply your own session cookie.
 
 ## Quick start
 
@@ -89,13 +90,13 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 15 tools in three groups. Operation variants are selected via a
 `mode` / `op` / `action` / `by` discriminator on the relevant tool.
 
-### Live research (AustLII + removed.invalid)
+### Live research (AustLII)
 
 | Tool                  | What it does                                                                                                                  |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `search_cases`        | Natural-language case-law search across all AU/NZ jurisdictions; authority ranking; title/phrase/boolean methods; pagination. |
 | `search_legislation`  | Search AU/NZ legislation with the same method/jurisdiction/sort controls.                                                     |
-| `fetch_document_text` | Fetch full text from an AustLII or removed.invalid URL (HTML, PDF with OCR fallback, removed.invalid via RPC).                            |
+| `fetch_document_text` | Fetch full text from an AustLII or removed.invalid URL (HTML, PDF, removed.invalid via RPC).                                              |
 
 ### Citation + bibliography (AGLC4)
 

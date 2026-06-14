@@ -13,7 +13,6 @@ Please be respectful and constructive in all interactions. We are committed to p
 - Node.js 18.x or higher
 - npm or yarn package manager
 - Git
-- (Optional) Tesseract OCR for testing PDF functionality
 
 ### Setting Up Development Environment
 
@@ -292,7 +291,7 @@ src/
 ├── errors.ts             # Custom error classes
 ├── services/
 │   ├── austlii.ts       # AustLII search integration
-│   ├── source.ts          # removed.invalid search & cross-referencing
+│   ├── source.ts          # removed.invalid citation resolution & cross-referencing
 │   └── fetcher.ts       # Document text retrieval
 ├── utils/
 │   ├── formatter.ts     # Output formatting

@@ -11,46 +11,32 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 
 **Key Features:**
 
-- Dual-source search (AustLII + removed.invalid)
-- OCR-capable PDF extraction
+- AustLII case + legislation search, with removed.invalid citation enhancement
+- Digital PDF text extraction (pdf-parse)
 - AGLC4 citation formatting
-- removed.invalid citator integration
+- removed.invalid citator integration (runtime)
 
 ---
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────┐
-│ MCP Clients (Claude Code, Cursor, etc.) │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌──────────────────────────────────────────────┐
-│ jurisd Server (15 Tools)                       │
-│ ┌──────────────────────────────────────────┐  │
-│ │ Live + citation (10):                     │  │
-│ │  search_cases, search_legislation,        │  │
-│ │  fetch_document_text, format_citation,    │  │
-│ │  resolve_citation, source_lookup,           │  │
-│ │  search_citing_cases, cite,               │  │
-│ │  bibliography, cache_cited_by             │  │
-│ ├──────────────────────────────────────────┤  │
-│ │ Local data-module recall (5, offline):    │  │
-│ │  get_provision, get_act_structure,        │  │
-│ │  find_citing, semantic_search_local,      │  │
-│ │  list_data_modules                        │  │
-│ └──────────────────────────────────────────┘  │
-└──────────────────────────────────────────────┘
-        │            │              │
-        ▼            ▼              ▼
-   ┌─────────┐  ┌─────────┐  ┌──────────────────┐
-   │ Live    │  │ Local   │  │ Domain adapter   │
-   │ sources │  │ data    │  │ slot (optional)  │
-   │ AustLII │  │ modules │  │ baseline ↔       │
-   │ removed.invalid │  │ (DuckDB │  │ domain-special-  │
-   │         │  │ parquet)│  │ ised, BYOK       │
-   └─────────┘  └─────────┘  └──────────────────┘
+```mermaid
+flowchart TD
+    Clients["MCP Clients (Claude Code, Cursor, etc.)"]
+
+    subgraph Server["jurisd Server (15 tools)"]
+        Live["Live + citation (10):<br/>search_cases, search_legislation, fetch_document_text,<br/>format_citation, resolve_citation, source_lookup,<br/>search_citing_cases, cite, bibliography, cache_cited_by"]
+        Local["Local data-module recall (5, offline):<br/>get_provision, get_act_structure, find_citing,<br/>semantic_search_local, list_data_modules"]
+    end
+
+    LiveSrc["Live sources:<br/>AustLII (primary search),<br/>removed.invalid (runtime citation enhancement)"]
+    Modules["Local data modules<br/>(DuckDB over parquet)"]
+    Adapter["Domain-adapter slot (optional):<br/>baseline vs domain-specialised, BYOK"]
+
+    Clients --> Server
+    Live --> LiveSrc
+    Local --> Modules
+    Local --> Adapter
 ```
 
 The domain-adapter slot is **vendor-neutral**: the baseline adapter (pure local
@@ -70,9 +56,9 @@ The distinction is capability presence, never a paid/free tier.
 Live + citation (10):
 | Tool | Description |
 |------|-------------|
-| search_cases | Dual AustLII + removed.invalid case search |
+| search_cases | AustLII case search, cross-referenced with removed.invalid citation data |
 | search_legislation | AustLII legislation search |
-| fetch_document_text | Full-text retrieval (HTML/PDF/OCR) |
+| fetch_document_text | Full-text retrieval (HTML/PDF) |
 | format_citation | AGLC4 formatting: `mode: full\|short\|ibid\|subsequent\|pinpoint` |
 | resolve_citation | Citation resolution: `mode: auto\|validate\|search` |
 | source_lookup | removed.invalid lookup: `by: article_id\|citation` |
@@ -96,16 +82,17 @@ Local data-module recall (5; offline, closed-world over installed modules):
 - Authority-based ranking (HCA > FCAFC > FCA > state courts)
 - Rate limiting: 10 req/min
 
-### 3. removed.invalid Service
+### 3. removed.invalid Service (runtime citation enhancement)
 
 - RPC reverse-engineering
-- Protocols: resolveRecords (search), fetchRequest (fetch), RemoteService (citator)
+- Protocols: resolveRecords (citable lookup), fetchRequest (fetch), RemoteService (citator)
+- Cross-references removed.invalid citation data into live results; AustLII remains the primary search backend
 - Rate limiting: 5 req/min
 
 ### 4. Document Fetcher
 
 - HTML: Cheerio parse
-- PDF: pdf-parse + Tesseract OCR fallback
+- PDF: pdf-parse (digital text only)
 - Extracts paragraphs for pinpoint citations
 
 ### 5. Citation Service
@@ -165,7 +152,6 @@ MCP_TRANSPORT=http npm start
 | ------------------- | ----------------- | --------------------------------------------- |
 | AUSTLII_SEARCH_BASE | AustLII URL       | Search endpoint                               |
 | AUSTLII_TIMEOUT     | 60000             | Request timeout (ms)                          |
-| OCR_LANGUAGE        | eng               | Tesseract language                            |
 | SESSION_COOKIE | —                 | removed.invalid auth cookie                           |
 | MCP_TRANSPORT       | stdio             | stdio or http                                 |
 | ISAACUS_API_KEY     | —                 | BYOK key for the optional domain-adapter slot |
