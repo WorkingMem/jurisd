@@ -13,7 +13,11 @@ import {
   semanticSearchLocal,
   listDataModules,
 } from "../../services/modules.js";
-import { setQueryEmbedderForTest, resetEmbedder, isEmbedderAvailable } from "../../services/embedder.js";
+import {
+  setQueryEmbedderForTest,
+  resetEmbedder,
+  isEmbedderAvailable,
+} from "../../services/embedder.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(__dirname, "../fixtures/modules");
