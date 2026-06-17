@@ -274,20 +274,45 @@ describe("jade.io cross-referencing", () => {
   });
 });
 
-describe("jade.io search placeholder", () => {
-  it("should return empty array (no public API)", async () => {
+describe("jade.io search", () => {
+  it("returns case results when configured, otherwise degrades to an empty array", async () => {
     const results = await searchJade("negligence", {
       type: "case",
       limit: 5,
     });
-    expect(results).toEqual([]);
+
+    if (!process.env.JADE_SESSION_COOKIE) {
+      expect(results).toEqual([]);
+      return;
+    }
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.length).toBeLessThanOrEqual(5);
+    for (const result of results) {
+      expect(result.source).toBe("jade");
+      expect(result.type).toBe("case");
+      expect(result.title.length).toBeGreaterThan(0);
+      expect(result.url).toMatch(/^https:\/\/jade\.io\//);
+    }
   });
 
-  it("should return empty array for legislation search", async () => {
+  it("returns legislation results when configured, otherwise degrades to an empty array", async () => {
     const results = await searchJade("corporations act", {
       type: "legislation",
     });
-    expect(results).toEqual([]);
+
+    if (!process.env.JADE_SESSION_COOKIE) {
+      expect(results).toEqual([]);
+      return;
+    }
+
+    expect(results.length).toBeGreaterThan(0);
+    for (const result of results) {
+      expect(result.source).toBe("jade");
+      expect(result.type).toBe("legislation");
+      expect(result.title.length).toBeGreaterThan(0);
+      expect(result.url).toMatch(/^https:\/\/jade\.io\//);
+    }
   });
 });
 
