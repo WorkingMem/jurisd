@@ -26,6 +26,9 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
+import { getCommandContractByCliName } from "./commands/contracts.js";
+import { renderCommandHelp, renderCommandList, renderTopLevelHelp } from "./commands/help.js";
+import { contractToToolCommand, type ToolCommand } from "./commands/legacy-cli.js";
 import { createMcpServer } from "./server.js";
 import { fetchModule, verifyModule } from "./services/fetch-module.js";
 import { listDataModules, setModulesRootForTest } from "./services/modules.js";
@@ -50,131 +53,6 @@ function parseFlags(args: string[]): { positional: string[]; flags: Record<strin
   }
   return { positional, flags };
 }
-
-/**
- * Declarative mapping from a CLI subcommand to its registered MCP tool.
- *
- * `positional` lists the required-first schema fields that may be supplied
- * positionally, in order. Every other schema field is accepted as a flag whose
- * kebab-case name maps to the camelCase field (e.g. `--neutral-citation` ->
- * `neutralCitation`). `numeric`/`boolean`/`array` declare the coercion applied
- * to a flag's string value; anything else passes through as a string.
- */
-interface ToolCommand {
-  tool: string;
-  positional: string[];
-  numeric: string[];
-  boolean: string[];
-  array: string[];
-}
-
-const TOOL_COMMANDS: Record<string, ToolCommand> = {
-  "search-cases": {
-    tool: "search_cases",
-    positional: ["query"],
-    numeric: ["limit", "offset"],
-    boolean: [],
-    array: [],
-  },
-  "search-legislation": {
-    tool: "search_legislation",
-    positional: ["query"],
-    numeric: ["limit", "offset"],
-    boolean: [],
-    array: [],
-  },
-  "resolve-citation": {
-    tool: "resolve_citation",
-    positional: ["citation"],
-    numeric: [],
-    boolean: [],
-    array: [],
-  },
-  "format-citation": {
-    tool: "format_citation",
-    positional: ["title"],
-    numeric: ["footnoteRef", "pinpointPara", "pinpointPage", "paragraphNumber"],
-    boolean: [],
-    array: [],
-  },
-  "get-provision": {
-    tool: "get_provision",
-    positional: ["act", "provision"],
-    numeric: [],
-    boolean: [],
-    array: [],
-  },
-  "get-act-structure": {
-    tool: "get_act_structure",
-    positional: ["act"],
-    numeric: ["depth"],
-    boolean: [],
-    array: [],
-  },
-  "find-citing": {
-    tool: "find_citing",
-    positional: ["target"],
-    numeric: ["limit"],
-    boolean: [],
-    array: ["kinds"],
-  },
-  "semantic-search-local": {
-    tool: "semantic_search_local",
-    positional: ["query"],
-    numeric: ["k"],
-    boolean: [],
-    array: [],
-  },
-  "list-data-modules": {
-    tool: "list_data_modules",
-    positional: [],
-    numeric: [],
-    boolean: ["refresh", "includeInvalid"],
-    array: [],
-  },
-  "search-citing-cases": {
-    tool: "search_citing_cases",
-    positional: ["caseName"],
-    numeric: [],
-    boolean: [],
-    array: [],
-  },
-  "cache-cited-by": {
-    tool: "cache_cited_by",
-    positional: ["citeKey"],
-    numeric: [],
-    boolean: [],
-    array: [],
-  },
-  bibliography: {
-    tool: "bibliography",
-    positional: [],
-    numeric: [],
-    boolean: [],
-    array: [],
-  },
-  cite: {
-    tool: "cite",
-    positional: ["title"],
-    numeric: ["year", "footnoteNumber"],
-    boolean: [],
-    array: ["keywords"],
-  },
-  "jade-lookup": {
-    tool: "jade_lookup",
-    positional: [],
-    numeric: ["articleId"],
-    boolean: [],
-    array: [],
-  },
-  "fetch-document-text": {
-    tool: "fetch_document_text",
-    positional: ["url"],
-    numeric: [],
-    boolean: [],
-    array: [],
-  },
-};
 
 /** Convert a kebab-case flag name to the camelCase schema field it targets. */
 function flagToField(flag: string): string {
@@ -262,18 +140,7 @@ async function runToolCommand(
 
 /** One-line usage banner listing every available subcommand. */
 function printHelp(): void {
-  const toolCmds = Object.keys(TOOL_COMMANDS).sort().join(", ");
-  console.error("jurisd — Australian/NZ legal research");
-  console.error("");
-  console.error("Module management:");
-  console.error("  fetch-module <name> [--version X.Y.Z] [--manifest-url URL] [--modules-dir DIR]");
-  console.error("  verify-module <name> [--modules-dir DIR]");
-  console.error("  list-modules [--modules-dir DIR]");
-  console.error("");
-  console.error("Tools (parity with the MCP surface):");
-  console.error(`  ${toolCmds}`);
-  console.error("");
-  console.error("Run with no subcommand to start the MCP server.");
+  console.error(renderTopLevelHelp());
 }
 
 /**
@@ -292,12 +159,29 @@ export async function runCli(argv: string[]): Promise<boolean> {
   }
 
   if (command === "help") {
-    printHelp();
+    const topic = rest[0];
+    if (!topic) {
+      console.error(renderTopLevelHelp());
+      process.exitCode = 0;
+    } else if (topic === "commands") {
+      console.error(renderCommandList());
+      process.exitCode = 0;
+    } else {
+      const contract = getCommandContractByCliName(topic);
+      console.error(contract ? renderCommandHelp(contract) : `unknown help topic: ${topic}`);
+      process.exitCode = contract ? 0 : 2;
+    }
+    return true;
+  }
+
+  const contract = getCommandContractByCliName(command);
+  if (contract && (rest.includes("--help") || rest.includes("-h"))) {
+    console.error(renderCommandHelp(contract));
     process.exitCode = 0;
     return true;
   }
 
-  const toolCommand = TOOL_COMMANDS[command];
+  const toolCommand = contract?.adapters.mcp.enabled ? contractToToolCommand(contract) : undefined;
   if (toolCommand) {
     const { positional, flags } = parseFlags(rest);
     if (flags["modules-dir"]) setModulesRootForTest(flags["modules-dir"], true);
