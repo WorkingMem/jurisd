@@ -226,7 +226,7 @@ state, not a marketing number.
 
 ## Licensing
 
-- **Code:** MIT (see [LICENSE](LICENSE)). Third-party dependency licences are
+- **Code:** Apache-2.0 (see [LICENSE](LICENSE)). Third-party dependency licences are
   catalogued in [LICENSE-THIRD-PARTY.md](LICENSE-THIRD-PARTY.md).
 - **Module data:** licensed **per source**, declared in each module's
   `manifest.json` `licence` block, and surfaced at `fetch-module` install time.
@@ -346,4 +346,4 @@ advice.**
 
 ## License
 
-MIT
+Apache-2.0

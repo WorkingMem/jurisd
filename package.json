@@ -1,6 +1,6 @@
 {
   "name": "jurisd",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Model Context Protocol server for Australian legislation and case law search.",
   "main": "dist/index.js",
   "bin": {
@@ -21,8 +21,8 @@
     "test:coverage": "vitest run --coverage",
     "test:smoke": "vitest run src/test/smoke/",
     "test:watch": "vitest watch",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "docs": "typedoc",

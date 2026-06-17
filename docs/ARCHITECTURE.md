@@ -185,4 +185,4 @@ npx vitest run src/test/unit/   # Unit only (fast, no network)
 
 ---
 
-**License:** MIT
+**License:** Apache-2.0
