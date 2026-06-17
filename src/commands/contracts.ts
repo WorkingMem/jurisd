@@ -1,7 +1,13 @@
-import type { CommandContract } from "./types.js";
+import type { CommandContract, CommandFlagContract } from "./types.js";
 
 function flagName(name: string): string {
   return name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+}
+
+function stringFlag(name: string, summary: string, values?: string[]): CommandFlagContract {
+  const flag: CommandFlagContract = { name: flagName(name), type: "string", summary };
+  if (values) flag.values = values;
+  return flag;
 }
 
 function makeContract(
@@ -16,6 +22,7 @@ function makeContract(
   array: string[],
   summary: string,
   synopsis: string,
+  extraFlags: CommandFlagContract[] = [],
 ): CommandContract {
   return {
     id,
@@ -44,6 +51,7 @@ function makeContract(
         summary: `${name} toggle.`,
       })),
       ...array.map((name) => ({ name, type: "array" as const, summary: `${name} values.` })),
+      ...extraFlags,
     ],
     examples: [synopsis],
     adapters: {
@@ -74,6 +82,7 @@ function makeCliOnlyContract(
   array: string[],
   summary: string,
   synopsis: string,
+  extraFlags: CommandFlagContract[] = [],
 ): CommandContract {
   return {
     id,
@@ -102,6 +111,7 @@ function makeCliOnlyContract(
         summary: `${name} toggle.`,
       })),
       ...array.map((name) => ({ name, type: "array" as const, summary: `${name} values.` })),
+      ...extraFlags,
     ],
     examples: [synopsis],
     adapters: {
@@ -124,7 +134,7 @@ function makeCliOnlyContract(
 export const COMMAND_CONTRACTS: CommandContract[] = [
   {
     id: "search.legislation",
-    synopsis: "jurisd search legislation <query> [--jurisdiction cth] [--limit 10]",
+    synopsis: "jurisd search-legislation <query> [--jurisdiction cth] [--limit 10]",
     summary: "Search Australian and New Zealand legislation.",
     description: "Search legislation using the existing MCP search_legislation tool.",
     stability: "stable",
@@ -145,7 +155,7 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
       { name: "sort-by", type: "string", summary: "Sort mode." },
       { name: "method", type: "string", summary: "Search method." },
     ],
-    examples: ['jurisd search legislation "family violence" --jurisdiction nsw'],
+    examples: ['jurisd search-legislation "family violence" --jurisdiction nsw'],
     adapters: {
       cli: {
         enabled: true,
@@ -163,7 +173,7 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
   },
   {
     id: "search.cases",
-    synopsis: "jurisd search cases <query> [--jurisdiction cth] [--limit 10]",
+    synopsis: "jurisd search-cases <query> [--jurisdiction cth] [--limit 10]",
     summary: "Search Australian and New Zealand case law.",
     description: "Search cases using the existing MCP search_cases tool.",
     stability: "stable",
@@ -184,7 +194,7 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
       { name: "sort-by", type: "string", summary: "Sort mode." },
       { name: "method", type: "string", summary: "Search method." },
     ],
-    examples: ['jurisd search cases "native title" --jurisdiction cth --limit 5'],
+    examples: ['jurisd search-cases "native title" --jurisdiction cth --limit 5'],
     adapters: {
       cli: {
         enabled: true,
@@ -212,6 +222,13 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Fetch full text for a source document.",
     "jurisd fetch-document-text <url>",
+    [
+      stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+      stringFlag(
+        "citeKey",
+        "Existing citation cache key to associate with fetched source metadata.",
+      ),
+    ],
   ),
   makeContract(
     "source.jadeLookup",
@@ -225,6 +242,10 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Look up jade.io article metadata or citation URL.",
     "jurisd jade-lookup --by citation --citation '[2008] NSWSC 323'",
+    [
+      stringFlag("by", "Lookup mode.", ["article_id", "citation"]),
+      stringFlag("citation", "Neutral citation for by=citation lookups."),
+    ],
   ),
   makeContract(
     "cite.format",
@@ -238,6 +259,16 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Format an AGLC4 citation.",
     "jurisd format-citation 'Mabo v Queensland (No 2)' --neutral-citation '[1992] HCA 23'",
+    [
+      stringFlag("mode", "Citation mode.", ["full", "short", "ibid", "subsequent", "pinpoint"]),
+      stringFlag("neutralCitation", "Neutral citation."),
+      stringFlag("reportedCitation", "Reported citation."),
+      stringFlag("pinpoint", "Pinpoint reference."),
+      stringFlag("style", "Citation style.", ["neutral", "reported", "combined"]),
+      stringFlag("url", "AustLII document URL for pinpoint mode."),
+      stringFlag("phrase", "Phrase to locate for pinpoint mode."),
+      stringFlag("caseCitation", "Case citation prefix for pinpoint mode."),
+    ],
   ),
   makeContract(
     "cite.resolve",
@@ -251,6 +282,10 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Resolve a citation to an authoritative source.",
     "jurisd resolve-citation '[1992] HCA 23'",
+    [
+      stringFlag("mode", "Resolution mode.", ["auto", "validate", "search"]),
+      stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ],
   ),
   makeContract(
     "cite.searchCitingCases",
@@ -264,6 +299,7 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Search for cases citing a named case.",
     "jurisd search-citing-cases 'Mabo v Queensland (No 2)'",
+    [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])],
   ),
   makeContract(
     "cite.cacheCitedBy",
@@ -290,6 +326,20 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     ["keywords"],
     "Create or record a citation cache entry.",
     "jurisd cite 'Mabo v Queensland (No 2)' --year 1992",
+    [
+      stringFlag("action", "Citation cache action.", ["add", "refresh_source"]),
+      stringFlag("neutralCitation", "Neutral citation."),
+      stringFlag("reportedCitation", "Reported citation."),
+      stringFlag("url", "Primary source URL."),
+      stringFlag("type", "Source type.", ["case", "legislation", "secondary", "treaty"]),
+      stringFlag("jurisdiction", "Jurisdiction code."),
+      stringFlag("court", "Court code."),
+      stringFlag("summary", "Brief source summary."),
+      stringFlag("document", "Logical document name."),
+      stringFlag("pinpoint", "Pinpoint reference."),
+      stringFlag("style", "Citation style.", ["neutral", "reported", "combined"]),
+      stringFlag("citeKey", "Cached citation key."),
+    ],
   ),
   makeContract(
     "cite.bibliography",
@@ -303,6 +353,14 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Render a bibliography from cached citations.",
     "jurisd bibliography",
+    [
+      stringFlag("op", "Bibliography operation.", ["get", "list", "export", "cited_by"]),
+      stringFlag("query", "Cached citation lookup query."),
+      stringFlag("citeKey", "Cached citation key."),
+      stringFlag("document", "Logical document name."),
+      stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+      stringFlag("outputPath", "BibLaTeX output path."),
+    ],
   ),
   makeContract(
     "corpus.getProvision",
@@ -316,6 +374,10 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Get a provision from an installed local data module.",
     "jurisd get-provision 'Family Law Act 1975 (Cth)' 's 60CC'",
+    [
+      stringFlag("module", "Pinned data module name."),
+      stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ],
   ),
   makeContract(
     "corpus.getActStructure",
@@ -329,6 +391,10 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Get act structure from an installed local data module.",
     "jurisd get-act-structure 'Family Law Act 1975 (Cth)'",
+    [
+      stringFlag("module", "Pinned data module name."),
+      stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ],
   ),
   makeContract(
     "graph.findCiting",
@@ -342,6 +408,10 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     ["kinds"],
     "Find locally indexed items citing or considering a target.",
     "jurisd find-citing '[1992] HCA 23' --kinds cites,considers",
+    [
+      stringFlag("module", "Pinned data module name."),
+      stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ],
   ),
   makeContract(
     "search.semanticLocal",
@@ -355,6 +425,18 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Run local semantic search over installed data modules.",
     "jurisd semantic-search-local 'restraint of trade' --k 5",
+    [
+      stringFlag("module", "Pinned data module name."),
+      stringFlag("filterJurisdiction", "Jurisdiction facet filter."),
+      stringFlag("filterType", "Document type facet filter.", [
+        "decision",
+        "primary_legislation",
+        "secondary_legislation",
+        "bill",
+      ]),
+      stringFlag("filterSegmentType", "Segment type facet filter."),
+      stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ],
   ),
   makeContract(
     "corpus.listDataModules",
@@ -368,6 +450,19 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "List installed local data modules.",
     "jurisd list-data-modules --include-invalid true",
+    [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])],
+  ),
+  makeCliOnlyContract(
+    "shell.completion",
+    "completion",
+    "doctor",
+    "read_only_query",
+    ["shell"],
+    [],
+    [],
+    [],
+    "Print a shell completion script.",
+    "jurisd completion <bash|zsh|fish>",
   ),
   makeCliOnlyContract(
     "modules.fetch",
@@ -379,7 +474,11 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     [],
     "Fetch and install a data module.",
-    "jurisd fetch-module <name>",
+    "jurisd fetch-module <name> [--manifest-url URL] [--modules-dir DIR]",
+    [
+      stringFlag("manifestUrl", "Override manifest URL."),
+      stringFlag("modulesDir", "Override modules directory."),
+    ],
   ),
   makeCliOnlyContract(
     "modules.verify",
@@ -391,7 +490,8 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     [],
     "Verify an installed data module.",
-    "jurisd verify-module <name>",
+    "jurisd verify-module <name> [--modules-dir DIR]",
+    [stringFlag("modulesDir", "Override modules directory.")],
   ),
   makeCliOnlyContract(
     "modules.list",
@@ -403,7 +503,8 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     [],
     "List installed data modules via the operator CLI.",
-    "jurisd list-modules",
+    "jurisd list-modules [--modules-dir DIR]",
+    [stringFlag("modulesDir", "Override modules directory.")],
   ),
 ];
 

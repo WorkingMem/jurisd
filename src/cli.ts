@@ -7,7 +7,7 @@
  * Two families of subcommand exist:
  *
  *   Module management (run directly, before the server):
- *     jurisd fetch-module <name> [--version X.Y.Z] [--manifest-url URL] [--modules-dir DIR]
+ *     jurisd fetch-module <name> [--manifest-url URL] [--modules-dir DIR]
  *     jurisd verify-module <name> [--modules-dir DIR]
  *     jurisd list-modules [--modules-dir DIR]
  *
@@ -26,6 +26,11 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
+import {
+  isSupportedCompletionShell,
+  renderCompletion,
+  renderCompletionUsage,
+} from "./commands/completions.js";
 import { getCommandContractByCliName } from "./commands/contracts.js";
 import { renderCommandHelp, renderCommandList, renderTopLevelHelp } from "./commands/help.js";
 import { contractToToolCommand, type ToolCommand } from "./commands/legacy-cli.js";
@@ -181,6 +186,24 @@ export async function runCli(argv: string[]): Promise<boolean> {
     return true;
   }
 
+  if (command === "completion") {
+    const shell = rest[0];
+    if (!shell) {
+      console.error(renderCompletionUsage());
+      process.exitCode = 2;
+      return true;
+    }
+    if (!isSupportedCompletionShell(shell)) {
+      console.error("unsupported completion shell");
+      console.error(renderCompletionUsage());
+      process.exitCode = 2;
+      return true;
+    }
+    process.stdout.write(renderCompletion(shell));
+    process.exitCode = 0;
+    return true;
+  }
+
   const toolCommand = contract?.adapters.mcp.enabled ? contractToToolCommand(contract) : undefined;
   if (toolCommand) {
     const { positional, flags } = parseFlags(rest);
@@ -206,7 +229,7 @@ export async function runCli(argv: string[]): Promise<boolean> {
   if (command === "fetch-module") {
     const name = positional[0];
     if (!name) {
-      console.error("usage: jurisd fetch-module <name> [--version X.Y.Z] [--manifest-url URL]");
+      console.error("usage: jurisd fetch-module <name> [--manifest-url URL] [--modules-dir DIR]");
       process.exitCode = 2;
       return true;
     }

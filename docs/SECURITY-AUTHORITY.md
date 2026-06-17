@@ -1,6 +1,6 @@
 # Security and authority model
 
-This file records the Foundation PR 1 security posture for jurisd command contracts, CLI routing, and MCP compatibility.
+This file records the Foundation security posture for jurisd command contracts, CLI routing, completions, generated docs, and MCP compatibility.
 
 ## Trust boundaries
 
@@ -35,6 +35,16 @@ MCP exposure is curated. Do not expose operator, install, update, destructive, f
 
 Untrusted text must not produce terminal control effects. Renderers must strip or neutralise unsafe ANSI, OSC, BEL, carriage returns, title changes, bidi controls, and other unsafe control characters before rendering source/provider text.
 
+## Shell completions
+
+Completion scripts are generated from command contracts and trusted static values only.
+
+- Completion generation must not call network providers, local corpus loaders, MCP tools, or project-specific files.
+- Completion install output is stdout script content only. The CLI must not edit shell startup files by default.
+- Completion scripts must not use `eval`, command substitution from metadata, or shell execution of generated candidate text.
+- Completion candidate rendering must strip or neutralise unsafe terminal controls before writing shell scripts.
+- Completion coverage currently includes bash, zsh, and fish. PowerShell is intentionally deferred until it can meet the same static-generation and escaping tests.
+
 ## Credential handling
 
 Credentials must never appear in:
@@ -55,3 +65,11 @@ Credentials must never appear in:
 - [ ] stdout/stderr behaviour is tested
 - [ ] no new shell execution path is introduced
 - [ ] docs do not claim unbuilt graph, vector, corpus, or provider features
+
+## Foundation PR 2 checklist
+
+- [ ] bash, zsh, and fish completions are generated from command contracts
+- [ ] completion escaping covers shell metacharacters and terminal controls
+- [ ] generated command reference is committed
+- [ ] stale generated docs and completion checks are wired into CI
+- [ ] completion install docs print or redirect scripts only and do not edit rc files

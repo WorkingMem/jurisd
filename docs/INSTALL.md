@@ -163,27 +163,27 @@ for every default.
 
 Data modules are **operator-installed via the CLI** — deliberately off the MCP
 tool surface so an AI assistant never triggers a multi-hundred-MB download
-mid-conversation. Modules are published as GitHub release assets on the
-`jurisd-data` repository.
+mid-conversation. Modules are published as Hugging Face datasets under the
+`workingmem` organisation.
 
 > **Status: module publishing in progress — no modules available to fetch yet.**
-> The `jurisd-data` publishing repo and its first release are still being built,
-> so `jurisd fetch-module` currently resolves the release URL and fails fast with
-> a `404` (it never installs a partial or unverified module). This is expected
-> pre-publish. jurisd runs fully without any module: the live AustLII layer and
+> The `workingmem` module datasets are still being built, so
+> `jurisd fetch-module` currently resolves the default manifest URL and fails
+> fast with a `404` (it never installs a partial or unverified module). This is
+> expected pre-publish. jurisd runs fully without any module: the live AustLII layer and
 > citation tools work standalone, and the five local-recall tools report "no
 > modules" (degrade visibly). The CLI flow below is implemented and ready for the
 > first publish.
 
 ```bash
-jurisd fetch-module <name> [--version X.Y.Z] [--modules-dir DIR]
-jurisd verify-module <name>
-jurisd list-modules
+jurisd fetch-module <name> [--manifest-url URL] [--modules-dir DIR]
+jurisd verify-module <name> [--modules-dir DIR]
+jurisd list-modules [--modules-dir DIR]
 ```
 
 `fetch-module`:
 
-1. Resolves the release on `jurisd-data` (named module's latest, or `--version`).
+1. Resolves the module manifest from the default Hugging Face dataset URL, or from `--manifest-url`.
 2. Downloads `manifest.json` first and validates it against the vendored schema —
    checks the schema version is implemented and the release is not yanked
    **before** downloading any parquet (fail fast, save bandwidth).

@@ -18,6 +18,7 @@ export function renderTopLevelHelp(): string {
     "Usage:",
     "  jurisd <command> [arguments] [flags]",
     "  jurisd help <topic>",
+    "  jurisd completion <shell>",
     "  jurisd mcp serve",
     "",
     "Common groups:",
