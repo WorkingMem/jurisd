@@ -101,7 +101,7 @@ All configuration is managed through the ConfigMap (`k8s/configmap.yaml`). To mo
 | `AUSTLII_USER_AGENT`    | Mozilla/5.0...                                    | User agent string            |
 | `AUSTLII_TIMEOUT`       | `60000`                                           | Request timeout (ms)         |
 | `SOURCE_BASE_URL`         | `https://removed.invalid`                                 | removed.invalid base URL             |
-| `SOURCE_USER_AGENT`       | `jurisd/0.1.0 (legal research tool)`              | removed.invalid user agent           |
+| `SOURCE_USER_AGENT`       | `jurisd/0.2.0 (legal research tool)`              | removed.invalid user agent           |
 | `SOURCE_TIMEOUT`          | `15000`                                           | removed.invalid request timeout (ms) |
 | `DEFAULT_SEARCH_LIMIT`  | `10`                                              | Default search results       |
 | `MAX_SEARCH_LIMIT`      | `50`                                              | Maximum search results       |

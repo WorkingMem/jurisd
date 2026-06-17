@@ -1,6 +1,6 @@
 # Running jurisd in Docker
 
-jurisd ships as a multi-stage container image: a Debian-slim Node 20 runtime
+jurisd ships as a multi-stage container image: a Debian-slim Node 26 runtime
 with the compiled server and the two native dependencies that make the
 local-data and Cloudflare-aware fetch paths work (`@duckdb/node-api`, `impit`).
 
@@ -43,7 +43,7 @@ publish prebuilt binaries for `linux-x64-gnu` and `linux-arm64-gnu`. On Apple
 Silicon (podman/Docker Desktop default arm64 VM) you get the arm64 prebuild; on
 an x86 host, the x64 prebuild. Cross-building for a different arch requires
 `--platform` and an emulator (qemu/binfmt); the prebuilds still resolve because
-they are glibc-targeted (this is why the base is `node:20-bookworm-slim`, not
+they are glibc-targeted (this is why the base is `node:26-bookworm-slim`, not
 Alpine/musl).
 
 ## Use with Claude Code

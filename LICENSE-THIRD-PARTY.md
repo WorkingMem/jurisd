@@ -1,7 +1,7 @@
 # Third-Party Licenses
 
 This project depends on open-source packages. All production and development
-dependencies use permissive licenses compatible with this project's MIT license.
+dependencies use permissive licenses compatible with this project's Apache-2.0 license.
 
 ## License Summary
 
