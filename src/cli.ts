@@ -26,7 +26,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
-import { getCommandContractByCliName, getMcpBackedCommandContracts } from "./commands/contracts.js";
+import { getCommandContractByCliName } from "./commands/contracts.js";
+import { renderCommandHelp, renderCommandList, renderTopLevelHelp } from "./commands/help.js";
 import { contractToToolCommand, type ToolCommand } from "./commands/legacy-cli.js";
 import { createMcpServer } from "./server.js";
 import { fetchModule, verifyModule } from "./services/fetch-module.js";
@@ -139,21 +140,7 @@ async function runToolCommand(
 
 /** One-line usage banner listing every available subcommand. */
 function printHelp(): void {
-  const toolCmds = getMcpBackedCommandContracts()
-    .map((contract) => contract.adapters.cli.canonicalName ?? contract.id)
-    .sort()
-    .join(", ");
-  console.error("jurisd — Australian/NZ legal research");
-  console.error("");
-  console.error("Module management:");
-  console.error("  fetch-module <name> [--version X.Y.Z] [--manifest-url URL] [--modules-dir DIR]");
-  console.error("  verify-module <name> [--modules-dir DIR]");
-  console.error("  list-modules [--modules-dir DIR]");
-  console.error("");
-  console.error("Tools (parity with the MCP surface):");
-  console.error(`  ${toolCmds}`);
-  console.error("");
-  console.error("Run with no subcommand to start the MCP server.");
+  console.error(renderTopLevelHelp());
 }
 
 /**
@@ -172,12 +159,28 @@ export async function runCli(argv: string[]): Promise<boolean> {
   }
 
   if (command === "help") {
-    printHelp();
-    process.exitCode = 0;
+    const topic = rest[0];
+    if (!topic) {
+      console.error(renderTopLevelHelp());
+      process.exitCode = 0;
+    } else if (topic === "commands") {
+      console.error(renderCommandList());
+      process.exitCode = 0;
+    } else {
+      const contract = getCommandContractByCliName(topic);
+      console.error(contract ? renderCommandHelp(contract) : `unknown help topic: ${topic}`);
+      process.exitCode = contract ? 0 : 2;
+    }
     return true;
   }
 
   const contract = getCommandContractByCliName(command);
+  if (contract && (rest.includes("--help") || rest.includes("-h"))) {
+    console.error(renderCommandHelp(contract));
+    process.exitCode = 0;
+    return true;
+  }
+
   const toolCommand = contract?.adapters.mcp.enabled ? contractToToolCommand(contract) : undefined;
   if (toolCommand) {
     const { positional, flags } = parseFlags(rest);
