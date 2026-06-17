@@ -434,7 +434,7 @@ describe("command contracts", () => {
 
   it("requires command metadata used by help and docs", () => {
     for (const contract of COMMAND_CONTRACTS) {
-      expect(contract.id).toMatch(/^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/);
+      expect(contract.id).toMatch(/^[a-z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*)+$/);
       expect(contract.summary.length).toBeGreaterThan(8);
       expect(contract.synopsis.length).toBeGreaterThan(0);
       expect(contract.sideEffectClass).toBeTruthy();

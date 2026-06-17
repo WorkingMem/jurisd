@@ -129,6 +129,17 @@ and snapshot date (plus a staleness advisory when the snapshot is old).
 Full parameter tables for every tool are in
 [docs/AGENT-GUIDE.md](docs/AGENT-GUIDE.md).
 
+## CLI foundation and compatibility
+
+jurisd keeps the MCP server as the compatibility surface while the CLI is being
+reorganised around task-oriented command contracts.
+
+- CLI guide: [docs/CLI.md](docs/CLI.md)
+- MCP compatibility reference: [docs/MCP-COMPATIBILITY.md](docs/MCP-COMPATIBILITY.md)
+- Security and authority model: [docs/SECURITY-AUTHORITY.md](docs/SECURITY-AUTHORITY.md)
+
+Existing flat CLI commands remain available during the foundation work.
+
 ## Data modules
 
 A **data module** is a self-describing parquet bundle (documents, chunks, edges,
@@ -252,6 +263,9 @@ at `fetch-module` install time.
 | Document                                                 | Description                                                                |
 | -------------------------------------------------------- | -------------------------------------------------------------------------- |
 | [INSTALL.md](docs/INSTALL.md)                            | Day-0 install paths, Claude Code config, env vars, module flow             |
+| [CLI.md](docs/CLI.md)                                    | CLI command shape, compatibility aliases, output rules, exit codes         |
+| [MCP-COMPATIBILITY.md](docs/MCP-COMPATIBILITY.md)        | Compatibility reference for the current MCP tool surface                   |
+| [SECURITY-AUTHORITY.md](docs/SECURITY-AUTHORITY.md)      | Command authority, side-effect classes, terminal safety, credential rules  |
 | [jurisd-research skill](skills/jurisd-research/SKILL.md) | Claude Code skill: tool decision guidance, AGLC4 workflows, worked example |
 | [AGENT-GUIDE.md](docs/AGENT-GUIDE.md)                    | Agent-facing usage guide with full tool catalog and examples               |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md)                  | System architecture, deployment topology, CI/CD                            |

@@ -3,50 +3,26 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import { getCommandContractByCliName } from "../../commands/contracts.js";
+import { contractToToolCommand } from "../../commands/legacy-cli.js";
 import { runCli, mapArgvToToolInput } from "../../cli.js";
 import { setModulesRootForTest } from "../../services/modules.js";
 
 /**
  * The argv -> tool-input mapping is exercised here independently of any live
- * loopback so the coercion rules can be asserted offline. The mapping shapes
- * below mirror the registry entries in cli.ts; they are intentionally inlined
- * so the test pins the contract a caller relies on.
+ * loopback so the coercion rules can be asserted offline.
  */
-const searchCasesCmd = {
-  tool: "search_cases",
-  positional: ["query"],
-  numeric: ["limit", "offset"],
-  boolean: [],
-  array: [],
+const requiredToolCommand = (cliName: string) => {
+  const contract = getCommandContractByCliName(cliName);
+  if (!contract) throw new Error(`Missing command contract for ${cliName}`);
+  return contractToToolCommand(contract);
 };
-const resolveCitationCmd = {
-  tool: "resolve_citation",
-  positional: ["citation"],
-  numeric: [],
-  boolean: [],
-  array: [],
-};
-const findCitingCmd = {
-  tool: "find_citing",
-  positional: ["target"],
-  numeric: ["limit"],
-  boolean: [],
-  array: ["kinds"],
-};
-const listDataModulesCmd = {
-  tool: "list_data_modules",
-  positional: [],
-  numeric: [],
-  boolean: ["refresh", "includeInvalid"],
-  array: [],
-};
-const semanticCmd = {
-  tool: "semantic_search_local",
-  positional: ["query"],
-  numeric: ["k"],
-  boolean: [],
-  array: [],
-};
+
+const searchCasesCmd = requiredToolCommand("search-cases");
+const resolveCitationCmd = requiredToolCommand("resolve-citation");
+const findCitingCmd = requiredToolCommand("find-citing");
+const listDataModulesCmd = requiredToolCommand("list-data-modules");
+const semanticCmd = requiredToolCommand("semantic-search-local");
 
 describe("mapArgvToToolInput", () => {
   it("assigns a positional to the first schema field", () => {
@@ -124,6 +100,13 @@ describe("runCli routing", () => {
 
   it("returns false when the first arg is a flag", async () => {
     expect(await runCli(["--http"])).toBe(false);
+  });
+
+  it("resolves existing flat CLI tool commands from command contracts", () => {
+    expect(getCommandContractByCliName("search-cases")?.adapters.mcp.toolName).toBe("search_cases");
+    expect(getCommandContractByCliName("get-provision")?.adapters.mcp.toolName).toBe(
+      "get_provision",
+    );
   });
 });
 
