@@ -187,6 +187,18 @@ describe("searchJade", () => {
     expect(outcome).toEqual({ results: [], status: "failed" });
   });
 
+  it("reports failed status on malformed proposeCitables responses", async () => {
+    mockConfig.jade.sessionCookie = "IID=abc";
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: "//OKnot-json",
+      status: 200,
+    });
+
+    const outcome = await searchJadeWithStatus("test", { type: "case" });
+
+    expect(outcome).toEqual({ results: [], status: "failed" });
+  });
+
   it("does not expose session cookie in error messages on AxiosError", async () => {
     mockConfig.jade.sessionCookie = "IID=secret123; alcsessionid=abc456";
     const axiosError = Object.assign(new Error("Network Error"), {

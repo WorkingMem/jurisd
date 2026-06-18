@@ -238,6 +238,44 @@ describe("AustLII search degradation", () => {
     }
   });
 
+  it("search_cases reports when jade fails while AustLII succeeds", async () => {
+    const austliiResult: SearchResult = {
+      title: "Mabo v Queensland (No 2)",
+      neutralCitation: "[1992] HCA 23",
+      url: "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+      source: "austlii",
+      type: "case",
+      jurisdiction: "cth",
+      year: "1992",
+    };
+    mocks.searchAustLii.mockResolvedValueOnce([austliiResult]);
+    mocks.searchJadeWithStatus.mockResolvedValueOnce({ results: [], status: "failed" });
+
+    const { client, server } = await connectedClient();
+    try {
+      const result = await client.callTool({
+        name: "search_cases",
+        arguments: { query: "Mabo", format: "json" },
+      });
+
+      expect(result.isError).not.toBe(true);
+      const parsed = JSON.parse(firstText(result)) as {
+        results: SearchResult[];
+        warnings: unknown[];
+        sources: Record<string, string>;
+        degraded: boolean;
+      };
+      expect(parsed).toMatchObject({
+        degraded: true,
+        warnings: [],
+        sources: { austlii: "ok", jade: "failed" },
+      });
+      expect(parsed.results[0]!.source).toBe("austlii");
+    } finally {
+      await Promise.allSettled([client.close(), server.close()]);
+    }
+  });
+
   it("search_legislation does not degrade non-Cloudflare AustLII failures", async () => {
     mocks.searchAustLii.mockRejectedValueOnce(
       new AustLiiError("AustLII search failed: redirect blocked", 500),

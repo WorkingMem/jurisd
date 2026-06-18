@@ -285,6 +285,35 @@ describe("runCli tool loopback (offline tools)", () => {
     expect(parsed.results[0]!.source).toBe("austlii");
   });
 
+  it("sets exitCode 4 when search-case jade coverage fails", async () => {
+    const austliiResult: SearchResult = {
+      title: "Mabo v Queensland (No 2)",
+      neutralCitation: "[1992] HCA 23",
+      url: "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+      source: "austlii",
+      type: "case",
+      jurisdiction: "cth",
+      year: "1992",
+    };
+    toolMocks.searchAustLii.mockResolvedValueOnce([austliiResult]);
+    toolMocks.searchJadeWithStatus.mockResolvedValueOnce({
+      results: [],
+      status: "failed",
+    });
+
+    const handled = await runCli(["search-cases", "Mabo", "--format", "json"]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(4);
+    const parsed = JSON.parse(written) as {
+      degraded: boolean;
+      sources: Record<string, string>;
+      results: SearchResult[];
+    };
+    expect(parsed.degraded).toBe(true);
+    expect(parsed.sources).toEqual({ austlii: "ok", jade: "failed" });
+    expect(parsed.results[0]!.source).toBe("austlii");
+  });
+
   it("does not treat fetched source text as degraded CLI metadata", async () => {
     toolMocks.fetchDocumentText.mockResolvedValueOnce({
       text: '{"degraded":true}',
