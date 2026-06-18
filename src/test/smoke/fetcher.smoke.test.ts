@@ -1,14 +1,14 @@
 /**
  * Smoke tests for fetchDocumentText.
- * Network tests are skipped in CI.
+ * Network tests require JURISD_RUN_LIVE_AUSTLII=1.
  */
 import { describe, it, expect } from "vitest";
 import { fetchDocumentText } from "../../services/fetcher.js";
 
-const CI = !!process.env.CI;
+const RUN_LIVE_AUSTLII = process.env.JURISD_RUN_LIVE_AUSTLII === "1";
 
 describe("fetchDocumentText", () => {
-  it.skipIf(CI)(
+  it.skipIf(!RUN_LIVE_AUSTLII)(
     "fetches an AustLII HTML page and returns text",
     async () => {
       const result = await fetchDocumentText(
@@ -21,7 +21,7 @@ describe("fetchDocumentText", () => {
     30_000,
   );
 
-  it.skipIf(CI)(
+  it.skipIf(!RUN_LIVE_AUSTLII)(
     "fetches a legislation page from AustLII",
     async () => {
       const result = await fetchDocumentText(

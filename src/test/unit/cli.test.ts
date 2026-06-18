@@ -14,6 +14,7 @@ import type { SearchResult } from "../../services/austlii.js";
 const toolMocks = vi.hoisted(() => ({
   searchAustLii: vi.fn(),
   searchUpstreamWithStatus: vi.fn(),
+  fetchDocumentText: vi.fn(),
 }));
 
 vi.mock("../../services/austlii.js", async (importOriginal) => {
@@ -24,6 +25,11 @@ vi.mock("../../services/austlii.js", async (importOriginal) => {
 vi.mock("../../services/source.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../services/source.js")>();
   return { ...actual, searchUpstreamWithStatus: toolMocks.searchUpstreamWithStatus };
+});
+
+vi.mock("../../services/fetcher.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../services/fetcher.js")>();
+  return { ...actual, fetchDocumentText: toolMocks.fetchDocumentText };
 });
 
 /**
@@ -179,6 +185,7 @@ describe("runCli tool loopback (offline tools)", () => {
     process.exitCode = 0;
     toolMocks.searchAustLii.mockReset();
     toolMocks.searchUpstreamWithStatus.mockReset();
+    toolMocks.fetchDocumentText.mockReset();
     scratch = fs.mkdtempSync(path.join(os.tmpdir(), "jurisd-cli-"));
     setModulesRootForTest(scratch, true);
     written = "";
@@ -276,6 +283,24 @@ describe("runCli tool loopback (offline tools)", () => {
     expect(parsed.degraded).toBe(true);
     expect(parsed.sources).toEqual({ austlii: "ok", source: "not_configured" });
     expect(parsed.results[0]!.source).toBe("austlii");
+  });
+
+  it("does not treat fetched source text as degraded CLI metadata", async () => {
+    toolMocks.fetchDocumentText.mockResolvedValueOnce({
+      text: '{"degraded":true}',
+      contentType: "text/plain",
+      sourceUrl: "https://example.test/source",
+    });
+
+    const handled = await runCli([
+      "fetch-document-text",
+      "https://example.test/source",
+      "--format",
+      "text",
+    ]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(0);
+    expect(written).toContain('{"degraded":true}');
   });
 
   it("prints shell completion scripts to stdout with exit 0", async () => {

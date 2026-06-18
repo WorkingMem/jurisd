@@ -53,19 +53,7 @@ function toolResultIsDegraded(result: unknown): boolean {
   if (!isRecord(result)) return false;
 
   const structured = result.structuredContent;
-  if (isRecord(structured) && isDegradedPayload(structured.data)) return true;
-
-  const content = Array.isArray(result.content) ? result.content : [];
-  return content.some((block) => {
-    if (!isRecord(block) || block.type !== "text" || typeof block.text !== "string") {
-      return false;
-    }
-    try {
-      return isDegradedPayload(JSON.parse(block.text));
-    } catch {
-      return false;
-    }
-  });
+  return isRecord(structured) && isDegradedPayload(structured.data);
 }
 
 /** Run a tool through the in-process loopback and stream its result to stdout. */
