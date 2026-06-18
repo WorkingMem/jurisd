@@ -7,6 +7,7 @@ import type { ToolCommand } from "./legacy-cli.js";
 export interface ToolExecutionResult {
   text: string;
   isError: boolean;
+  rawResult: unknown;
 }
 
 export async function executeToolCommand(
@@ -25,7 +26,7 @@ export async function executeToolCommand(
       .filter((block) => block.type === "text" && block.text !== undefined)
       .map((block) => block.text)
       .join("\n");
-    return { text: text ? `${text}\n` : "", isError: Boolean(result.isError) };
+    return { text: text ? `${text}\n` : "", isError: Boolean(result.isError), rawResult: result };
   } finally {
     await Promise.allSettled([client.close(), server.close()]);
   }

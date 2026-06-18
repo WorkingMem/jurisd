@@ -64,11 +64,12 @@ export function formatSearchResults(
   const degraded =
     warnings.length > 0 ||
     (sources ? Object.values(sources).some((status) => status !== "ok") : false);
+  const degradedData = degraded
+    ? { results: enriched, warnings, ...(sources ? { sources } : {}), degraded: true }
+    : undefined;
   switch (format) {
     case "json": {
-      const data = degraded
-        ? { results: enriched, warnings, ...(sources ? { sources } : {}), degraded: true }
-        : enriched;
+      const data = degradedData ?? enriched;
       return {
         content: ensureContent(JSON.stringify(data, null, 2)),
         structuredContent: {
@@ -104,6 +105,7 @@ export function formatSearchResults(
         content: ensureContent(
           `${warningHtml ? `${warningHtml}\n` : ""}${sourceHtml ? `${sourceHtml}\n` : ""}<ul>\n${rows}\n</ul>`,
         ),
+        ...(degradedData ? { structuredContent: { format: "html", data: degradedData } } : {}),
       };
     }
     case "markdown": {
@@ -115,6 +117,7 @@ export function formatSearchResults(
       });
       return {
         content: ensureContent([...warningLines, ...sourceLines, ...lines].join("\n")),
+        ...(degradedData ? { structuredContent: { format: "markdown", data: degradedData } } : {}),
       };
     }
     case "text":
@@ -127,6 +130,7 @@ export function formatSearchResults(
       });
       return {
         content: ensureContent([...warningLines, ...sourceLines, ...lines].join("\n")),
+        ...(degradedData ? { structuredContent: { format: "text", data: degradedData } } : {}),
       };
     }
   }

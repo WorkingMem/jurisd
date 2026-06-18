@@ -226,7 +226,8 @@ export function createMcpServer(): McpServer {
       const upstreamResults = sourceOutcome.value.results;
       sources.source = sourceOutcome.value.status;
       const merged = mergeCaseSearchResults(austliiResults, upstreamResults, limit);
-      const includeSourceStatus = warnings.length > 0 || sources.source === "failed";
+      const includeSourceStatus =
+        warnings.length > 0 || Object.values(sources).some((status) => status !== "ok");
 
       return formatSearchResults(
         merged,

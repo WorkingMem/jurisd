@@ -39,6 +39,35 @@ import { runTui } from "./tui.js";
 
 export { mapArgvToToolInput } from "./commands/argv.js";
 
+const EXIT_SOURCE_UNAVAILABLE = 4;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isDegradedPayload(value: unknown): boolean {
+  return isRecord(value) && value.degraded === true;
+}
+
+function toolResultIsDegraded(result: unknown): boolean {
+  if (!isRecord(result)) return false;
+
+  const structured = result.structuredContent;
+  if (isRecord(structured) && isDegradedPayload(structured.data)) return true;
+
+  const content = Array.isArray(result.content) ? result.content : [];
+  return content.some((block) => {
+    if (!isRecord(block) || block.type !== "text" || typeof block.text !== "string") {
+      return false;
+    }
+    try {
+      return isDegradedPayload(JSON.parse(block.text));
+    } catch {
+      return false;
+    }
+  });
+}
+
 /** Run a tool through the in-process loopback and stream its result to stdout. */
 async function runToolCommand(
   command: ToolCommand,
@@ -48,7 +77,11 @@ async function runToolCommand(
   const args = mapArgvToToolInput(command, positional, flags);
   const result = await executeToolCommand(command, args);
   process.stdout.write(result.text);
-  process.exitCode = result.isError ? 1 : 0;
+  process.exitCode = result.isError
+    ? 1
+    : toolResultIsDegraded(result.rawResult)
+      ? EXIT_SOURCE_UNAVAILABLE
+      : 0;
 }
 
 /** One-line usage banner listing every available subcommand. */
