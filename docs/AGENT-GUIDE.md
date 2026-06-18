@@ -115,8 +115,10 @@
 ]
 ```
 
-When a source is unavailable but the tool call itself succeeds, JSON responses
-use a degraded object instead of the normal array:
+When a search source is unavailable but the tool call itself succeeds, JSON
+responses use a degraded object instead of the normal array. This includes
+AustLII search blocks and incomplete configured coverage such as
+`jade: "not_configured"`:
 
 ```json
 {
@@ -138,6 +140,7 @@ use a degraded object instead of the normal array:
 
 Do not treat a degraded empty result as proof that no matching authority exists.
 Check `warnings`, `sources`, and `degraded` before relying on search coverage.
+CLI callers should also treat exit code 4 as source unavailable.
 
 ---
 

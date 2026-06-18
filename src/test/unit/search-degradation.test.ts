@@ -102,7 +102,7 @@ describe("AustLII search degradation", () => {
     }
   });
 
-  it("search_cases keeps array JSON when AustLII succeeds and jade is not configured", async () => {
+  it("search_cases reports incomplete coverage when AustLII succeeds and jade is not configured", async () => {
     const austliiResult: SearchResult = {
       title: "Mabo v Queensland (No 2)",
       neutralCitation: "[1992] HCA 23",
@@ -126,9 +126,16 @@ describe("AustLII search degradation", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      const parsed = JSON.parse(firstText(result)) as Array<SearchResult & { aglc4: string }>;
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed[0]!.source).toBe("austlii");
+      const parsed = JSON.parse(firstText(result)) as {
+        results: Array<SearchResult & { aglc4: string }>;
+        warnings: unknown[];
+        sources: Record<string, string>;
+        degraded: boolean;
+      };
+      expect(parsed.degraded).toBe(true);
+      expect(parsed.warnings).toEqual([]);
+      expect(parsed.sources).toEqual({ austlii: "ok", jade: "not_configured" });
+      expect(parsed.results[0]!.source).toBe("austlii");
     } finally {
       await Promise.allSettled([client.close(), server.close()]);
     }

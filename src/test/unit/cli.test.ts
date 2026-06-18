@@ -8,6 +8,23 @@ import { parseFlags } from "../../commands/argv.js";
 import { contractToToolCommand } from "../../commands/legacy-cli.js";
 import { runCli, mapArgvToToolInput } from "../../cli.js";
 import { setModulesRootForTest } from "../../services/modules.js";
+import { CloudflareBlockedError } from "../../errors.js";
+import type { SearchResult } from "../../services/austlii.js";
+
+const toolMocks = vi.hoisted(() => ({
+  searchAustLii: vi.fn(),
+  searchJadeWithStatus: vi.fn(),
+}));
+
+vi.mock("../../services/austlii.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../services/austlii.js")>();
+  return { ...actual, searchAustLii: toolMocks.searchAustLii };
+});
+
+vi.mock("../../services/jade.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../services/jade.js")>();
+  return { ...actual, searchJadeWithStatus: toolMocks.searchJadeWithStatus };
+});
 
 /**
  * The argv -> tool-input mapping is exercised here independently of any live
@@ -160,6 +177,8 @@ describe("runCli tool loopback (offline tools)", () => {
 
   beforeEach(() => {
     process.exitCode = 0;
+    toolMocks.searchAustLii.mockReset();
+    toolMocks.searchJadeWithStatus.mockReset();
     scratch = fs.mkdtempSync(path.join(os.tmpdir(), "jurisd-cli-"));
     setModulesRootForTest(scratch, true);
     written = "";
@@ -215,6 +234,48 @@ describe("runCli tool loopback (offline tools)", () => {
     expect(written.length).toBeGreaterThan(0);
     const parsed = JSON.parse(written) as Record<string, unknown>;
     expect(parsed).toBeTypeOf("object");
+  });
+
+  it("sets exitCode 4 when a search response is source-degraded", async () => {
+    toolMocks.searchAustLii.mockRejectedValueOnce(
+      new CloudflareBlockedError("https://www.austlii.edu.au/cgi-bin/sinosrch.cgi", false),
+    );
+
+    const handled = await runCli(["search-legislation", "privacy", "--format", "json"]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(4);
+    const parsed = JSON.parse(written) as { degraded: boolean; sources: Record<string, string> };
+    expect(parsed.degraded).toBe(true);
+    expect(parsed.sources).toEqual({ austlii: "blocked" });
+  });
+
+  it("sets exitCode 4 when search-case coverage is incomplete", async () => {
+    const austliiResult: SearchResult = {
+      title: "Mabo v Queensland (No 2)",
+      neutralCitation: "[1992] HCA 23",
+      url: "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+      source: "austlii",
+      type: "case",
+      jurisdiction: "cth",
+      year: "1992",
+    };
+    toolMocks.searchAustLii.mockResolvedValueOnce([austliiResult]);
+    toolMocks.searchJadeWithStatus.mockResolvedValueOnce({
+      results: [],
+      status: "not_configured",
+    });
+
+    const handled = await runCli(["search-cases", "Mabo", "--format", "json"]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(4);
+    const parsed = JSON.parse(written) as {
+      degraded: boolean;
+      sources: Record<string, string>;
+      results: SearchResult[];
+    };
+    expect(parsed.degraded).toBe(true);
+    expect(parsed.sources).toEqual({ austlii: "ok", jade: "not_configured" });
+    expect(parsed.results[0]!.source).toBe("austlii");
   });
 
   it("prints shell completion scripts to stdout with exit 0", async () => {

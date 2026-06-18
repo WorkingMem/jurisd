@@ -818,8 +818,8 @@ function modelIdCompatible(manifestModelId: string, embedderModelId: string): bo
  * local embedder being present AND the module being embedded with a matching
  * descriptor. Facet pre-filters are applied before ranking.
  *
- * Returns `found:false` with a note when the embedder is absent (degrade
- * visibly), never throwing into the result.
+ * Returns `found:false` with a note when no embedded module or no embedder is
+ * available (degrade visibly), never throwing into the result.
  */
 export async function semanticSearchLocal(
   args: {
@@ -838,15 +838,6 @@ export async function semanticSearchLocal(
   const k = args.k ?? 10;
   const notes: string[] = [];
 
-  const embed = await getQueryEmbedder();
-  if (!embed) {
-    notes.push(
-      "local embedder unavailable (@huggingface/transformers not installed); semantic_search_local disabled",
-    );
-    return { found: false, hits: [], notes };
-  }
-  const embedderDesc = activeEmbedderDescriptor();
-
   const candidates = selectModules({
     pin: args.module,
     jurisdiction: args.filter?.jurisdiction,
@@ -856,6 +847,15 @@ export async function semanticSearchLocal(
     notes.push("no embedded ready module available");
     return { found: false, hits: [], notes };
   }
+
+  const embed = await getQueryEmbedder();
+  if (!embed) {
+    notes.push(
+      "local embedder unavailable (@huggingface/transformers not installed); semantic_search_local disabled",
+    );
+    return { found: false, hits: [], notes };
+  }
+  const embedderDesc = activeEmbedderDescriptor();
 
   const queryVec = Array.from(await embed(args.query));
   const dim = queryVec.length;
