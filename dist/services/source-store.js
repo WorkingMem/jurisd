@@ -1,0 +1,118 @@
+/**
+ * jurisd - Source store
+ *
+ * Downloads and persists source documents as local markdown files.
+ * Uses HTTP ETag / Last-Modified for conditional-GET freshness checks so that
+ * re-fetching skips the network when the primary source has not changed.
+ */
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
+import axios from "axios";
+import { fetchDocumentText } from "./fetcher.js";
+import { assertFetchableUrl, assertRedirectAllowed, MAX_REDIRECTS } from "../utils/url-guard.js";
+const CITE_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+function buildSourceFilePath(citeKey, sourcesDir) {
+    if (!CITE_KEY_PATTERN.test(citeKey)) {
+        throw new Error(`Invalid citeKey '${citeKey}'. Must start with a letter or number and then use only letters, numbers, underscores, or hyphens.`);
+    }
+    const baseDir = path.resolve(sourcesDir);
+    const filePath = path.resolve(baseDir, `${citeKey}.md`);
+    const relative = path.relative(baseDir, filePath);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+        throw new Error(`Resolved source path escapes sources directory for citeKey '${citeKey}'.`);
+    }
+    return filePath;
+}
+/**
+ * Issue a conditional HEAD request to check whether the local copy of a
+ * source document is still current.
+ *
+ * Returns `fresh: true` (HTTP 304) or `fresh: false` (HTTP 200 / error).
+ * Network errors are treated as stale so the caller falls back to re-fetching.
+ */
+export async function checkSourceFreshness(url, etag, lastModified) {
+    try {
+        assertFetchableUrl(url);
+        const headers = {};
+        if (etag)
+            headers["If-None-Match"] = etag;
+        if (lastModified)
+            headers["If-Modified-Since"] = lastModified;
+        const response = await axios.head(url, {
+            headers,
+            validateStatus: (s) => s === 200 || s === 304,
+            timeout: 10_000,
+            maxRedirects: MAX_REDIRECTS,
+            beforeRedirect: assertRedirectAllowed,
+        });
+        return {
+            fresh: response.status === 304,
+            etag: response.headers["etag"] ?? undefined,
+            lastModified: response.headers["last-modified"] ?? undefined,
+        };
+    }
+    catch {
+        // Network or status errors — treat as stale so the caller re-fetches
+        return { fresh: false };
+    }
+}
+/**
+ * Download a source document and save it as a markdown file under `sourcesDir`.
+ *
+ * Freshness check flow:
+ * 1. If `cached` provides ETag/Last-Modified, issue a conditional HEAD first.
+ *    HTTP 304 → local copy is current; return without re-downloading.
+ * 2. Otherwise fetch full content, compute SHA-256, compare to `cached.contentHash`.
+ *    Only write to disk when the hash differs.
+ * 3. Issue a follow-up HEAD to capture current ETag/Last-Modified for the
+ *    next freshness check (skipped when the primary URL does not return them).
+ *
+ * @returns Path of the file, whether it changed, and HTTP cache headers.
+ */
+export async function storeSource(citeKey, url, cached, sourcesDir, prefetchedDoc) {
+    const filePath = buildSourceFilePath(citeKey, sourcesDir);
+    // Freshness check when we have prior ETag or Last-Modified
+    if (cached?.sourceEtag || cached?.sourceLastModified) {
+        const freshness = await checkSourceFreshness(url, cached.sourceEtag, cached.sourceLastModified);
+        if (freshness.fresh && cached.contentHash) {
+            return {
+                path: filePath,
+                changed: false,
+                etag: freshness.etag ?? cached.sourceEtag,
+                lastModified: freshness.lastModified ?? cached.sourceLastModified,
+                contentHash: cached.contentHash,
+            };
+        }
+    }
+    // Full content fetch — reuse pre-fetched doc when available to avoid double fetch
+    const text = prefetchedDoc?.text ?? (await fetchDocumentText(url)).text;
+    const contentHash = crypto.createHash("sha256").update(text, "utf-8").digest("hex");
+    const changed = cached?.contentHash !== contentHash;
+    if (changed) {
+        await fs.mkdir(sourcesDir, { recursive: true });
+        const markdown = `> Source: ${url}\n\n${text}`;
+        await fs.writeFile(filePath, markdown, "utf-8");
+    }
+    // Use ETag/Last-Modified from the pre-fetched response when available;
+    // otherwise attempt a HEAD request (non-fatal, many servers omit these headers).
+    let etag = prefetchedDoc?.etag;
+    let lastModified = prefetchedDoc?.lastModified;
+    if (!etag && !lastModified) {
+        try {
+            assertFetchableUrl(url);
+            const headResp = await axios.head(url, {
+                timeout: 10_000,
+                maxRedirects: MAX_REDIRECTS,
+                beforeRedirect: assertRedirectAllowed,
+            });
+            etag = headResp.headers["etag"] ?? undefined;
+            lastModified = headResp.headers["last-modified"] ?? undefined;
+        }
+        catch {
+            // Non-fatal
+        }
+    }
+    return { path: filePath, changed, etag, lastModified, contentHash };
+}
+//# sourceMappingURL=source-store.js.map

@@ -269,7 +269,8 @@ export async function tryLoadDuckDB(): Promise<typeof import("@duckdb/node-api")
       _duckdbUnavailable = true;
       console.warn(
         "[modules] @duckdb/node-api is not installed. Local-module query tools are disabled. " +
-          "Run: npm install @duckdb/node-api",
+          "Use a persistent local/global install for optional native dependencies; see " +
+          "https://github.com/russellbrenner/jurisd/blob/main/docs/INSTALL.md#optional-native-dependencies",
       );
       return null;
     }

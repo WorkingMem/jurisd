@@ -1,0 +1,270 @@
+function flagName(name) {
+    return name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+}
+function stringFlag(name, summary, values) {
+    const flag = { name: flagName(name), type: "string", summary };
+    if (values)
+        flag.values = values;
+    return flag;
+}
+function makeContract(id, cliName, mcpToolName, group, sideEffectClass, positional, numeric, boolean, array, summary, synopsis, extraFlags = []) {
+    return {
+        id,
+        synopsis,
+        summary,
+        description: summary,
+        stability: "stable",
+        sideEffectClass,
+        dangerous: false,
+        requiresConfirmation: false,
+        stdinMode: "none",
+        outputModes: ["human", "json", "plain"],
+        exitCodes: [0, 1, 2],
+        resultContract: `${id}.v1`,
+        capabilityGates: [],
+        arguments: positional.map((name) => ({ name, required: true, summary: `${name} argument.` })),
+        flags: [
+            ...numeric.map((name) => ({
+                name: flagName(name),
+                type: "number",
+                summary: `${name} value.`,
+            })),
+            ...boolean.map((name) => ({
+                name: flagName(name),
+                type: "boolean",
+                summary: `${name} toggle.`,
+            })),
+            ...array.map((name) => ({ name, type: "array", summary: `${name} values.` })),
+            ...extraFlags,
+        ],
+        examples: [synopsis],
+        adapters: {
+            cli: {
+                enabled: true,
+                canonicalName: cliName,
+                aliases: [cliName],
+                positional,
+                numeric,
+                boolean,
+                array,
+                group,
+            },
+            mcp: { enabled: true, toolName: mcpToolName },
+            tui: { enabled: false, label: summary.replace(/\.$/, "") },
+        },
+    };
+}
+function makeCliOnlyContract(id, cliName, group, sideEffectClass, positional, numeric, boolean, array, summary, synopsis, extraFlags = []) {
+    return {
+        id,
+        synopsis,
+        summary,
+        description: summary,
+        stability: "stable",
+        sideEffectClass,
+        dangerous: false,
+        requiresConfirmation: false,
+        stdinMode: "none",
+        outputModes: ["human", "json", "plain"],
+        exitCodes: [0, 1, 2],
+        resultContract: `${id}.v1`,
+        capabilityGates: [],
+        arguments: positional.map((name) => ({ name, required: true, summary: `${name} argument.` })),
+        flags: [
+            ...numeric.map((name) => ({
+                name: flagName(name),
+                type: "number",
+                summary: `${name} value.`,
+            })),
+            ...boolean.map((name) => ({
+                name: flagName(name),
+                type: "boolean",
+                summary: `${name} toggle.`,
+            })),
+            ...array.map((name) => ({ name, type: "array", summary: `${name} values.` })),
+            ...extraFlags,
+        ],
+        examples: [synopsis],
+        adapters: {
+            cli: {
+                enabled: true,
+                canonicalName: cliName,
+                aliases: [cliName],
+                positional,
+                numeric,
+                boolean,
+                array,
+                group,
+            },
+            mcp: { enabled: false },
+            tui: { enabled: false, label: summary.replace(/\.$/, "") },
+        },
+    };
+}
+export const COMMAND_CONTRACTS = [
+    {
+        id: "search.legislation",
+        synopsis: "jurisd search-legislation <query> [--jurisdiction cth] [--limit 10]",
+        summary: "Search Australian and New Zealand legislation.",
+        description: "Search legislation using the existing MCP search_legislation tool.",
+        stability: "stable",
+        sideEffectClass: "network_read",
+        dangerous: false,
+        requiresConfirmation: false,
+        stdinMode: "none",
+        outputModes: ["human", "json", "plain"],
+        exitCodes: [0, 1, 2, 3, 4, 6],
+        resultContract: "legal_search_results.v1",
+        capabilityGates: [],
+        arguments: [{ name: "query", required: true, summary: "Search query." }],
+        flags: [
+            { name: "jurisdiction", type: "string", summary: "Jurisdiction code." },
+            { name: "limit", type: "number", summary: "Maximum result count." },
+            { name: "offset", type: "number", summary: "Pagination offset." },
+            { name: "format", type: "string", summary: "Output format." },
+            { name: "sort-by", type: "string", summary: "Sort mode." },
+            { name: "method", type: "string", summary: "Search method." },
+        ],
+        examples: ['jurisd search-legislation "family violence" --jurisdiction nsw'],
+        adapters: {
+            cli: {
+                enabled: true,
+                canonicalName: "search-legislation",
+                aliases: ["search-legislation"],
+                positional: ["query"],
+                numeric: ["limit", "offset"],
+                boolean: [],
+                array: [],
+                group: "search",
+            },
+            mcp: { enabled: true, toolName: "search_legislation" },
+            tui: { enabled: false, label: "Search legislation" },
+        },
+    },
+    {
+        id: "search.cases",
+        synopsis: "jurisd search-cases <query> [--jurisdiction cth] [--limit 10]",
+        summary: "Search Australian and New Zealand case law.",
+        description: "Search cases using the existing MCP search_cases tool.",
+        stability: "stable",
+        sideEffectClass: "network_read",
+        dangerous: false,
+        requiresConfirmation: false,
+        stdinMode: "none",
+        outputModes: ["human", "json", "plain"],
+        exitCodes: [0, 1, 2, 3, 4, 6],
+        resultContract: "legal_search_results.v1",
+        capabilityGates: [],
+        arguments: [{ name: "query", required: true, summary: "Search query." }],
+        flags: [
+            { name: "jurisdiction", type: "string", summary: "Jurisdiction code." },
+            { name: "limit", type: "number", summary: "Maximum result count." },
+            { name: "offset", type: "number", summary: "Pagination offset." },
+            { name: "format", type: "string", summary: "Output format." },
+            { name: "sort-by", type: "string", summary: "Sort mode." },
+            { name: "method", type: "string", summary: "Search method." },
+        ],
+        examples: ['jurisd search-cases "native title" --jurisdiction cth --limit 5'],
+        adapters: {
+            cli: {
+                enabled: true,
+                canonicalName: "search-cases",
+                aliases: ["search-cases"],
+                positional: ["query"],
+                numeric: ["limit", "offset"],
+                boolean: [],
+                array: [],
+                group: "search",
+            },
+            mcp: { enabled: true, toolName: "search_cases" },
+            tui: { enabled: false, label: "Search cases" },
+        },
+    },
+    makeContract("source.fetchDocument", "fetch-document-text", "fetch_document_text", "source", "network_read", ["url"], [], [], [], "Fetch full text for a source document.", "jurisd fetch-document-text <url>", [
+        stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+        stringFlag("citeKey", "Existing citation cache key to associate with fetched source metadata."),
+    ]),
+    makeContract("source.sourceLookup", "source-lookup", "source_lookup", "source", "network_read", [], ["articleId"], [], [], "Look up removed.invalid article metadata or citation URL.", "jurisd source-lookup --by citation --citation '[2008] NSWSC 323'", [
+        stringFlag("by", "Lookup mode.", ["article_id", "citation"]),
+        stringFlag("citation", "Neutral citation for by=citation lookups."),
+    ]),
+    makeContract("cite.format", "format-citation", "format_citation", "cite", "read_only_query", ["title"], ["footnoteRef", "pinpointPara", "pinpointPage", "paragraphNumber"], [], [], "Format an AGLC4 citation.", "jurisd format-citation 'Mabo v Queensland (No 2)' --neutral-citation '[1992] HCA 23'", [
+        stringFlag("mode", "Citation mode.", ["full", "short", "ibid", "subsequent", "pinpoint"]),
+        stringFlag("neutralCitation", "Neutral citation."),
+        stringFlag("reportedCitation", "Reported citation."),
+        stringFlag("pinpoint", "Pinpoint reference."),
+        stringFlag("style", "Citation style.", ["neutral", "reported", "combined"]),
+        stringFlag("url", "AustLII document URL for pinpoint mode."),
+        stringFlag("phrase", "Phrase to locate for pinpoint mode."),
+        stringFlag("caseCitation", "Case citation prefix for pinpoint mode."),
+    ]),
+    makeContract("cite.resolve", "resolve-citation", "resolve_citation", "cite", "network_read", ["citation"], [], [], [], "Resolve a citation to an authoritative source.", "jurisd resolve-citation '[1992] HCA 23'", [
+        stringFlag("mode", "Resolution mode.", ["auto", "validate", "search"]),
+        stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ]),
+    makeContract("cite.searchCitingCases", "search-citing-cases", "search_citing_cases", "cite", "network_read", ["caseName"], [], [], [], "Search for cases citing a named case.", "jurisd search-citing-cases 'Mabo v Queensland (No 2)'", [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])]),
+    makeContract("cite.cacheCitedBy", "cache-cited-by", "cache_cited_by", "cite", "network_read", ["citeKey"], [], [], [], "Cache cited-by information for a citation key.", "jurisd cache-cited-by mabo-1992-hca-23"),
+    makeContract("cite.create", "cite", "cite", "cite", "local_metadata_read", ["title"], ["year", "footnoteNumber"], [], ["keywords"], "Create or record a citation cache entry.", "jurisd cite 'Mabo v Queensland (No 2)' --year 1992", [
+        stringFlag("action", "Citation cache action.", ["add", "refresh_source"]),
+        stringFlag("neutralCitation", "Neutral citation."),
+        stringFlag("reportedCitation", "Reported citation."),
+        stringFlag("url", "Primary source URL."),
+        stringFlag("type", "Source type.", ["case", "legislation", "secondary", "treaty"]),
+        stringFlag("jurisdiction", "Jurisdiction code."),
+        stringFlag("court", "Court code."),
+        stringFlag("summary", "Brief source summary."),
+        stringFlag("document", "Logical document name."),
+        stringFlag("pinpoint", "Pinpoint reference."),
+        stringFlag("style", "Citation style.", ["neutral", "reported", "combined"]),
+        stringFlag("citeKey", "Cached citation key."),
+    ]),
+    makeContract("cite.bibliography", "bibliography", "bibliography", "cite", "local_metadata_read", [], [], [], [], "Render a bibliography from cached citations.", "jurisd bibliography", [
+        stringFlag("op", "Bibliography operation.", ["get", "list", "export", "cited_by"]),
+        stringFlag("query", "Cached citation lookup query."),
+        stringFlag("citeKey", "Cached citation key."),
+        stringFlag("document", "Logical document name."),
+        stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+        stringFlag("outputPath", "BibLaTeX output path."),
+    ]),
+    makeContract("corpus.getProvision", "get-provision", "get_provision", "corpus", "local_metadata_read", ["act", "provision"], [], [], [], "Get a provision from an installed local data module.", "jurisd get-provision 'Family Law Act 1975 (Cth)' 's 60CC'", [
+        stringFlag("module", "Pinned data module name."),
+        stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ]),
+    makeContract("corpus.getActStructure", "get-act-structure", "get_act_structure", "corpus", "local_metadata_read", ["act"], ["depth"], [], [], "Get act structure from an installed local data module.", "jurisd get-act-structure 'Family Law Act 1975 (Cth)'", [
+        stringFlag("module", "Pinned data module name."),
+        stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ]),
+    makeContract("graph.findCiting", "find-citing", "find_citing", "graph", "local_metadata_read", ["target"], ["limit"], [], ["kinds"], "Find locally indexed items citing or considering a target.", "jurisd find-citing '[1992] HCA 23' --kinds cites,considers", [
+        stringFlag("module", "Pinned data module name."),
+        stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ]),
+    makeContract("search.semanticLocal", "semantic-search-local", "semantic_search_local", "search", "local_metadata_read", ["query"], ["k"], [], [], "Run local semantic search over installed data modules.", "jurisd semantic-search-local 'restraint of trade' --k 5", [
+        stringFlag("module", "Pinned data module name."),
+        stringFlag("filterJurisdiction", "Jurisdiction facet filter."),
+        stringFlag("filterType", "Document type facet filter.", [
+            "decision",
+            "primary_legislation",
+            "secondary_legislation",
+            "bill",
+        ]),
+        stringFlag("filterSegmentType", "Segment type facet filter."),
+        stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
+    ]),
+    makeContract("corpus.listDataModules", "list-data-modules", "list_data_modules", "corpus", "local_metadata_read", [], [], ["refresh", "includeInvalid"], [], "List installed local data modules.", "jurisd list-data-modules --include-invalid true", [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])]),
+    makeCliOnlyContract("shell.completion", "completion", "doctor", "read_only_query", ["shell"], [], [], [], "Print a shell completion script.", "jurisd completion <bash|zsh|fish>"),
+    makeCliOnlyContract("modules.fetch", "fetch-module", "modules", "filesystem_write", ["name"], [], [], [], "Fetch and install a data module.", "jurisd fetch-module <name> [--manifest-url URL] [--modules-dir DIR]", [
+        stringFlag("manifestUrl", "Override manifest URL."),
+        stringFlag("modulesDir", "Override modules directory."),
+    ]),
+    makeCliOnlyContract("modules.verify", "verify-module", "modules", "local_metadata_read", ["name"], [], [], [], "Verify an installed data module.", "jurisd verify-module <name> [--modules-dir DIR]", [stringFlag("modulesDir", "Override modules directory.")]),
+    makeCliOnlyContract("modules.list", "list-modules", "modules", "local_metadata_read", [], [], [], [], "List installed data modules via the operator CLI.", "jurisd list-modules [--modules-dir DIR]", [stringFlag("modulesDir", "Override modules directory.")]),
+];
+export function getCommandContractByCliName(name) {
+    return COMMAND_CONTRACTS.find((contract) => contract.adapters.cli.enabled &&
+        (contract.adapters.cli.canonicalName === name ||
+            contract.adapters.cli.aliases.includes(name)));
+}
+export function getMcpBackedCommandContracts() {
+    return COMMAND_CONTRACTS.filter((contract) => contract.adapters.mcp.enabled);
+}
+//# sourceMappingURL=contracts.js.map

@@ -43,8 +43,8 @@ live results — when you supply your own session cookie.
 npx -y github:russellbrenner/jurisd
 ```
 
-`npx` clones the repository, installs dependencies, builds, and launches the
-server over stdio in one step.
+`npx` installs the package from its built distribution and launches the server
+over stdio in one step.
 
 ### Register with Claude Code
 

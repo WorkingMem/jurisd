@@ -96,7 +96,8 @@ async function tryLoadTransformers(): Promise<TransformersModule | null> {
       _embedderUnavailable = true;
       console.warn(
         "[embedder] @huggingface/transformers is not installed. semantic_search_local is disabled. " +
-          "Run: npm install @huggingface/transformers",
+          "Use a persistent local/global install for optional native dependencies; see " +
+          "https://github.com/russellbrenner/jurisd/blob/main/docs/INSTALL.md#optional-native-dependencies",
       );
       return null;
     }
