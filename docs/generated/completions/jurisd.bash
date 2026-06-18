@@ -36,7 +36,7 @@ _jurisd_complete() {
       candidates=$'--format\n--help\n--module'
       ;;
     help)
-      candidates=$'bibliography\ncache-cited-by\ncite\ncommands\ncompletion\nfetch-document-text\nfetch-module\nfind-citing\nformat-citation\nget-act-structure\nget-provision\njade-lookup\nlist-data-modules\nlist-modules\nresolve-citation\nsearch-cases\nsearch-citing-cases\nsearch-legislation\nsemantic-search-local\nverify-module'
+      candidates=$'bibliography\ncache-cited-by\ncite\ncommands\ncompletion\nfetch-document-text\nfetch-module\nfind-citing\nformat-citation\nget-act-structure\nget-provision\njade-lookup\nlist-data-modules\nlist-modules\nresolve-citation\nsearch-cases\nsearch-citing-cases\nsearch-legislation\nsemantic-search-local\ntui\nverify-module'
       ;;
     jade-lookup)
       candidates=$'--article-id\n--by\n--citation\n--help'
@@ -62,11 +62,14 @@ _jurisd_complete() {
     semantic-search-local)
       candidates=$'--filter-jurisdiction\n--filter-segment-type\n--filter-type\n--format\n--help\n--k\n--module'
       ;;
+    tui)
+      candidates=$'--help'
+      ;;
     verify-module)
       candidates=$'--help\n--modules-dir'
       ;;
     *)
-      candidates=$'bibliography\ncache-cited-by\ncite\ncompletion\nfetch-document-text\nfetch-module\nfind-citing\nformat-citation\nget-act-structure\nget-provision\nhelp\njade-lookup\nlist-data-modules\nlist-modules\nresolve-citation\nsearch-cases\nsearch-citing-cases\nsearch-legislation\nsemantic-search-local\nverify-module'
+      candidates=$'bibliography\ncache-cited-by\ncite\ncompletion\nfetch-document-text\nfetch-module\nfind-citing\nformat-citation\nget-act-structure\nget-provision\nhelp\njade-lookup\nlist-data-modules\nlist-modules\nresolve-citation\nsearch-cases\nsearch-citing-cases\nsearch-legislation\nsemantic-search-local\ntui\nverify-module'
       ;;
   esac
   while IFS= read -r candidate; do

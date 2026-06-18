@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { getCommandContractByCliName } from "../../commands/contracts.js";
+import { parseFlags } from "../../commands/argv.js";
 import { contractToToolCommand } from "../../commands/legacy-cli.js";
 import { runCli, mapArgvToToolInput } from "../../cli.js";
 import { setModulesRootForTest } from "../../services/modules.js";
@@ -66,6 +67,40 @@ describe("mapArgvToToolInput", () => {
     expect(args.includeInvalid).toBe(false);
   });
 
+  it("coerces boolean literals case-insensitively after parsing", () => {
+    const args = mapArgvToToolInput(listDataModulesCmd, [], {
+      refresh: "TRUE",
+      includeInvalid: "FALSE",
+    });
+    expect(args.refresh).toBe(true);
+    expect(args.includeInvalid).toBe(false);
+  });
+
+  it("keeps adjacent bare boolean flags distinct when parsing with a command schema", () => {
+    const parsed = parseFlags(
+      ["--refresh", "--include-invalid", "--format", "json"],
+      listDataModulesCmd.boolean,
+    );
+    const args = mapArgvToToolInput(listDataModulesCmd, parsed.positional, parsed.flags);
+
+    expect(parsed.flags).toEqual({
+      refresh: "",
+      "include-invalid": "",
+      format: "json",
+    });
+    expect(args.refresh).toBe(true);
+    expect(args.includeInvalid).toBe(true);
+    expect(args.format).toBe("json");
+  });
+
+  it("does not treat unsupported boolean values as bare true flags", () => {
+    const parsed = parseFlags(["--include-invalid", "0"], listDataModulesCmd.boolean);
+    const args = mapArgvToToolInput(listDataModulesCmd, parsed.positional, parsed.flags);
+
+    expect(parsed.flags).toEqual({ "include-invalid": "false" });
+    expect(args.includeInvalid).toBe(false);
+  });
+
   it("folds --filter-<facet> flags into a nested filter object", () => {
     const args = mapArgvToToolInput(semanticCmd, ["restraint of trade"], {
       k: "3",
@@ -100,6 +135,12 @@ describe("runCli routing", () => {
 
   it("returns false when the first arg is a flag", async () => {
     expect(await runCli(["--http"])).toBe(false);
+  });
+
+  it("handles tui help without starting the server", async () => {
+    const handled = await runCli(["tui", "--help"]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(0);
   });
 
   it("resolves existing flat CLI tool commands from command contracts", () => {

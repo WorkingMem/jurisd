@@ -28,6 +28,7 @@ Supported completion shells: `bash`, `zsh`, `fish`.
 | `search-citing-cases`   | `cite`    | `network_read`        | `search_citing_cases`   | Search for cases citing a named case.                      |
 | `search-legislation`    | `search`  | `network_read`        | `search_legislation`    | Search Australian and New Zealand legislation.             |
 | `semantic-search-local` | `search`  | `local_metadata_read` | `semantic_search_local` | Run local semantic search over installed data modules.     |
+| `tui`                   | `tui`     | `local_metadata_read` | CLI only                | Open the inline TUI scaffold.                              |
 | `verify-module`         | `modules` | `local_metadata_read` | CLI only                | Verify an installed data module.                           |
 
 ## `bibliography`
@@ -610,6 +611,35 @@ Flags:
 Examples:
 
 - `jurisd semantic-search-local 'restraint of trade' --k 5`
+
+## `tui`
+
+Open the inline TUI scaffold.
+
+- Command id: `tui.open`
+- Group: `tui`
+- Side effect: `local_metadata_read`
+- Stability: `stable`
+- MCP tool: not exposed
+- Result contract: `tui.open.v1`
+
+Usage:
+
+```bash
+jurisd tui
+```
+
+Arguments:
+
+- none
+
+Flags:
+
+- none
+
+Examples:
+
+- `jurisd tui`
 
 ## `verify-module`
 
