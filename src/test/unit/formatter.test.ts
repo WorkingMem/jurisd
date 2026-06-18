@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { formatSearchResults, formatFetchResponse } from "../../utils/formatter.js";
+import {
+  formatSearchResults,
+  formatFetchResponse,
+  type SearchSourceStatuses,
+} from "../../utils/formatter.js";
 import type { SearchResult } from "../../services/austlii.js";
 import type { FetchResponse } from "../../services/fetcher.js";
 
@@ -37,6 +41,13 @@ const sampleFetch: FetchResponse = {
   metadata: { contentLength: "123" },
 };
 
+const sampleWarning = {
+  code: "austlii_cloudflare_blocked",
+  source: "austlii",
+  message: "AustLII search is blocked by a Cloudflare challenge.",
+};
+const sampleSources: SearchSourceStatuses = { austlii: "blocked", jade: "ok" };
+
 describe("formatSearchResults", () => {
   it("should format results as JSON", () => {
     const result = formatSearchResults(sampleResults, "json");
@@ -48,12 +59,71 @@ describe("formatSearchResults", () => {
     expect(() => JSON.parse(text)).not.toThrow();
   });
 
+  it("keeps no-warning JSON output as an array in text and structured data", () => {
+    const result = formatSearchResults(sampleResults, "json");
+    const parsed = JSON.parse(getText(result.content));
+    expect(Array.isArray(parsed)).toBe(true);
+    expect((result.structuredContent as { data: unknown }).data).toEqual(parsed);
+  });
+
+  it("formats warning JSON as a degraded result object in text and structured data", () => {
+    const result = formatSearchResults(sampleResults, "json", {
+      warnings: [sampleWarning],
+      sources: sampleSources,
+    });
+    const parsed = JSON.parse(getText(result.content)) as {
+      results: Array<SearchResult & { aglc4: string }>;
+      warnings: (typeof sampleWarning)[];
+      sources: SearchSourceStatuses;
+      degraded: boolean;
+    };
+    expect(parsed.degraded).toBe(true);
+    expect(parsed.results).toHaveLength(sampleResults.length);
+    expect(parsed.warnings).toEqual([sampleWarning]);
+    expect(parsed.sources).toEqual(sampleSources);
+    expect((result.structuredContent as { data: unknown }).data).toEqual(parsed);
+  });
+
+  it("formats source-only degradation as a degraded result object", () => {
+    const result = formatSearchResults([], "json", {
+      sources: { austlii: "blocked", jade: "not_configured" },
+    });
+    const parsed = JSON.parse(getText(result.content)) as {
+      results: SearchResult[];
+      warnings: unknown[];
+      sources: SearchSourceStatuses;
+      degraded: boolean;
+    };
+    expect(parsed).toEqual({
+      results: [],
+      warnings: [],
+      sources: { austlii: "blocked", jade: "not_configured" },
+      degraded: true,
+    });
+    expect((result.structuredContent as { data: unknown }).data).toEqual(parsed);
+  });
+
   it("should format results as text", () => {
     const result = formatSearchResults(sampleResults, "text");
     const text = getText(result.content);
     expect(text).toContain("1. Donoghue");
     expect(text).toContain("2. Mabo");
     expect(text).toContain("https://");
+  });
+
+  it("renders warnings in text output", () => {
+    const result = formatSearchResults(sampleResults, "text", { warnings: [sampleWarning] });
+    const text = getText(result.content);
+    expect(text).toContain("Warning: AustLII search is blocked");
+    expect(text).toContain("1. Donoghue");
+  });
+
+  it("renders source-only degradation in text output", () => {
+    const result = formatSearchResults([], "text", {
+      sources: { austlii: "blocked", jade: "not_configured" },
+    });
+    const text = getText(result.content);
+    expect(text).toContain("Source status: austlii=blocked, jade=not_configured");
   });
 
   it("should format results as markdown", () => {
@@ -63,6 +133,21 @@ describe("formatSearchResults", () => {
     expect(text).toContain("](https://");
   });
 
+  it("renders warnings in markdown output", () => {
+    const result = formatSearchResults(sampleResults, "markdown", { warnings: [sampleWarning] });
+    const text = getText(result.content);
+    expect(text).toContain("> AustLII search is blocked");
+    expect(text).toContain("- [Donoghue");
+  });
+
+  it("renders source-only degradation in markdown output", () => {
+    const result = formatSearchResults([], "markdown", {
+      sources: { austlii: "blocked", jade: "not_configured" },
+    });
+    const text = getText(result.content);
+    expect(text).toContain("> Source status: austlii=blocked, jade=not_configured");
+  });
+
   it("should format results as HTML", () => {
     const result = formatSearchResults(sampleResults, "html");
     const text = getText(result.content);
@@ -70,6 +155,25 @@ describe("formatSearchResults", () => {
     expect(text).toContain("<li>");
     expect(text).toContain("</ul>");
     expect(text).toContain("<a href=");
+  });
+
+  it("renders escaped warnings in HTML output", () => {
+    const result = formatSearchResults(sampleResults, "html", {
+      warnings: [{ ...sampleWarning, message: "Blocked <script>alert(1)</script>" }],
+    });
+    const text = getText(result.content);
+    expect(text).toContain('class="warning"');
+    expect(text).toContain("&lt;script&gt;");
+    expect(text).not.toContain("<script>");
+  });
+
+  it("renders source-only degradation in HTML output", () => {
+    const result = formatSearchResults([], "html", {
+      sources: { austlii: "blocked", jade: "not_configured" },
+    });
+    const text = getText(result.content);
+    expect(text).toContain('class="source-status"');
+    expect(text).toContain("austlii=blocked, jade=not_configured");
   });
 
   it("should handle empty results", () => {

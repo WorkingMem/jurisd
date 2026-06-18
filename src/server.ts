@@ -2,14 +2,19 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import path from "node:path";
-import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
+import {
+  formatFetchResponse,
+  formatSearchResults,
+  type SearchSourceStatuses,
+  type SearchWarning,
+} from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii, type SearchResult } from "./services/austlii.js";
 import { mergeCaseSearchResults } from "./services/search-merge.js";
 import {
   resolveArticle,
   buildCitationLookupUrl,
-  searchJade,
+  searchJadeWithStatus,
   searchCitingCases,
 } from "./services/jade.js";
 import {
@@ -45,6 +50,7 @@ import {
 } from "./services/modules.js";
 import { getActiveAdapter } from "./services/capabilities.js";
 import { config } from "./config.js";
+import { CloudflareBlockedError } from "./errors.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
 const jurisdictionEnum = z.enum([
@@ -97,6 +103,16 @@ function citedBySourceKey(parentCiteKey: string, neutralCitation: string): strin
   return `${parentCiteKey}_citing_${slug}`;
 }
 
+function austliiSearchWarning(error: unknown): SearchWarning | undefined {
+  if (!(error instanceof CloudflareBlockedError)) return undefined;
+  return {
+    code: "austlii_cloudflare_blocked",
+    source: "austlii",
+    message:
+      "AustLII search is blocked by a Cloudflare challenge. Direct document fetch still works when you already have a URL.",
+  };
+}
+
 /**
  * Build a fresh McpServer with all tools registered.
  *
@@ -139,15 +155,24 @@ export function createMcpServer(): McpServer {
     async (rawInput) => {
       const { query, jurisdiction, limit, format, sortBy, method, offset } =
         searchLegislationParser.parse(rawInput);
-      const results = await searchAustLii(query, {
-        type: "legislation",
-        jurisdiction,
-        limit,
-        sortBy,
-        method,
-        offset,
-      });
-      return formatSearchResults(results, format ?? "json");
+      try {
+        const results = await searchAustLii(query, {
+          type: "legislation",
+          jurisdiction,
+          limit,
+          sortBy,
+          method,
+          offset,
+        });
+        return formatSearchResults(results, format ?? "json");
+      } catch (error) {
+        const warning = austliiSearchWarning(error);
+        if (!warning) throw error;
+        return formatSearchResults([], format ?? "json", {
+          warnings: [warning],
+          sources: { austlii: "blocked" },
+        });
+      }
     },
   );
 
@@ -175,15 +200,39 @@ export function createMcpServer(): McpServer {
       const { query, jurisdiction, limit, format, sortBy, method, offset } =
         searchCasesParser.parse(rawInput);
 
-      // Run AustLII and jade.io searches in parallel
-      const [austliiResults, jadeResults] = await Promise.all([
+      const warnings: SearchWarning[] = [];
+      const sources: SearchSourceStatuses = {};
+
+      // Run AustLII and jade.io searches independently so a blocked AustLII
+      // search cannot discard useful jade.io case results.
+      const [austliiOutcome, jadeOutcome] = await Promise.allSettled([
         searchAustLii(query, { type: "case", jurisdiction, limit, sortBy, method, offset }),
-        searchJade(query, { type: "case", jurisdiction, limit }),
+        searchJadeWithStatus(query, { type: "case", jurisdiction, limit }),
       ]);
 
-      const merged = mergeCaseSearchResults(austliiResults, jadeResults, limit);
+      let austliiResults: SearchResult[] = [];
+      if (austliiOutcome.status === "fulfilled") {
+        austliiResults = austliiOutcome.value;
+        sources.austlii = "ok";
+      } else {
+        const warning = austliiSearchWarning(austliiOutcome.reason);
+        if (!warning) throw austliiOutcome.reason;
+        warnings.push(warning);
+        sources.austlii = "blocked";
+      }
 
-      return formatSearchResults(merged, format ?? "json");
+      if (jadeOutcome.status === "rejected") throw jadeOutcome.reason;
+
+      const jadeResults = jadeOutcome.value.results;
+      sources.jade = jadeOutcome.value.status;
+      const merged = mergeCaseSearchResults(austliiResults, jadeResults, limit);
+      const includeSourceStatus = warnings.length > 0 || sources.jade === "failed";
+
+      return formatSearchResults(
+        merged,
+        format ?? "json",
+        includeSourceStatus ? { warnings, sources } : undefined,
+      );
     },
   );
 
