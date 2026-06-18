@@ -46,6 +46,18 @@ npx -y github:russellbrenner/jurisd
 `npx` installs the package from its built distribution and launches the server
 over stdio in one step.
 
+### Install the CLI persistently from GitHub
+
+```bash
+npm install -g https://github.com/russellbrenner/jurisd/archive/refs/heads/main.tar.gz
+jurisd --help
+```
+
+Use the GitHub tarball form for persistent installs before the npm registry
+package is published. Bare git installs such as `npm install -g
+github:russellbrenner/jurisd` depend on npm's `install-links` setting and can
+leave a broken global bin on hosts where `install-links=false`.
+
 ### Register with Claude Code
 
 ```bash

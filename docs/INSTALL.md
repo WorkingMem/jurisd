@@ -46,18 +46,27 @@ npm install -g jurisd
 jurisd --help
 ```
 
-Before the registry publish, a GitHub-source global install must use npm's linked
-git install mode so the package root is materialised before the `jurisd` bin is
-linked:
+Before the registry publish, use the GitHub tarball archive for a persistent
+install:
+
+```bash
+npm install -g https://github.com/russellbrenner/jurisd/archive/refs/heads/main.tar.gz
+jurisd --help
+```
+
+The tarball archive materialises the package in the global prefix and creates a
+stable `jurisd` bin link. A bare git install such as `npm install -g
+github:russellbrenner/jurisd` depends on npm's `install-links` setting and can
+leave the global `jurisd` bin pointing at a temporary git clone that has already
+been removed on hosts where `install-links=false` is configured.
+
+If you intentionally want the bare git install form, force npm's linked install
+mode:
 
 ```bash
 npm install -g --install-links=true github:russellbrenner/jurisd
 jurisd --help
 ```
-
-Without `--install-links=true`, npm can leave the global `jurisd` bin pointing at
-a temporary git clone that has already been removed on hosts where
-`install-links=false` is configured.
 
 ## Optional native dependencies
 
