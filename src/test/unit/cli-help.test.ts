@@ -10,6 +10,7 @@ describe("CLI help rendering", () => {
     expect(help).toContain("search");
     expect(help).toContain("cite");
     expect(help).toContain("mcp");
+    expect(help).toContain("completion");
     expect(help).toContain("Run `jurisd help <topic>`");
   });
 
@@ -21,5 +22,13 @@ describe("CLI help rendering", () => {
     expect(help).toContain("Usage:");
     expect(help).toContain("Examples:");
     expect(help).toContain("--limit");
+  });
+
+  it("renders completion help from the command contract", () => {
+    const contract = getCommandContractByCliName("completion");
+    expect(contract).toBeDefined();
+    const help = renderCommandHelp(contract!);
+    expect(help).toContain("Print a shell completion script");
+    expect(help).toContain("jurisd completion <bash|zsh|fish>");
   });
 });

@@ -115,17 +115,21 @@ describe("runCli tool loopback (offline tools)", () => {
   let stdout: ReturnType<typeof vi.spyOn>;
   let stderr: ReturnType<typeof vi.spyOn>;
   let written: string;
+  let errors: string[];
 
   beforeEach(() => {
     process.exitCode = 0;
     scratch = fs.mkdtempSync(path.join(os.tmpdir(), "jurisd-cli-"));
     setModulesRootForTest(scratch, true);
     written = "";
+    errors = [];
     stdout = vi.spyOn(process.stdout, "write").mockImplementation((chunk: unknown) => {
       written += String(chunk);
       return true;
     });
-    stderr = vi.spyOn(console, "error").mockImplementation(() => {});
+    stderr = vi.spyOn(console, "error").mockImplementation((...chunks: unknown[]) => {
+      errors.push(chunks.map(String).join(" "));
+    });
   });
 
   afterEach(() => {
@@ -170,6 +174,32 @@ describe("runCli tool loopback (offline tools)", () => {
     expect(written.length).toBeGreaterThan(0);
     const parsed = JSON.parse(written) as Record<string, unknown>;
     expect(parsed).toBeTypeOf("object");
+  });
+
+  it("prints shell completion scripts to stdout with exit 0", async () => {
+    const handled = await runCli(["completion", "zsh"]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(0);
+    expect(written).toContain("#compdef jurisd");
+    expect(written).toContain("search-cases");
+  });
+
+  it("rejects unsupported completion shells with a usage error", async () => {
+    const handled = await runCli(["completion", "powershell"]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(2);
+    expect(written).toBe("");
+    expect(errors.join("\n")).toContain("unsupported completion shell");
+  });
+
+  it("does not echo unsupported completion shell input to diagnostics", async () => {
+    const handled = await runCli(["completion", "\u001b]0;title\u0007powershell"]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(2);
+    const diagnostic = errors.join("\n");
+    expect(diagnostic).toContain("unsupported completion shell");
+    expect(diagnostic).not.toContain("title");
+    expect(diagnostic).not.toContain("powershell");
   });
 
   it("sets exitCode 2 when a required positional is missing", async () => {

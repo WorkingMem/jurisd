@@ -22,7 +22,7 @@ export default defineConfig([globalIgnores(["**/dist", "**/node_modules", "**/*.
         sourceType: "module",
 
         parserOptions: {
-            project: "./tsconfig.json",
+            project: "./tsconfig.eslint.json",
         },
     },
 

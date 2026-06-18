@@ -2,7 +2,7 @@
 
 jurisd is a source-backed Australian legal research tool with MCP integration and a growing CLI surface.
 
-This guide documents the Foundation PR 1 CLI shape. It does not claim corpus import, vector search, graph traversal, Evidence Pack export, Isaacus integration, or agentic TUI functionality is implemented yet.
+This guide documents the Foundation CLI shape. It does not claim corpus import, vector search, graph traversal, Evidence Pack export, Isaacus integration, or agentic TUI functionality is implemented yet.
 
 ## Current modes
 
@@ -17,6 +17,42 @@ jurisd help
 jurisd help commands
 jurisd search-cases "native title"
 jurisd format-citation "Mabo v Queensland (No 2)" --neutral-citation "[1992] HCA 23"
+```
+
+## Generated command reference
+
+The detailed command reference is generated from the command contract registry:
+
+- [generated command reference](generated/COMMANDS.md)
+- [bash completion](generated/completions/jurisd.bash)
+- [zsh completion](generated/completions/jurisd.zsh)
+- [fish completion](generated/completions/jurisd.fish)
+
+Regenerate and check these files with:
+
+```bash
+npm run generate:commands
+npm run check:generated
+```
+
+## Shell completions
+
+Completion scripts are generated from static command metadata. They do not call the network, read project files, execute providers, or edit shell startup files.
+
+Print the completion script for a supported shell:
+
+```bash
+jurisd completion bash
+jurisd completion zsh
+jurisd completion fish
+```
+
+Install by redirecting the printed script into a shell-managed completion location, for example:
+
+```bash
+jurisd completion bash > ~/.local/share/bash-completion/completions/jurisd
+jurisd completion zsh > ~/.zfunc/_jurisd
+jurisd completion fish > ~/.config/fish/completions/jurisd.fish
 ```
 
 ## Command groups
