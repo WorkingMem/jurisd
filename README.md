@@ -270,7 +270,7 @@ at `fetch-module` install time.
 | [AGENT-GUIDE.md](docs/AGENT-GUIDE.md)                    | Agent-facing usage guide with full tool catalog and examples               |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md)                  | System architecture, deployment topology, CI/CD                            |
 | [DOCKER.md](docs/DOCKER.md)                              | Docker deployment guide                                                    |
-| [ROADMAP.md](docs/ROADMAP.md)                            | Development history and future plans                                       |
+| [ROADMAP.md](docs/ROADMAP.md)                            | Forward-looking project roadmap and review gates                           |
 
 ## Jurisdictions
 
