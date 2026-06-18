@@ -1,6 +1,6 @@
 # jurisd
 
-A command-line, terminal-user-interface and MCP Australian & NZ legal research tool, built
+A command-line, terminal-user-interface and MCP-server Australian & NZ legal research tool, built
 **local-first**. jurisd gives an AI assistant a fast, offline-capable recall
 layer over installed legal data modules — deterministic provision lookup,
 local semantic search, and a citation graph — and falls back to live AustLII
