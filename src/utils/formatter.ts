@@ -6,6 +6,15 @@ import { formatAGLC4 } from "../services/citation.js";
 
 export type ResponseFormat = "json" | "text" | "markdown" | "html";
 
+export interface SearchWarning {
+  code: string;
+  source: string;
+  message: string;
+}
+
+export type SearchSourceStatus = "ok" | "blocked" | "not_configured" | "failed";
+export type SearchSourceStatuses = Record<string, SearchSourceStatus>;
+
 function ensureContent(text: string): CallToolResult["content"] {
   return text
     ? [
@@ -36,21 +45,45 @@ function withAglc4(results: SearchResult[]): (SearchResult & { aglc4: string })[
   }));
 }
 
+function sourceStatusSummary(sources: SearchSourceStatuses | undefined): string | undefined {
+  if (!sources) return undefined;
+  const nonOk = Object.entries(sources).filter(([, status]) => status !== "ok");
+  if (nonOk.length === 0) return undefined;
+  return `Source status: ${nonOk.map(([source, status]) => `${source}=${status}`).join(", ")}`;
+}
+
 export function formatSearchResults(
   results: SearchResult[],
   format: ResponseFormat,
+  options: { warnings?: SearchWarning[]; sources?: SearchSourceStatuses } = {},
 ): CallToolResult {
   const enriched = withAglc4(results);
+  const warnings = options.warnings?.filter((warning) => warning.message) ?? [];
+  const sources = options.sources;
+  const sourceSummary = sourceStatusSummary(sources);
+  const degraded =
+    warnings.length > 0 ||
+    (sources ? Object.values(sources).some((status) => status !== "ok") : false);
   switch (format) {
-    case "json":
+    case "json": {
+      const data = degraded
+        ? { results: enriched, warnings, ...(sources ? { sources } : {}), degraded: true }
+        : enriched;
       return {
-        content: ensureContent(JSON.stringify(enriched, null, 2)),
+        content: ensureContent(JSON.stringify(data, null, 2)),
         structuredContent: {
           format: "json",
-          data: enriched,
+          data,
         },
       };
+    }
     case "html": {
+      const warningHtml = warnings
+        .map((warning) => `<p class="warning">${escapeHtml(warning.message)}</p>`)
+        .join("\n");
+      const sourceHtml = sourceSummary
+        ? `<p class="source-status">${escapeHtml(sourceSummary)}</p>`
+        : "";
       const rows = enriched
         .map((result) => {
           const citation = result.citation ?? result.neutralCitation ?? "";
@@ -68,26 +101,32 @@ export function formatSearchResults(
         })
         .join("\n");
       return {
-        content: ensureContent(`<ul>\n${rows}\n</ul>`),
+        content: ensureContent(
+          `${warningHtml ? `${warningHtml}\n` : ""}${sourceHtml ? `${sourceHtml}\n` : ""}<ul>\n${rows}\n</ul>`,
+        ),
       };
     }
     case "markdown": {
+      const warningLines = warnings.map((warning) => `> ${warning.message}`);
+      const sourceLines = sourceSummary ? [`> ${sourceSummary}`] : [];
       const lines = enriched.map((result) => {
         const summary = result.summary ? ` - ${result.summary}` : "";
         return `- [${result.title}](${result.url}) (\`${result.aglc4}\`)${summary}`;
       });
       return {
-        content: ensureContent(lines.join("\n")),
+        content: ensureContent([...warningLines, ...sourceLines, ...lines].join("\n")),
       };
     }
     case "text":
     default: {
+      const warningLines = warnings.map((warning) => `Warning: ${warning.message}`);
+      const sourceLines = sourceSummary ? [sourceSummary] : [];
       const lines = enriched.map((result, idx) => {
         const summary = result.summary ? `\n  ${result.summary}` : "";
         return `${idx + 1}. ${result.aglc4}\n   ${result.url}${summary}`;
       });
       return {
-        content: ensureContent(lines.join("\n")),
+        content: ensureContent([...warningLines, ...sourceLines, ...lines].join("\n")),
       };
     }
   }
