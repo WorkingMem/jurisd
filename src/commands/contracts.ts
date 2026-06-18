@@ -131,6 +131,16 @@ function makeCliOnlyContract(
   };
 }
 
+function enableTui(contract: CommandContract, label?: string): CommandContract {
+  return {
+    ...contract,
+    adapters: {
+      ...contract.adapters,
+      tui: { enabled: true, label: label ?? contract.adapters.tui.label },
+    },
+  };
+}
+
 export const COMMAND_CONTRACTS: CommandContract[] = [
   {
     id: "search.legislation",
@@ -438,19 +448,22 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
       stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
     ],
   ),
-  makeContract(
-    "corpus.listDataModules",
-    "list-data-modules",
-    "list_data_modules",
-    "corpus",
-    "local_metadata_read",
-    [],
-    [],
-    ["refresh", "includeInvalid"],
-    [],
-    "List installed local data modules.",
-    "jurisd list-data-modules --include-invalid true",
-    [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])],
+  enableTui(
+    makeContract(
+      "corpus.listDataModules",
+      "list-data-modules",
+      "list_data_modules",
+      "corpus",
+      "local_metadata_read",
+      [],
+      [],
+      ["refresh", "includeInvalid"],
+      [],
+      "List installed local data modules.",
+      "jurisd list-data-modules --include-invalid true",
+      [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])],
+    ),
+    "List installed data modules",
   ),
   makeCliOnlyContract(
     "shell.completion",
@@ -463,6 +476,18 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     [],
     "Print a shell completion script.",
     "jurisd completion <bash|zsh|fish>",
+  ),
+  makeCliOnlyContract(
+    "tui.open",
+    "tui",
+    "tui",
+    "local_metadata_read",
+    [],
+    [],
+    [],
+    [],
+    "Open the inline TUI scaffold.",
+    "jurisd tui",
   ),
   makeCliOnlyContract(
     "modules.fetch",

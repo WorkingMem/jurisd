@@ -9,6 +9,7 @@ const GROUPS = [
   ["source", "Fetch or inspect source documents"],
   ["mcp", "Run and inspect MCP integration"],
   ["doctor", "Diagnose configuration and capabilities"],
+  ["tui", "Open the inline terminal workbench scaffold"],
 ] as const;
 
 export function renderTopLevelHelp(): string {
@@ -19,6 +20,7 @@ export function renderTopLevelHelp(): string {
     "  jurisd <command> [arguments] [flags]",
     "  jurisd help <topic>",
     "  jurisd completion <shell>",
+    "  jurisd tui",
     "  jurisd mcp serve",
     "",
     "Common groups:",

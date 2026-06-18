@@ -24,6 +24,10 @@ const hostileValues = [
   "\u202ereversed",
 ];
 
+const BIDI_CONTROL_CODES = [
+  0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069,
+];
+
 function hasUnsafeTerminalCode(value: string, allowLineFeed = false): boolean {
   for (const char of value) {
     const code = char.codePointAt(0)!;
@@ -34,6 +38,12 @@ function hasUnsafeTerminalCode(value: string, allowLineFeed = false): boolean {
 }
 
 describe("shell completion generation", () => {
+  it("treats every named bidi-control code point as unsafe", () => {
+    for (const code of BIDI_CONTROL_CODES) {
+      expect(isUnsafeTerminalCode(code)).toBe(true);
+    }
+  });
+
   it("generates root commands and command flags from command contracts", () => {
     const model = buildCompletionModel();
     expect(model.rootCommands).toContain("search-cases");

@@ -125,6 +125,7 @@ _jurisd() {
         $'search-citing-cases'
         $'search-legislation'
         $'semantic-search-local'
+        $'tui'
         $'verify-module'
       )
       ;;
@@ -196,6 +197,11 @@ _jurisd() {
         $'--module'
       )
       ;;
+    tui)
+      candidates=(
+        $'--help'
+      )
+      ;;
     verify-module)
       candidates=(
         $'--help'
@@ -223,6 +229,7 @@ _jurisd() {
         $'search-citing-cases'
         $'search-legislation'
         $'semantic-search-local'
+        $'tui'
         $'verify-module'
       )
       ;;
