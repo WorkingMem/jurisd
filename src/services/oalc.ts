@@ -67,7 +67,8 @@ async function tryLoadDuckDB(): Promise<typeof import("@duckdb/node-api") | null
       _duckdbUnavailable = true;
       console.warn(
         "[oalc] @duckdb/node-api is not installed. OALC corpus fallback is disabled. " +
-          "Run: npm install @duckdb/node-api",
+          "Use a persistent local/global install for optional native dependencies; see " +
+          "https://github.com/russellbrenner/jurisd/blob/main/docs/INSTALL.md#optional-native-dependencies",
       );
       return null;
     }
