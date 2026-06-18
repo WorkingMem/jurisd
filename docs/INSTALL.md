@@ -166,14 +166,13 @@ tool surface so an AI assistant never triggers a multi-hundred-MB download
 mid-conversation. Modules are published as Hugging Face datasets under the
 `workingmem` organisation.
 
-> **Status: module publishing in progress — no modules available to fetch yet.**
-> The `workingmem` module datasets are still being built, so
-> `jurisd fetch-module` currently resolves the default manifest URL and fails
-> fast with a `404` (it never installs a partial or unverified module). This is
-> expected pre-publish. jurisd runs fully without any module: the live AustLII layer and
-> citation tools work standalone, and the five local-recall tools report "no
-> modules" (degrade visibly). The CLI flow below is implemented and ready for the
-> first publish.
+> **Status: first module published.** `legislation-cth` is available from
+> `workingmem/legislation-cth` on Hugging Face. It provides Commonwealth primary
+> and secondary legislation, 32,143 documents, 857,262 chunks, citation edges,
+> unmatched citations, and local bge-small embeddings. `jurisd fetch-module
+legislation-cth` downloads the manifest and parquet files from Hugging Face,
+> verifies every file against the manifest sha256 values, and installs the module
+> atomically.
 
 ```bash
 jurisd fetch-module <name> [--manifest-url URL] [--modules-dir DIR]

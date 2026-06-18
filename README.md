@@ -143,18 +143,18 @@ Existing flat CLI commands remain available during the foundation work.
 ## Data modules
 
 A **data module** is a self-describing parquet bundle (documents, chunks, edges,
-unmatched citations, plus a `manifest.json`) published as a GitHub release asset
-on the `jurisd-data` repository. Everything needed to load and query a module —
-schema version, coverage, embedding descriptor, file hashes, and licence posture
-— is in its manifest. No out-of-band config.
+unmatched citations, plus a `manifest.json`) published as a Hugging Face dataset.
+Everything needed to load and query a module — schema version, coverage,
+embedding descriptor, file hashes, and licence posture — is in its manifest. No
+out-of-band config.
 
-> **Status: no modules published yet.** The `jurisd-data` publishing repo and its
-> first release are still being built, so `jurisd fetch-module` has nothing to
-> download today (it resolves the release and fails fast with a `404`). The
-> server runs without any module — the live AustLII layer and citation tools work
-> standalone, and the five local-recall tools report "no modules" (degrade
-> visibly). The CLI flow below is implemented and ready for the first publish;
-> this section documents the intended install once modules land.
+> **Status: first module published.** `legislation-cth` is available from
+> `workingmem/legislation-cth` on Hugging Face. It provides Commonwealth primary
+> and secondary legislation, 32,143 documents, 857,262 chunks, citation edges,
+> unmatched citations, and local bge-small embeddings. `jurisd fetch-module
+legislation-cth` downloads the manifest and parquet files from Hugging Face,
+> verifies every file against the manifest sha256 values, and installs the module
+> atomically.
 
 Modules are queried in place: DuckDB scans the parquet on disk and never
 materialises a whole table into memory, so a host can install many modules
@@ -253,10 +253,9 @@ state, not a marketing number.
     case-law sources are redistributable under the CC-BY-4.0 aggregate, subject to
     per-source confirmation before each module publishes.
 
-The full per-source verdict table ships as `jurisd-data/LICENSING.md` with the
-first module release (the `jurisd-data` repo is still being built); each
-published module also carries its own `licence` block in `manifest.json`, surfaced
-at `fetch-module` install time.
+The full per-source verdict table lives in `jurisd-data/LICENSING.md`; each
+published module also carries its own `licence` block in `manifest.json`,
+surfaced at `fetch-module` install time.
 
 ## Documentation
 
