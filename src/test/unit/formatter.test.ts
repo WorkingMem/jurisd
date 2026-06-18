@@ -124,6 +124,7 @@ describe("formatSearchResults", () => {
     });
     const text = getText(result.content);
     expect(text).toContain("Source status: austlii=blocked, source=not_configured");
+    expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
   });
 
   it("should format results as markdown", () => {
@@ -146,6 +147,7 @@ describe("formatSearchResults", () => {
     });
     const text = getText(result.content);
     expect(text).toContain("> Source status: austlii=blocked, source=not_configured");
+    expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
   });
 
   it("should format results as HTML", () => {
@@ -174,6 +176,7 @@ describe("formatSearchResults", () => {
     const text = getText(result.content);
     expect(text).toContain('class="source-status"');
     expect(text).toContain("austlii=blocked, source=not_configured");
+    expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
   });
 
   it("should handle empty results", () => {
