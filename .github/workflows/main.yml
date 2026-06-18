@@ -39,6 +39,9 @@ jobs:
       - name: Check generated command artifacts
         run: npm run check:generated
 
+      - name: Check committed dist artifacts
+        run: npm run check:dist
+
       - name: Check TypeScript types
         run: npx tsc --noEmit
 

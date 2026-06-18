@@ -15,6 +15,7 @@
     "build": "tsc -p tsconfig.build.json && node -e \"const fs=require('fs'),p=require('path');fs.mkdirSync('dist/data',{recursive:true});fs.copyFileSync('src/data/manifest.schema.json','dist/data/manifest.schema.json')\"",
     "generate:commands": "tsx scripts/generate-command-artifacts.ts",
     "check:generated": "tsx scripts/generate-command-artifacts.ts --check",
+    "check:dist": "npm run build && git diff --exit-code -- dist",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
     "dev": "tsx watch src/index.ts",
@@ -28,8 +29,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"scripts/**/*.ts\"",
     "docs": "typedoc",
-    "docs:serve": "npx serve docs/api",
-    "prepare": "node -e \"if(require('fs').existsSync('.git'))require('child_process').execSync('husky',{stdio:'inherit'})\""
+    "docs:serve": "npx serve docs/api"
   },
   "keywords": [
     "model-context-protocol",
@@ -51,8 +51,6 @@
     "node": ">=20.18.1"
   },
   "dependencies": {
-    "@duckdb/node-api": "^1.5.3-r.3",
-    "@huggingface/transformers": "^3.7.6",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "axios": "^1.18.0",
     "cheerio": "^1.1.2",
@@ -90,6 +88,7 @@
     ]
   },
   "optionalDependencies": {
+    "@duckdb/node-api": "^1.5.3-r.3",
     "impit": "0.14.1"
   }
 }

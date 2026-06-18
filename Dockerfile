@@ -41,17 +41,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Production deps only (no dev, no optional), then add back the two optional
-# natives the runtime actually needs:
+# native packages the container runtime includes:
 #   - @duckdb/node-api : lazy DuckDB attach over the parquet data modules
 #   - impit            : TLS-impersonating HTTP client for AustLII / Cloudflare
-# --omit=optional matters here: all three optionalDependencies (the two above
-# plus @huggingface/transformers) would otherwise install. transformers is the
-# local embedder behind semantic_search_local; it is hundreds of MB and is
-# intentionally NOT bundled to keep the image slim — that one tool degrades
-# visibly (typed note) when absent, every other tool works. We then install the
-# two wanted natives explicitly, pinned to the package-lock.json versions; their
-# platform prebuilds (linux-{arm64,x64}-gnu) resolve directly on glibc, so no
-# node-gyp / python3 / g++ build toolchain is required in this stage.
+# The local embedding stack is intentionally not a default install dependency;
+# semantic_search_local degrades visibly when that stack is absent.
 COPY package*.json ./
 RUN npm ci --omit=dev --omit=optional \
  && npm install --no-save \

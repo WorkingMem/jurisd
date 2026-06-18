@@ -18,12 +18,68 @@ but no key.
 npx -y github:russellbrenner/jurisd
 ```
 
-`npx` clones the repository, installs dependencies, builds, and launches the
-server over stdio. The first invocation does the clone+build; subsequent launches
+`npx` installs the package from the built distribution and launches the server
+over stdio. The first invocation does the clone and install; subsequent launches
 reuse the cached install. Pin a ref by appending `#<ref>` — e.g.
 `github:russellbrenner/jurisd#main`.
 
-### B. Local clone + npm
+The native local-data package (`@duckdb/node-api`) and local embedding stack
+(`@huggingface/transformers` and its native dependencies) are optional because
+they pull native packages. The server still starts without them: local-module
+query tools report that DuckDB is unavailable, and `semantic_search_local`
+reports that local embeddings are disabled. The `npx` path is best for the base
+server; use a persistent local or global install when you need optional native
+features.
+
+To skip all optional native dependencies explicitly:
+
+```bash
+npm_config_omit=optional npx -y github:russellbrenner/jurisd
+```
+
+### B. npm global install
+
+Once the package is published to the npm registry, install the CLI globally with:
+
+```bash
+npm install -g jurisd
+jurisd --help
+```
+
+Before the registry publish, a GitHub-source global install must use npm's linked
+git install mode so the package root is materialised before the `jurisd` bin is
+linked:
+
+```bash
+npm install -g --install-links=true github:russellbrenner/jurisd
+jurisd --help
+```
+
+Without `--install-links=true`, npm can leave the global `jurisd` bin pointing at
+a temporary git clone that has already been removed on hosts where
+`install-links=false` is configured.
+
+## Optional native dependencies
+
+Optional native packages must be installed into the same persistent dependency
+tree that runs `jurisd`. A transient `npx github:...` cache is not a useful place
+to add them manually; use a local clone or global install instead.
+
+For a local clone:
+
+```bash
+npm install @duckdb/node-api
+npm install @huggingface/transformers
+```
+
+For a global install, install the optional packages into the same global prefix:
+
+```bash
+npm install -g @duckdb/node-api
+npm install -g @huggingface/transformers
+```
+
+### C. Local clone + npm
 
 ```bash
 git clone https://github.com/russellbrenner/jurisd.git
@@ -210,10 +266,10 @@ With **no key and no network**:
   lookup, the Act containment tree, and the offline citation graph need only the
   optional `@duckdb/node-api` dependency.
 - `semantic_search_local` embeds the query **locally** (bge-small-en-v1.5,
-  384-dim, no key) via the optional `@huggingface/transformers` dependency. The
+  384-dim, no key) when `@huggingface/transformers` is installed separately. The
   model is cached under `~/.jurisd/models/` after first use; set
-  `JURISD_EMBED_OFFLINE=true` to hard-fail rather than reach the network (pre-seed
-  the model dir for air-gapped installs).
+  `JURISD_EMBED_OFFLINE=true` to hard-fail rather than reach the network
+  (pre-seed the model dir for air-gapped installs).
 - The domain-adapter slot is **baseline** (pure local cosine order). No vendor, no
   account, no network.
 
