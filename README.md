@@ -163,10 +163,10 @@ out-of-band config.
 > **Status: first module published.** `legislation-cth` is available from
 > `workingmem/legislation-cth` on Hugging Face. It provides Commonwealth primary
 > and secondary legislation, 32,143 documents, 857,262 chunks, citation edges,
-> unmatched citations, and local bge-small embeddings. `jurisd fetch-module
-legislation-cth` downloads the manifest and parquet files from Hugging Face,
-> verifies every file against the manifest sha256 values, and installs the module
-> atomically.
+> unmatched citations, and local bge-small embeddings. Running
+> `jurisd fetch-module legislation-cth` downloads the manifest and parquet files
+> from Hugging Face, verifies every file against the manifest sha256 values, and
+> installs the module atomically.
 
 Modules are queried in place: DuckDB scans the parquet on disk and never
 materialises a whole table into memory, so a host can install many modules
@@ -178,9 +178,9 @@ Modules are **operator-installed via the CLI** (kept off the tool surface so an
 LLM never triggers a large download mid-conversation):
 
 ```bash
-jurisd fetch-module <name> [--version X.Y.Z]   # download + sha256-verify + atomic install
-jurisd verify-module <name>                     # re-verify installed files against the manifest
-jurisd list-modules                             # list installed modules (incl. refused)
+jurisd fetch-module <name> [--modules-dir DIR]   # download + sha256-verify + atomic install
+jurisd verify-module <name> [--modules-dir DIR]  # re-verify installed files against the manifest
+jurisd list-modules [--modules-dir DIR]          # list installed modules (incl. refused)
 ```
 
 The default install root is `~/.jurisd/modules/` (override with
@@ -189,6 +189,11 @@ and checks the schema version **before** downloading any parquet, sha256-verifie
 every file against the manifest, installs atomically (temp-then-rename, so a
 half-written module never appears), and prints the licence attribution lines at
 install time.
+
+Advanced operators can pass `--manifest-url URL` to install from an explicitly
+trusted manifest. The sha256 checks prove downloaded files match that manifest;
+they do not prove the manifest's provenance or protect against a malicious or
+compromised manifest source.
 
 ### Baseline vs domain-specialised variants
 
@@ -227,10 +232,9 @@ into a tool result.
 ## Quality
 
 jurisd's local data layer is built and scored honestly against a gold set. The
-`jurisd-data` gold-set evaluation (to be published alongside the first module
-release; the `jurisd-data` repo is still being built) measures the local enricher
-(segments, defined terms, citation crossrefs) against 90 Open Australian Legal
-Corpus / Kanon ILDGS documents, under two parallel metrics:
+`jurisd-data` gold-set evaluation measures the local enricher (segments, defined
+terms, citation crossrefs) against 90 Open Australian Legal Corpus / Kanon ILDGS
+documents, under two parallel metrics:
 
 - **strict** — the conservative audit metric: every typed prediction unmatched
   within its type is a false positive.
@@ -244,8 +248,9 @@ citation precision, citation recall, defined-term F1). Headline segment F1 is
 0.44 strict / 0.64 aligned against a 0.85 gate. The report localises every gap
 to a specific rule (the residual segment gap is genuine over-segmentation, chiefly
 an endnotes-boundary flood; citation precision is internal-ref over-firing on
-structural lines). It is published in full, both metrics, as the honest current
-state, not a marketing number.
+structural lines). The published module exposes the resulting data artefacts;
+evaluation reports remain part of the module publishing workflow until a public
+report location is available.
 
 ## Licensing
 
@@ -265,8 +270,7 @@ state, not a marketing number.
     case-law sources are redistributable under the CC-BY-4.0 aggregate, subject to
     per-source confirmation before each module publishes.
 
-The full per-source verdict table lives in `jurisd-data/LICENSING.md`; each
-published module also carries its own `licence` block in `manifest.json`,
+Each published module carries its own `licence` block in `manifest.json`,
 surfaced at `fetch-module` install time.
 
 ## Documentation
