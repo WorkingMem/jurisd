@@ -146,8 +146,31 @@ describe("formatSearchResults", () => {
       sources: { austlii: "blocked", jade: "not_configured" },
     });
     const text = getText(result.content);
-    expect(text).toContain("> Source status: austlii=blocked, jade=not_configured");
+    expect(text).toContain("> Source status: austlii=blocked, jade=not\\_configured");
     expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
+  });
+
+  it("escapes markdown control characters in search output", () => {
+    const result = formatSearchResults(
+      [
+        {
+          title: "Bad [label](https://evil.test)",
+          url: "javascript:alert(1)",
+          source: "austlii",
+          type: "case",
+          summary: "summary ![x](https://evil.test/img)",
+        },
+      ],
+      "markdown",
+      {
+        warnings: [{ ...sampleWarning, message: "> forged block\n- fake item" }],
+      },
+    );
+    const text = getText(result.content);
+    expect(text).toContain("\\> forged block");
+    expect(text).toContain("Bad \\[label\\]\\(https://evil\\.test\\)");
+    expect(text).not.toContain("javascript:alert");
+    expect(text).toContain("summary \\!\\[x\\]\\(https://evil\\.test/img\\)");
   });
 
   it("should format results as HTML", () => {
@@ -199,6 +222,21 @@ describe("formatSearchResults", () => {
     const text = getText(result.content);
     expect(text).not.toContain("<script>");
     expect(text).toContain("&lt;script&gt;");
+  });
+
+  it("removes unsafe HTML search result href values", () => {
+    const results: SearchResult[] = [
+      {
+        title: "Unsafe URL",
+        url: "javascript:alert(1)",
+        source: "austlii",
+        type: "case",
+      },
+    ];
+    const result = formatSearchResults(results, "html");
+    const text = getText(result.content);
+    expect(text).toContain("<a>Unsafe URL</a>");
+    expect(text).not.toContain("javascript:");
   });
 
   it("html format omits aglc4 span when formatted AGLC4 string is empty (line 62 false branch)", () => {
@@ -324,7 +362,7 @@ describe("formatFetchResponse", () => {
     const result = formatFetchResponse(sampleFetch, "markdown");
     const text = getText(result.content);
     expect(text).toContain("> Source:");
-    expect(text).toContain(sampleFetch.sourceUrl);
+    expect(text).toContain("https://www\\.austlii\\.edu\\.au/au/cases/cth/HCA/1992/23\\.html");
     expect(text).toContain(sampleFetch.text);
   });
 
@@ -345,6 +383,53 @@ describe("formatFetchResponse", () => {
     expect(text).toContain("<h1>Smith v Jones</h1>");
     expect(text).toContain("<p>[1] Appeal allowed.</p>");
     expect(text).not.toContain("<pre>");
+  });
+
+  it("sanitises preserved HTML before wrapping the fetched response", () => {
+    const fetchWithHtml: FetchResponse = {
+      ...sampleFetch,
+      html: [
+        '<article onclick="evil()">',
+        "<h1>Smith v Jones</h1>",
+        '<p><a href="javascript:alert(1)" onclick="bad()">bad</a>',
+        '<a href="https://example.test/doc" data-extra="drop">safe</a></p>',
+        '<span style="color:red" title="kept">Styled text</span>',
+        "<script>alert(1)</script>",
+        '<iframe src="https://evil.test"></iframe>',
+        "<svg><script>alert(2)</script></svg>",
+        "</article>",
+      ].join(""),
+    };
+    const result = formatFetchResponse(fetchWithHtml, "html");
+    const text = getText(result.content);
+    expect(text).toContain("<h1>Smith v Jones</h1>");
+    expect(text).toContain("<a>bad</a>");
+    expect(text).toContain('<a href="https://example.test/doc">safe</a>');
+    expect(text).toContain('<span title="kept">Styled text</span>');
+    expect(text).not.toContain("onclick");
+    expect(text).not.toContain("javascript:");
+    expect(text).not.toContain("<script");
+    expect(text).not.toContain("<iframe");
+    expect(text).not.toContain("<svg");
+    expect(text).not.toContain("style=");
+    expect(text).not.toContain("data-extra");
+  });
+
+  it("fences fetched markdown text and escapes the source line", () => {
+    const fetchWithMarkdownSyntax: FetchResponse = {
+      ...sampleFetch,
+      sourceUrl: "https://example.test/[doc](spoof)?q=1",
+      text: ["[spoof](https://evil.test)", "```html", "<script>alert(1)</script>", "```"].join(
+        "\n",
+      ),
+    };
+    const result = formatFetchResponse(fetchWithMarkdownSyntax, "markdown");
+    const text = getText(result.content);
+    expect(text).toContain("> Source: https://example\\.test/\\[doc\\]\\(spoof\\)?q=1");
+    expect(text).toContain("```text\n");
+    expect(text).toContain("`\\`\\`html");
+    expect(text).not.toContain("```html");
+    expect(text.endsWith("\n```")).toBe(true);
   });
 
   it("html format includes print-friendly stylesheet when html field present", () => {
