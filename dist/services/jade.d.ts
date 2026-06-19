@@ -32,6 +32,10 @@ export interface JadeArticle {
     /** Whether the article appears to be accessible (title was resolved) */
     accessible: boolean;
 }
+export interface JadeSearchOutcome {
+    results: SearchResult[];
+    status: "ok" | "not_configured" | "failed";
+}
 /**
  * Checks whether a URL belongs to jade.io
  */
@@ -111,19 +115,13 @@ export declare function enrichWithJadeLinks(results: SearchResult[]): Array<Sear
     jadeUrl?: string;
 }>;
 /**
- * Searches jade.io using the proposeCitables GWT-RPC method.
- *
- * proposeCitables is jade.io's internal search/autocomplete endpoint, reverse-engineered
- * from HAR analysis (2026-03-03). It returns case names, neutral citations, reported
- * citations, and jade.io article IDs in a single response.
- *
- * Requires JADE_SESSION_COOKIE. Returns an empty array (graceful degradation) if the
- * cookie is not configured or if the request fails — jade search failure should not
- * prevent AustLII results from being returned.
- *
- * @param query - Search query string
- * @param options - Search options (type, jurisdiction, limit, etc.)
- * @returns Array of SearchResult objects, empty if search fails or cookie is missing
+ * Searches jade.io and returns explicit source status for callers that must
+ * distinguish an empty result set from unavailable jade coverage.
+ */
+export declare function searchJadeWithStatus(query: string, options: SearchOptions): Promise<JadeSearchOutcome>;
+/**
+ * Backwards-compatible jade search helper. Returns an empty array when jade is
+ * unavailable; use searchJadeWithStatus when source coverage must be explicit.
  */
 export declare function searchJade(query: string, options: SearchOptions): Promise<SearchResult[]>;
 /**

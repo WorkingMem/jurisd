@@ -315,10 +315,8 @@ describe("parseProposeCitablesResponse", () => {
     expect(results).toEqual([]);
   });
 
-  it("returns empty results when parsed JSON is not a long-enough array (line 667)", () => {
-    // [1,2,3] has length 3 < 4, triggers the early return
-    const { results } = parseProposeCitablesResponse("//OK[1,2,3]");
-    expect(results).toEqual([]);
+  it("throws when parsed JSON is not a long-enough array", () => {
+    expect(() => parseProposeCitablesResponse("//OK[1,2,3]")).toThrow(/Malformed proposeCitables/);
   });
 
   it("uses fallback caseName from preceding string when no ' v ' found (lines 737-745)", () => {
@@ -333,10 +331,14 @@ describe("parseProposeCitablesResponse", () => {
     expect(results[0]!.neutralCitation).toBe("[2024] HCA 5");
   });
 
-  it("returns empty when JSON parse fails after //OK prefix (line 663)", () => {
-    // "//OKinvalid" → stripped = "invalid" → JSON.parse throws → return empty
-    const { results } = parseProposeCitablesResponse("//OKinvalid");
-    expect(results).toEqual([]);
+  it("throws when JSON parse fails after //OK prefix", () => {
+    expect(() => parseProposeCitablesResponse("//OKinvalid")).toThrow(
+      /Failed to parse proposeCitables/,
+    );
+  });
+
+  it("throws when the string table has an invalid shape", () => {
+    expect(() => parseProposeCitablesResponse("//OK[0,[],0,4,7]")).toThrow(/string table/);
   });
 
   it("deduplicates results with the same neutral citation", () => {

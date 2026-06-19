@@ -30,6 +30,7 @@ vi.mock("../../utils/rate-limiter.js", () => ({
 
 import {
   searchJade,
+  searchJadeWithStatus,
   enrichWithJadeLinks,
   resolveArticleFromUrl,
   articleToSearchResult,
@@ -61,6 +62,12 @@ describe("searchJade", () => {
   it("returns empty array when no session cookie is configured", async () => {
     const results = await searchJade("Mabo", { type: "case" });
     expect(results).toEqual([]);
+    expect(axios.post).not.toHaveBeenCalled();
+  });
+
+  it("reports not_configured status when no session cookie is configured", async () => {
+    const outcome = await searchJadeWithStatus("Mabo", { type: "case" });
+    expect(outcome).toEqual({ results: [], status: "not_configured" });
     expect(axios.post).not.toHaveBeenCalled();
   });
 
@@ -169,6 +176,27 @@ describe("searchJade", () => {
     const results = await searchJade("test", { type: "case" });
 
     expect(results).toEqual([]);
+  });
+
+  it("reports failed status on network error", async () => {
+    mockConfig.jade.sessionCookie = "IID=abc";
+    vi.mocked(axios.post).mockRejectedValueOnce(new Error("timeout"));
+
+    const outcome = await searchJadeWithStatus("test", { type: "case" });
+
+    expect(outcome).toEqual({ results: [], status: "failed" });
+  });
+
+  it("reports failed status on malformed proposeCitables responses", async () => {
+    mockConfig.jade.sessionCookie = "IID=abc";
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: "//OKnot-json",
+      status: 200,
+    });
+
+    const outcome = await searchJadeWithStatus("test", { type: "case" });
+
+    expect(outcome).toEqual({ results: [], status: "failed" });
   });
 
   it("does not expose session cookie in error messages on AxiosError", async () => {

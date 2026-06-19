@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { searchAustLii } from "../services/austlii.js";
 import { fetchDocumentText } from "../services/fetcher.js";
 
-// These scenarios hit live AustLII search and are skipped unless explicitly enabled.
-const describeLive = process.env.JURISD_RUN_LIVE_AUSTLII === "1" ? describe : describe.skip;
+const RUN_LIVE_AUSTLII = process.env.JURISD_RUN_LIVE_AUSTLII === "1";
+const describeLive = RUN_LIVE_AUSTLII ? describe : describe.skip;
 
 /**
  * Real-world non-deterministic test scenarios for AustLII search

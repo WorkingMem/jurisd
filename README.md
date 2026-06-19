@@ -110,6 +110,14 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 | `search_legislation`  | Search AU/NZ legislation with the same method/jurisdiction/sort controls.                                                     |
 | `fetch_document_text` | Fetch full text from an AustLII or jade.io URL (HTML, PDF, jade.io via GWT-RPC).                                              |
 
+AustLII search may be blocked by Cloudflare even when direct document fetch
+still works. In that case `search_cases` returns any jade.io results it can
+find plus a warning, `sources`, and `degraded: true`. `search_cases` also
+reports incomplete configured coverage, for example `jade: "not_configured"`,
+instead of hiding that source status. `search_legislation` returns an empty
+degraded result with the same machine-readable status instead of failing the
+tool call. CLI search commands exit 4 for degraded source coverage.
+
 ### Citation + bibliography (AGLC4)
 
 | Tool                  | What it does                                                                                                         |

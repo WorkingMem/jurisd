@@ -1,6 +1,6 @@
 /**
  * Smoke tests for AustLII search functions.
- * These hit the live AustLII service and are skipped unless explicitly enabled.
+ * These hit the live AustLII service and require JURISD_RUN_LIVE_AUSTLII=1.
  */
 import { describe, it, expect } from "vitest";
 import { searchAustLii, calculateAuthorityScore, isCaseNameQuery } from "../../services/austlii.js";

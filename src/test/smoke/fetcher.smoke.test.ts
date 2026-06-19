@@ -1,6 +1,6 @@
 /**
  * Smoke tests for fetchDocumentText.
- * Network tests are skipped unless explicitly enabled.
+ * Network tests require JURISD_RUN_LIVE_AUSTLII=1.
  */
 import { describe, it, expect } from "vitest";
 import { fetchDocumentText } from "../../services/fetcher.js";

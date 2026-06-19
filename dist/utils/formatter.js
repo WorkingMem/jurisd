@@ -1,4 +1,88 @@
+import * as cheerio from "cheerio";
 import { formatAGLC4 } from "../services/citation.js";
+const ALLOWED_HTML_TAGS = new Set([
+    "a",
+    "article",
+    "blockquote",
+    "br",
+    "caption",
+    "code",
+    "dd",
+    "div",
+    "dl",
+    "dt",
+    "em",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hr",
+    "li",
+    "ol",
+    "p",
+    "pre",
+    "section",
+    "span",
+    "strong",
+    "sub",
+    "sup",
+    "table",
+    "tbody",
+    "td",
+    "tfoot",
+    "th",
+    "thead",
+    "tr",
+    "u",
+    "ul",
+]);
+const REMOVED_HTML_TAGS = new Set([
+    "audio",
+    "button",
+    "canvas",
+    "embed",
+    "form",
+    "iframe",
+    "input",
+    "link",
+    "math",
+    "meta",
+    "object",
+    "script",
+    "select",
+    "source",
+    "style",
+    "svg",
+    "textarea",
+    "video",
+]);
+const GLOBAL_HTML_ATTRS = new Set(["class", "title"]);
+const TAG_HTML_ATTRS = {
+    a: new Set(["href", "name"]),
+    td: new Set(["colspan", "rowspan"]),
+    th: new Set(["colspan", "rowspan", "scope"]),
+};
+const MARKDOWN_INLINE_CHARS = new Set([
+    "<",
+    ">",
+    "]",
+    "[",
+    "`",
+    "*",
+    "_",
+    "{",
+    "}",
+    "(",
+    ")",
+    "#",
+    "+",
+    ".",
+    "!",
+    "|",
+    "-",
+]);
 function ensureContent(text) {
     return text
         ? [
@@ -9,8 +93,6 @@ function ensureContent(text) {
         ]
         : [{ type: "text", text: "" }];
 }
-const MARKDOWN_SPECIALS = new RegExp("([\\\\`*_{}\\[\\]()#+\\-.!|<>])", "g");
-const MARKDOWN_CODE_SPECIALS = new RegExp("([\\\\`\\[\\]()])", "g");
 function stripAnsiAndOsc(input) {
     let output = "";
     for (let i = 0; i < input.length; i += 1) {
@@ -77,21 +159,6 @@ function terminalSafeInline(input) {
 function terminalSafeBlock(input) {
     return stripUnsafeInlineControls(stripAnsiAndOsc(input)).replace(/\r\n?/g, "\n");
 }
-function escapeMarkdown(input) {
-    return terminalSafeInline(input).replace(MARKDOWN_SPECIALS, "\\$1");
-}
-function escapeMarkdownCode(input) {
-    return terminalSafeInline(input).replace(MARKDOWN_CODE_SPECIALS, "\\$1");
-}
-function markdownUrl(input) {
-    return terminalSafeInline(input).replace(/\)/g, "%29").replace(/\s/g, "%20");
-}
-function markdownCodeFence(input) {
-    const safe = terminalSafeBlock(input);
-    const longestBacktickRun = Math.max(0, ...Array.from(safe.matchAll(/`+/g), (match) => match[0].length));
-    const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
-    return `${fence}text\n${safe}\n${fence}`;
-}
 /**
  * Formats an array of search results into the requested output format.
  *
@@ -110,18 +177,109 @@ function withAglc4(results) {
         }),
     }));
 }
-export function formatSearchResults(results, format) {
+function sourceStatusSummary(sources) {
+    if (!sources)
+        return undefined;
+    const nonOk = Object.entries(sources).filter(([, status]) => status !== "ok");
+    if (nonOk.length === 0)
+        return undefined;
+    return `Source status: ${nonOk.map(([source, status]) => `${source}=${status}`).join(", ")}`;
+}
+function safeLinkUrl(input) {
+    if (!input)
+        return undefined;
+    if (input.startsWith("#") && /^#[A-Za-z0-9_.:-]*$/.test(input))
+        return input;
+    try {
+        const parsed = new URL(input);
+        return parsed.protocol === "http:" || parsed.protocol === "https:"
+            ? parsed.toString()
+            : undefined;
+    }
+    catch {
+        return undefined;
+    }
+}
+function markdownInline(input) {
+    return input
+        .replace(/\\/g, "\\\\")
+        .replace(/./gs, (char) => (MARKDOWN_INLINE_CHARS.has(char) ? `\\${char}` : char))
+        .replace(/\s+/g, " ");
+}
+function markdownCode(input) {
+    return input.replace(/`/g, "\\`").replace(/\s+/g, " ");
+}
+function markdownFence(input) {
+    return input.replace(/```/g, "`\\`\\`");
+}
+function markdownLink(label, url) {
+    const safeUrl = safeLinkUrl(url);
+    const safeLabel = markdownInline(label);
+    return safeUrl ? `[${safeLabel}](${safeUrl})` : safeLabel;
+}
+function isAllowedHtmlAttr(tagName, attrName) {
+    return GLOBAL_HTML_ATTRS.has(attrName) || (TAG_HTML_ATTRS[tagName]?.has(attrName) ?? false);
+}
+function sanitiseHtmlFragment(input) {
+    const $ = cheerio.load(input, null, false);
+    $("*").each((_, element) => {
+        const node = $(element);
+        const tagName = String(node.prop("tagName") ?? "").toLowerCase();
+        if (REMOVED_HTML_TAGS.has(tagName)) {
+            node.remove();
+            return;
+        }
+        if (!ALLOWED_HTML_TAGS.has(tagName)) {
+            node.replaceWith(node.contents());
+            return;
+        }
+        for (const [attrName, attrValue] of Object.entries(node.attr() ?? {})) {
+            const name = attrName.toLowerCase();
+            if (!isAllowedHtmlAttr(tagName, name)) {
+                node.removeAttr(attrName);
+                continue;
+            }
+            if (name === "href") {
+                const safeUrl = safeLinkUrl(attrValue);
+                if (safeUrl) {
+                    node.attr(attrName, safeUrl);
+                }
+                else {
+                    node.removeAttr(attrName);
+                }
+            }
+        }
+    });
+    return $.root().html() ?? "";
+}
+export function formatSearchResults(results, format, options = {}) {
     const enriched = withAglc4(results);
+    const warnings = options.warnings?.filter((warning) => warning.message) ?? [];
+    const sources = options.sources;
+    const sourceSummary = sourceStatusSummary(sources);
+    const degraded = warnings.length > 0 ||
+        (sources ? Object.values(sources).some((status) => status !== "ok") : false);
+    const degradedData = degraded
+        ? { results: enriched, warnings, ...(sources ? { sources } : {}), degraded: true }
+        : undefined;
     switch (format) {
-        case "json":
+        case "json": {
+            const data = degradedData ?? enriched;
             return {
-                content: ensureContent(JSON.stringify(enriched, null, 2)),
+                content: ensureContent(JSON.stringify(data, null, 2)),
                 structuredContent: {
                     format: "json",
-                    data: enriched,
+                    data,
                 },
             };
+        }
         case "html": {
+            const warningHtml = warnings
+                .map((warning) => `<p class="warning">${escapeHtml(warning.message)}</p>`)
+                .join("\n");
+            const sourceHtml = sourceSummary
+                ? `<p class="source-status">${escapeHtml(sourceSummary)}</p>`
+                : "";
             const rows = enriched
                 .map((result) => {
                 const citation = result.citation ?? result.neutralCitation ?? "";
@@ -132,30 +290,39 @@ export function formatSearchResults(results, format) {
                 const aglc4 = result.aglc4
                     ? ` <span class="aglc4">${escapeHtml(result.aglc4)}</span>`
                     : "";
-                return `<li><a href="${escapeHtml(result.url)}">${escapeHtml(result.title)}</a>${citation ? ` (${escapeHtml(citation)})` : ""}${reported}${aglc4}${summary}</li>`;
+                const safeUrl = safeLinkUrl(result.url);
+                const href = safeUrl ? ` href="${escapeHtml(safeUrl)}"` : "";
+                return `<li><a${href}>${escapeHtml(result.title)}</a>${citation ? ` (${escapeHtml(citation)})` : ""}${reported}${aglc4}${summary}</li>`;
             })
                 .join("\n");
             return {
-                content: ensureContent(`<ul>\n${rows}\n</ul>`),
+                content: ensureContent(`${warningHtml ? `${warningHtml}\n` : ""}${sourceHtml ? `${sourceHtml}\n` : ""}<ul>\n${rows}\n</ul>`),
+                ...(degradedData ? { structuredContent: { format: "html", data: degradedData } } : {}),
             };
         }
         case "markdown": {
+            const warningLines = warnings.map((warning) => `> ${markdownInline(warning.message)}`);
+            const sourceLines = sourceSummary ? [`> ${markdownInline(sourceSummary)}`] : [];
             const lines = enriched.map((result) => {
-                const summary = result.summary ? ` - ${escapeMarkdown(result.summary)}` : "";
-                return `- [${escapeMarkdown(result.title)}](${markdownUrl(result.url)}) (\`${escapeMarkdownCode(result.aglc4)}\`)${summary}`;
+                const summary = result.summary ? ` - ${markdownInline(result.summary)}` : "";
+                return `- ${markdownLink(result.title, result.url)} (\`${markdownCode(result.aglc4)}\`)${summary}`;
             });
             return {
-                content: ensureContent(lines.join("\n")),
+                content: ensureContent([...warningLines, ...sourceLines, ...lines].join("\n")),
+                ...(degradedData ? { structuredContent: { format: "markdown", data: degradedData } } : {}),
             };
         }
         case "text":
         default: {
+            const warningLines = warnings.map((warning) => `Warning: ${warning.message}`);
+            const sourceLines = sourceSummary ? [sourceSummary] : [];
             const lines = enriched.map((result, idx) => {
                 const summary = result.summary ? `\n  ${terminalSafeInline(result.summary)}` : "";
                 return `${idx + 1}. ${terminalSafeInline(result.aglc4)}\n   ${terminalSafeInline(result.url)}${summary}`;
             });
             return {
-                content: ensureContent(lines.join("\n")),
+                content: ensureContent([...warningLines, ...sourceLines, ...lines].join("\n")),
+                ...(degradedData ? { structuredContent: { format: "text", data: degradedData } } : {}),
             };
         }
     }
@@ -183,12 +350,17 @@ export function formatFetchResponse(response, format) {
             };
         }
         case "html":
+            if (response.html) {
+                return {
+                    content: ensureContent(wrapInStyledDocument(sanitiseHtmlFragment(response.html), response.sourceUrl)),
+                };
+            }
             return {
                 content: ensureContent(wrapInStyledDocument(`<article data-source="${escapeHtml(terminalSafeInline(response.sourceUrl))}"><pre>${escapeHtml(terminalSafeBlock(response.text))}</pre></article>`, terminalSafeInline(response.sourceUrl))),
             };
         case "markdown":
             return {
-                content: ensureContent(`> Source: ${markdownUrl(response.sourceUrl)}\n\n${markdownCodeFence(response.text)}`),
+                content: ensureContent(`> Source: ${markdownInline(response.sourceUrl)}\n\n\`\`\`text\n${markdownFence(response.text)}\n\`\`\``),
             };
         case "text":
         default:

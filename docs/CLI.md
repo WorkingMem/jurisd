@@ -119,6 +119,10 @@ Existing flat commands remain available during the foundation work, including:
 - stderr is diagnostics and help text.
 - JSON output must remain valid JSON.
 - Human output is not a stable parsing contract.
+- Search commands return a JSON array only when the search coverage is complete.
+  If a source degrades or configured coverage is unavailable, JSON output returns
+  `{ "results": [...], "warnings": [...], "sources": { ... }, "degraded": true }`
+  and the CLI exits 4.
 
 ## Exit codes
 

@@ -249,8 +249,8 @@ export interface SemanticSearchResult {
  * local embedder being present AND the module being embedded with a matching
  * descriptor. Facet pre-filters are applied before ranking.
  *
- * Returns `found:false` with a note when the embedder is absent (degrade
- * visibly), never throwing into the result.
+ * Returns `found:false` with a note when no embedded module or no embedder is
+ * available (degrade visibly), never throwing into the result.
  */
 export declare function semanticSearchLocal(args: {
     query: string;

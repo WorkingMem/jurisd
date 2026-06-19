@@ -1,6 +1,6 @@
 /**
  * Smoke tests for jade.io search functions.
- * Live network tests require JURISD_RUN_LIVE_JADE=1; pure-function tests always run.
+ * Network tests require JURISD_RUN_LIVE_JADE=1; pure-function tests always run.
  */
 import { describe, it, expect } from "vitest";
 import {

@@ -16,28 +16,24 @@ import {
 import type { SearchResult } from "../services/austlii.js";
 
 const RUN_LIVE_JADE = process.env.JURISD_RUN_LIVE_JADE === "1";
-
-// Live network tests are opt-in to keep the default suite deterministic.
 const describeLive = RUN_LIVE_JADE ? describe : describe.skip;
 
-// Authenticated GWT-RPC tests require both live opt-in and JADE_SESSION_COOKIE.
+// Authenticated GWT-RPC tests — require JADE_SESSION_COOKIE env var
 const describeAuth = RUN_LIVE_JADE && process.env.JADE_SESSION_COOKIE ? describe : describe.skip;
 
-async function withoutConfiguredJadeSession<T>(fn: () => Promise<T>): Promise<T> {
-  const originalEnvCookie = process.env.JADE_SESSION_COOKIE;
+async function searchJadeForDefaultTest(
+  query: string,
+  options: Parameters<typeof searchJade>[1],
+): ReturnType<typeof searchJade> {
   const { config } = await import("../config.js");
-  const originalConfigCookie = config.jade.sessionCookie;
-
-  delete process.env.JADE_SESSION_COOKIE;
-  (config.jade as { sessionCookie: string | undefined }).sessionCookie = undefined;
-
+  const savedCookie = config.jade.sessionCookie;
+  if (!RUN_LIVE_JADE) {
+    (config.jade as { sessionCookie: string | undefined }).sessionCookie = undefined;
+  }
   try {
-    return await fn();
+    return await searchJade(query, options);
   } finally {
-    if (originalEnvCookie !== undefined) {
-      process.env.JADE_SESSION_COOKIE = originalEnvCookie;
-    }
-    (config.jade as { sessionCookie: string | undefined }).sessionCookie = originalConfigCookie;
+    (config.jade as { sessionCookie: string | undefined }).sessionCookie = savedCookie;
   }
 }
 
@@ -296,23 +292,12 @@ describe("jade.io cross-referencing", () => {
 
 describe("jade.io search", () => {
   it("returns case results when configured, otherwise degrades to an empty array", async () => {
-    if (!RUN_LIVE_JADE) {
-      const results = await withoutConfiguredJadeSession(() =>
-        searchJade("negligence", {
-          type: "case",
-          limit: 5,
-        }),
-      );
-      expect(results).toEqual([]);
-      return;
-    }
-
-    const results = await searchJade("negligence", {
+    const results = await searchJadeForDefaultTest("negligence", {
       type: "case",
       limit: 5,
     });
 
-    if (!process.env.JADE_SESSION_COOKIE) {
+    if (!RUN_LIVE_JADE || !process.env.JADE_SESSION_COOKIE) {
       expect(results).toEqual([]);
       return;
     }
@@ -328,21 +313,11 @@ describe("jade.io search", () => {
   });
 
   it("returns legislation results when configured, otherwise degrades to an empty array", async () => {
-    if (!RUN_LIVE_JADE) {
-      const results = await withoutConfiguredJadeSession(() =>
-        searchJade("corporations act", {
-          type: "legislation",
-        }),
-      );
-      expect(results).toEqual([]);
-      return;
-    }
-
-    const results = await searchJade("corporations act", {
+    const results = await searchJadeForDefaultTest("corporations act", {
       type: "legislation",
     });
 
-    if (!process.env.JADE_SESSION_COOKIE) {
+    if (!RUN_LIVE_JADE || !process.env.JADE_SESSION_COOKIE) {
       expect(results).toEqual([]);
       return;
     }
