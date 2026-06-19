@@ -1,0 +1,1 @@
+{"version":3,"file":"tool-loopback.d.ts","sourceRoot":"","sources":["../../src/commands/tool-loopback.ts"],"names":[],"mappings":"AAIA,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,iBAAiB,CAAC;AAEnD,MAAM,WAAW,mBAAmB;IAClC,IAAI,EAAE,MAAM,CAAC;IACb,OAAO,EAAE,OAAO,CAAC;CAClB;AAED,wBAAsB,kBAAkB,CACtC,OAAO,EAAE,WAAW,EACpB,IAAI,EAAE,MAAM,CAAC,MAAM,EAAE,OAAO,CAAC,GAC5B,OAAO,CAAC,mBAAmB,CAAC,CAiB9B"}

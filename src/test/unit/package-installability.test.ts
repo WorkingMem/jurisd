@@ -67,7 +67,7 @@ describe("package installability metadata", () => {
 
   it("checks that committed dist artifacts match the source build", () => {
     expect(packageJson.scripts?.["check:dist"]).toBe(
-      "npm run build && git diff --exit-code -- dist",
+      'npm run clean && npm run build && git diff --exit-code -- dist && test -z "$(git status --porcelain -- dist)"',
     );
     expect(mainWorkflow).toContain("npm run check:dist");
   });

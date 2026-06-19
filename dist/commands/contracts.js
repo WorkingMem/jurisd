@@ -101,6 +101,15 @@ function makeCliOnlyContract(id, cliName, group, sideEffectClass, positional, nu
         },
     };
 }
+function enableTui(contract, label) {
+    return {
+        ...contract,
+        adapters: {
+            ...contract.adapters,
+            tui: { enabled: true, label: label ?? contract.adapters.tui.label },
+        },
+    };
+}
 export const COMMAND_CONTRACTS = [
     {
         id: "search.legislation",
@@ -250,8 +259,9 @@ export const COMMAND_CONTRACTS = [
         stringFlag("filterSegmentType", "Segment type facet filter."),
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
     ]),
-    makeContract("corpus.listDataModules", "list-data-modules", "list_data_modules", "corpus", "local_metadata_read", [], [], ["refresh", "includeInvalid"], [], "List installed local data modules.", "jurisd list-data-modules --include-invalid true", [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])]),
+    enableTui(makeContract("corpus.listDataModules", "list-data-modules", "list_data_modules", "corpus", "local_metadata_read", [], [], ["refresh", "includeInvalid"], [], "List installed local data modules.", "jurisd list-data-modules --include-invalid true", [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])]), "List installed data modules"),
     makeCliOnlyContract("shell.completion", "completion", "doctor", "read_only_query", ["shell"], [], [], [], "Print a shell completion script.", "jurisd completion <bash|zsh|fish>"),
+    makeCliOnlyContract("tui.open", "tui", "tui", "local_metadata_read", [], [], [], [], "Open the inline TUI scaffold.", "jurisd tui"),
     makeCliOnlyContract("modules.fetch", "fetch-module", "modules", "filesystem_write", ["name"], [], [], [], "Fetch and install a data module.", "jurisd fetch-module <name> [--manifest-url URL] [--modules-dir DIR]", [
         stringFlag("manifestUrl", "Override manifest URL."),
         stringFlag("modulesDir", "Override modules directory."),

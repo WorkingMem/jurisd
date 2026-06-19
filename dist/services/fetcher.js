@@ -1,7 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { fileTypeFromBuffer } from "file-type";
-import { PDFParse } from "pdf-parse";
 import { config } from "../config.js";
 import { MAX_CONTENT_LENGTH } from "../constants.js";
 import { isSourceUrl, extractArticleId, fetchSourceArticleContent } from "./source.js";
@@ -14,6 +13,7 @@ import { lookupByCitation } from "./oalc.js";
 import { CloudflareBlockedError } from "../errors.js";
 async function extractTextFromPdf(buffer, url) {
     try {
+        const { PDFParse } = await import("pdf-parse");
         // Extract the embedded text layer of the PDF via pdf-parse v2.
         const parser = new PDFParse({ data: new Uint8Array(buffer) });
         const textResult = await parser.getText();

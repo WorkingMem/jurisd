@@ -77,15 +77,15 @@ to add them manually; use a local clone or global install instead.
 For a local clone:
 
 ```bash
-npm install @duckdb/node-api
-npm install @huggingface/transformers
+npm install @duckdb/node-api@1.5.3-r.3
+npm install @huggingface/transformers@3.7.6
 ```
 
 For a global install, install the optional packages into the same global prefix:
 
 ```bash
-npm install -g @duckdb/node-api
-npm install -g @huggingface/transformers
+npm install -g @duckdb/node-api@1.5.3-r.3
+npm install -g @huggingface/transformers@3.7.6
 ```
 
 ### C. Local clone + npm

@@ -22,110 +22,22 @@
  * exit via `process.exitCode`), or false when no subcommand was given and the
  * server should start.
  */
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { mapArgvToToolInput, parseFlags } from "./commands/argv.js";
 import { isSupportedCompletionShell, renderCompletion, renderCompletionUsage, } from "./commands/completions.js";
 import { getCommandContractByCliName } from "./commands/contracts.js";
 import { renderCommandHelp, renderCommandList, renderTopLevelHelp } from "./commands/help.js";
 import { contractToToolCommand } from "./commands/legacy-cli.js";
-import { createMcpServer } from "./server.js";
+import { executeToolCommand } from "./commands/tool-loopback.js";
 import { fetchModule, verifyModule } from "./services/fetch-module.js";
 import { listDataModules, setModulesRootForTest } from "./services/modules.js";
-/** Parse `--flag value` and `--flag=value` pairs out of an argv tail. */
-function parseFlags(args) {
-    const positional = [];
-    const flags = {};
-    for (let i = 0; i < args.length; i++) {
-        const a = args[i];
-        if (a.startsWith("--")) {
-            const eq = a.indexOf("=");
-            if (eq >= 0) {
-                flags[a.slice(2, eq)] = a.slice(eq + 1);
-            }
-            else {
-                flags[a.slice(2)] = args[i + 1] ?? "";
-                i++;
-            }
-        }
-        else {
-            positional.push(a);
-        }
-    }
-    return { positional, flags };
-}
-/** Convert a kebab-case flag name to the camelCase schema field it targets. */
-function flagToField(flag) {
-    return flag.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-}
-/**
- * `semantic_search_local` accepts a nested `filter` object. Flags of the form
- * `--filter-<facet>` are folded into that object so the CLI can express it
- * without bespoke parsing per facet.
- */
-function applyFilterFlag(args, field, value) {
-    const facet = field.slice("filter".length);
-    const key = facet.charAt(0).toLowerCase() + facet.slice(1);
-    const filter = args.filter ?? {};
-    filter[key] = value;
-    args.filter = filter;
-}
-/**
- * Pure mapping from parsed argv to a tool `arguments` object. Positional values
- * fill the command's positional fields in order; flags fill the remaining
- * fields with type coercion. Kept side-effect free so it is unit-testable
- * without a live loopback.
- */
-export function mapArgvToToolInput(command, positional, flags) {
-    const args = {};
-    command.positional.forEach((field, i) => {
-        const value = positional[i];
-        if (value !== undefined)
-            args[field] = value;
-    });
-    for (const [flag, raw] of Object.entries(flags)) {
-        if (flag === "modules-dir")
-            continue;
-        const field = flagToField(flag);
-        if (field.startsWith("filter") && field.length > "filter".length) {
-            applyFilterFlag(args, field, raw);
-        }
-        else if (command.numeric.includes(field)) {
-            args[field] = Number(raw);
-        }
-        else if (command.boolean.includes(field)) {
-            args[field] = raw === "" ? true : raw === "true";
-        }
-        else if (command.array.includes(field)) {
-            args[field] = raw.split(",").map((s) => s.trim());
-        }
-        else {
-            args[field] = raw;
-        }
-    }
-    return args;
-}
+import { runTui } from "./tui.js";
+export { mapArgvToToolInput } from "./commands/argv.js";
 /** Run a tool through the in-process loopback and stream its result to stdout. */
 async function runToolCommand(command, positional, flags) {
     const args = mapArgvToToolInput(command, positional, flags);
-    const server = createMcpServer();
-    const client = new Client({ name: "jurisd-cli", version: "0.1.0" }, { capabilities: {} });
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
-    try {
-        const result = await client.callTool({ name: command.tool, arguments: args });
-        const content = (result.content ?? []);
-        for (const block of content) {
-            if (block.type === "text" && block.text !== undefined) {
-                process.stdout.write(block.text + "\n");
-            }
-        }
-        process.exitCode = result.isError ? 1 : 0;
-    }
-    finally {
-        // Settle both teardowns independently so a failing client close cannot
-        // skip the server close (or mask an earlier error) on any transport.
-        await Promise.allSettled([client.close(), server.close()]);
-    }
+    const result = await executeToolCommand(command, args);
+    process.stdout.write(result.text);
+    process.exitCode = result.isError ? 1 : 0;
 }
 /** One-line usage banner listing every available subcommand. */
 function printHelp() {
@@ -185,9 +97,14 @@ export async function runCli(argv) {
         process.exitCode = 0;
         return true;
     }
+    if (command === "tui") {
+        await runTui({ input: process.stdin, output: process.stdout });
+        process.exitCode = 0;
+        return true;
+    }
     const toolCommand = contract?.adapters.mcp.enabled ? contractToToolCommand(contract) : undefined;
     if (toolCommand) {
-        const { positional, flags } = parseFlags(rest);
+        const { positional, flags } = parseFlags(rest, toolCommand.boolean);
         if (flags["modules-dir"])
             setModulesRootForTest(flags["modules-dir"], true);
         if (positional.length < toolCommand.positional.length) {

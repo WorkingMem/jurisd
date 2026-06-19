@@ -22,14 +22,7 @@
  * exit via `process.exitCode`), or false when no subcommand was given and the
  * server should start.
  */
-import { type ToolCommand } from "./commands/legacy-cli.js";
-/**
- * Pure mapping from parsed argv to a tool `arguments` object. Positional values
- * fill the command's positional fields in order; flags fill the remaining
- * fields with type coercion. Kept side-effect free so it is unit-testable
- * without a live loopback.
- */
-export declare function mapArgvToToolInput(command: ToolCommand, positional: string[], flags: Record<string, string>): Record<string, unknown>;
+export { mapArgvToToolInput } from "./commands/argv.js";
 /**
  * Handle a CLI subcommand. Returns true when handled (process should exit with
  * `process.exitCode`), false when no subcommand was given.
