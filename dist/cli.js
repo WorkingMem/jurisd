@@ -32,12 +32,29 @@ import { fetchModule, verifyModule } from "./services/fetch-module.js";
 import { listDataModules, setModulesRootForTest } from "./services/modules.js";
 import { runTui } from "./tui.js";
 export { mapArgvToToolInput } from "./commands/argv.js";
+const EXIT_SOURCE_UNAVAILABLE = 4;
+function isRecord(value) {
+    return typeof value === "object" && value !== null;
+}
+function isDegradedPayload(value) {
+    return isRecord(value) && value.degraded === true;
+}
+function toolResultIsDegraded(result) {
+    if (!isRecord(result))
+        return false;
+    const structured = result.structuredContent;
+    return isRecord(structured) && isDegradedPayload(structured.data);
+}
 /** Run a tool through the in-process loopback and stream its result to stdout. */
 async function runToolCommand(command, positional, flags) {
     const args = mapArgvToToolInput(command, positional, flags);
     const result = await executeToolCommand(command, args);
     process.stdout.write(result.text);
-    process.exitCode = result.isError ? 1 : 0;
+    process.exitCode = result.isError
+        ? 1
+        : toolResultIsDegraded(result.rawResult)
+            ? EXIT_SOURCE_UNAVAILABLE
+            : 0;
 }
 /** One-line usage banner listing every available subcommand. */
 function printHelp() {

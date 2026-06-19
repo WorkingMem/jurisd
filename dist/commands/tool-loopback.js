@@ -13,7 +13,7 @@ export async function executeToolCommand(command, args) {
             .filter((block) => block.type === "text" && block.text !== undefined)
             .map((block) => block.text)
             .join("\n");
-        return { text: text ? `${text}\n` : "", isError: Boolean(result.isError) };
+        return { text: text ? `${text}\n` : "", isError: Boolean(result.isError), rawResult: result };
     }
     finally {
         await Promise.allSettled([client.close(), server.close()]);

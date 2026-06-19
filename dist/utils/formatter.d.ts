@@ -2,7 +2,17 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { FetchResponse } from "../services/fetcher.js";
 import type { SearchResult } from "../services/austlii.js";
 export type ResponseFormat = "json" | "text" | "markdown" | "html";
-export declare function formatSearchResults(results: SearchResult[], format: ResponseFormat): CallToolResult;
+export interface SearchWarning {
+    code: string;
+    source: string;
+    message: string;
+}
+export type SearchSourceStatus = "ok" | "blocked" | "not_configured" | "failed";
+export type SearchSourceStatuses = Record<string, SearchSourceStatus>;
+export declare function formatSearchResults(results: SearchResult[], format: ResponseFormat, options?: {
+    warnings?: SearchWarning[];
+    sources?: SearchSourceStatuses;
+}): CallToolResult;
 /**
  * Formats a fetched document response into the requested output format.
  *

@@ -1,11 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import path from "node:path";
-import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
+import { formatFetchResponse, formatSearchResults, } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii } from "./services/austlii.js";
 import { mergeCaseSearchResults } from "./services/search-merge.js";
-import { resolveArticle, buildCitationLookupUrl, searchUpstream, searchCitingCases, } from "./services/source.js";
+import { resolveArticle, buildCitationLookupUrl, searchUpstreamWithStatus, searchCitingCases, } from "./services/source.js";
 import { formatAGLC4, formatShortForm, validateCitation, parseCitation, generatePinpoint, normaliseCitation, } from "./services/citation.js";
 import { NEUTRAL_CITATION_PATTERN, COURT_TO_AUSTLII_PATH, AUSLAW_CACHE_DIR_NAME, } from "./constants.js";
 import { upsertCitation, getCitation, listCitations, exportBib, updateSourceFields, updateCitedBy, updateCitedBySource, } from "./services/citation-cache.js";
@@ -13,6 +13,7 @@ import { storeSource, checkSourceFreshness } from "./services/source-store.js";
 import { getProvision, getActStructure, listDataModules, findCiting, semanticSearchLocal, } from "./services/modules.js";
 import { getActiveAdapter } from "./services/capabilities.js";
 import { config } from "./config.js";
+import { CloudflareBlockedError } from "./errors.js";
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
 const jurisdictionEnum = z.enum([
     "cth",
@@ -63,6 +64,15 @@ function citedBySourceKey(parentCiteKey, neutralCitation) {
         .toLowerCase();
     return `${parentCiteKey}_citing_${slug}`;
 }
+function austliiSearchWarning(error) {
+    if (!(error instanceof CloudflareBlockedError))
+        return undefined;
+    return {
+        code: "austlii_cloudflare_blocked",
+        source: "austlii",
+        message: "AustLII search is blocked by a Cloudflare challenge. Direct document fetch still works when you already have a URL.",
+    };
+}
 /**
  * Build a fresh McpServer with all tools registered.
  *
@@ -98,15 +108,26 @@ export function createMcpServer() {
         inputSchema: searchLegislationShape,
     }, async (rawInput) => {
         const { query, jurisdiction, limit, format, sortBy, method, offset } = searchLegislationParser.parse(rawInput);
-        const results = await searchAustLii(query, {
-            type: "legislation",
-            jurisdiction,
-            limit,
-            sortBy,
-            method,
-            offset,
-        });
-        return formatSearchResults(results, format ?? "json");
+        try {
+            const results = await searchAustLii(query, {
+                type: "legislation",
+                jurisdiction,
+                limit,
+                sortBy,
+                method,
+                offset,
+            });
+            return formatSearchResults(results, format ?? "json");
+        }
+        catch (error) {
+            const warning = austliiSearchWarning(error);
+            if (!warning)
+                throw error;
+            return formatSearchResults([], format ?? "json", {
+                warnings: [warning],
+                sources: { austlii: "blocked" },
+            });
+        }
     });
     // ── search_cases ──────────────────────────────────────────────────────────
     const searchCasesShape = {
@@ -125,13 +146,33 @@ export function createMcpServer() {
         inputSchema: searchCasesShape,
     }, async (rawInput) => {
         const { query, jurisdiction, limit, format, sortBy, method, offset } = searchCasesParser.parse(rawInput);
-        // Run AustLII and removed.invalid searches in parallel
-        const [austliiResults, upstreamResults] = await Promise.all([
+        const warnings = [];
+        const sources = {};
+        // Run AustLII and removed.invalid searches independently so a blocked AustLII
+        // search cannot discard useful removed.invalid case results.
+        const [austliiOutcome, sourceOutcome] = await Promise.allSettled([
             searchAustLii(query, { type: "case", jurisdiction, limit, sortBy, method, offset }),
-            searchUpstream(query, { type: "case", jurisdiction, limit }),
+            searchUpstreamWithStatus(query, { type: "case", jurisdiction, limit }),
         ]);
+        let austliiResults = [];
+        if (austliiOutcome.status === "fulfilled") {
+            austliiResults = austliiOutcome.value;
+            sources.austlii = "ok";
+        }
+        else {
+            const warning = austliiSearchWarning(austliiOutcome.reason);
+            if (!warning)
+                throw austliiOutcome.reason;
+            warnings.push(warning);
+            sources.austlii = "blocked";
+        }
+        if (sourceOutcome.status === "rejected")
+            throw sourceOutcome.reason;
+        const upstreamResults = sourceOutcome.value.results;
+        sources.source = sourceOutcome.value.status;
         const merged = mergeCaseSearchResults(austliiResults, upstreamResults, limit);
-        return formatSearchResults(merged, format ?? "json");
+        const includeSourceStatus = warnings.length > 0 || Object.values(sources).some((status) => status !== "ok");
+        return formatSearchResults(merged, format ?? "json", includeSourceStatus ? { warnings, sources } : undefined);
     });
     // ── fetch_document_text ───────────────────────────────────────────────────
     const fetchDocumentShape = {
