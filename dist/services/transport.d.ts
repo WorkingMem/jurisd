@@ -1,5 +1,5 @@
 /**
- * HTTP transport seam with optional impit TLS-impersonation support.
+ * HTTP transport seam with impit TLS-impersonation support.
  *
  * AustLII (classic and www) sits behind Cloudflare Bot Management. Plain
  * axios/curl GET requests receive a CF managed-challenge page (HTTP 403 or
@@ -12,8 +12,9 @@
  *   2. Falls back to axios when impit is absent or disabled.
  *   3. Detects CF challenge responses and rethrows as a descriptive error.
  *
- * The lazy dynamic import means the optional dep is never required at
- * module load time — the server starts cleanly without it.
+ * The lazy dynamic import means the dependency is never required at module load
+ * time, so the server can still start and report clear transport errors if a
+ * damaged install is missing it.
  */
 export interface TransportResponse {
     body: string;
@@ -67,9 +68,10 @@ export interface HttpFetcher {
 /**
  * Selects the byte-level fetcher for a URL.
  *
- * AustLII URLs use {@link ImpitFetcher} (TLS impersonation) unless the caller
- * forces `"axios"`; non-AustLII URLs always use {@link AxiosFetcher}. When the
- * transport mode is `"impit"`, impit is forced even for non-AustLII URLs.
+ * In auto mode, AustLII URLs use {@link ImpitFetcher} only when
+ * `AUSLAW_USE_IMPIT` has not disabled it; non-AustLII URLs use
+ * {@link AxiosFetcher}. When the transport mode is `"impit"`, impit is forced
+ * even for non-AustLII URLs.
  *
  * @param url - The target URL.
  * @param transport - The configured AustLII transport mode ("auto"|"impit"|"axios").

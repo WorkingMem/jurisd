@@ -5,6 +5,7 @@ export interface SearchResult {
     reportedCitation?: string;
     url: string;
     source: "austlii" | "source";
+    discoverySource?: "austlii-search" | "tavily-fallback";
     summary?: string;
     jurisdiction?: string;
     year?: string;
@@ -20,6 +21,8 @@ export interface SearchOptions {
     method?: SearchMethod;
     offset?: number;
 }
+/** @internal test helper */
+export declare function __clearTavilyFallbackStateForTests(): void;
 export interface SearchParams {
     query: string;
     meta: string;

@@ -122,4 +122,28 @@ describe("loadConfig", () => {
     expect(cfg.austlii.accept).toContain("text/html");
     expect(cfg.austlii.acceptLanguage).toContain("en-AU");
   });
+
+  it("tavily fallback is opt-in and inactive by default", () => {
+    vi.stubEnv("TAVILY_API_KEY", undefined);
+    vi.stubEnv("AUSTLII_TAVILY_FALLBACK", undefined);
+    const cfg = loadConfig();
+    expect(cfg.tavily.apiKey).toBeUndefined();
+    expect(cfg.tavily.austliiFallbackEnabled).toBe(false);
+    expect(cfg.tavily.searchDepth).toBe("advanced");
+    expect(cfg.tavily.maxResults).toBe(10);
+  });
+
+  it("tavily config reads explicit fallback settings", () => {
+    vi.stubEnv("TAVILY_API_KEY", "tvly-test");
+    vi.stubEnv("AUSTLII_TAVILY_FALLBACK", "true");
+    vi.stubEnv("TAVILY_SEARCH_DEPTH", "basic");
+    vi.stubEnv("TAVILY_TIMEOUT", "12345");
+    vi.stubEnv("TAVILY_MAX_RESULTS", "99");
+    const cfg = loadConfig();
+    expect(cfg.tavily.apiKey).toBe("tvly-test");
+    expect(cfg.tavily.austliiFallbackEnabled).toBe(true);
+    expect(cfg.tavily.searchDepth).toBe("basic");
+    expect(cfg.tavily.timeout).toBe(12345);
+    expect(cfg.tavily.maxResults).toBe(20);
+  });
 });

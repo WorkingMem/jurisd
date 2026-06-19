@@ -7,12 +7,19 @@ export class RateLimiter {
   private tokens: number;
   private readonly maxTokens: number;
   private readonly refillIntervalMs: number;
+  private readonly maxQueue: number;
   private lastRefill: number;
+  private queue: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
+  private processing = false;
 
-  constructor(requestsPerMinute: number) {
+  constructor(requestsPerMinute: number, options: { maxQueue?: number } = {}) {
+    if (!Number.isFinite(requestsPerMinute) || requestsPerMinute <= 0) {
+      throw new Error("requestsPerMinute must be greater than zero");
+    }
     this.maxTokens = requestsPerMinute;
     this.tokens = requestsPerMinute;
     this.refillIntervalMs = 60_000 / requestsPerMinute;
+    this.maxQueue = options.maxQueue ?? 100;
     this.lastRefill = Date.now();
   }
 
@@ -27,14 +34,40 @@ export class RateLimiter {
   }
 
   async throttle(): Promise<void> {
-    this.refill();
-    if (this.tokens > 0) {
-      this.tokens--;
+    return new Promise<void>((resolve, reject) => {
+      if (this.queue.length >= this.maxQueue) {
+        reject(new Error("Rate limiter queue is full"));
+        return;
+      }
+
+      this.queue.push({ resolve, reject });
+      this.processQueue();
+    });
+  }
+
+  private processQueue(): void {
+    if (this.processing) {
       return;
     }
-    // Wait for next token
-    await new Promise<void>((resolve) => setTimeout(resolve, this.refillIntervalMs));
-    this.tokens--;
+
+    this.processing = true;
+    this.refill();
+    while (this.queue.length > 0 && this.tokens > 0) {
+      this.tokens--;
+      this.queue.shift()?.resolve();
+    }
+
+    if (this.queue.length === 0) {
+      this.processing = false;
+      return;
+    }
+
+    const elapsed = Date.now() - this.lastRefill;
+    const waitMs = Math.max(this.refillIntervalMs - elapsed, 0);
+    setTimeout(() => {
+      this.processing = false;
+      this.processQueue();
+    }, waitMs);
   }
 }
 
@@ -43,3 +76,6 @@ export const austliiRateLimiter = new RateLimiter(10);
 
 /** Rate limiter for removed.invalid: 5 requests per minute */
 export const upstreamRateLimiter = new RateLimiter(5);
+
+/** Rate limiter for Tavily fallback discovery: 5 requests per minute */
+export const tavilyRateLimiter = new RateLimiter(5, { maxQueue: 20 });

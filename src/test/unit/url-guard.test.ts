@@ -57,6 +57,20 @@ describe("assertRedirectAllowed", () => {
       /Only HTTPS/,
     );
   });
+  it("strips sensitive headers before following an allowed redirect", () => {
+    const headers: Record<string, string> = {
+      "User-Agent": "jurisd-test",
+      Cookie: "cf_clearance=secret",
+      Authorization: "Bearer secret",
+    };
+    expect(() =>
+      assertRedirectAllowed({
+        href: "https://removed.invalid/article/1",
+        headers,
+      }),
+    ).not.toThrow();
+    expect(headers).toEqual({ "User-Agent": "jurisd-test" });
+  });
   it("bounds the redirect chain to a small number", () => {
     expect(MAX_REDIRECTS).toBeLessThanOrEqual(5);
     expect(MAX_REDIRECTS).toBeGreaterThan(0);

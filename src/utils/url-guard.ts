@@ -48,6 +48,18 @@ interface RedirectOptions {
   hostname?: string;
   path?: string;
   href?: string;
+  headers?: Record<string, unknown>;
+}
+
+const SENSITIVE_REDIRECT_HEADERS = new Set(["authorization", "cookie", "proxy-authorization"]);
+
+function stripSensitiveRedirectHeaders(headers: Record<string, unknown> | undefined): void {
+  if (!headers) return;
+  for (const key of Object.keys(headers)) {
+    if (SENSITIVE_REDIRECT_HEADERS.has(key.toLowerCase())) {
+      delete headers[key];
+    }
+  }
 }
 
 /**
@@ -62,4 +74,5 @@ export function assertRedirectAllowed(options: RedirectOptions): void {
     options.href ??
     `${options.protocol ?? "https:"}//${options.host ?? options.hostname ?? ""}${options.path ?? ""}`;
   assertFetchableUrl(href);
+  stripSensitiveRedirectHeaders(options.headers);
 }

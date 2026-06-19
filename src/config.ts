@@ -68,8 +68,7 @@ export interface Config {
   transport: {
     /**
      * When true, use the impit HTTP client (TLS impersonation) for AustLII
-     * requests instead of axios. Requires the optional 'impit' dependency.
-     * Defaults to true when impit is installed.
+     * requests instead of axios. Defaults to true.
      */
     useImpit: boolean;
     /**
@@ -90,6 +89,18 @@ export interface Config {
      * document text when live AustLII fetch fails.
      */
     enabled: boolean;
+  };
+  tavily: {
+    /** API key for Tavily search fallback. Never logged or returned. */
+    apiKey?: string;
+    /** When true, use Tavily to discover AustLII URLs if native AustLII search is CF-blocked. */
+    austliiFallbackEnabled: boolean;
+    /** Tavily search depth used for fallback discovery. */
+    searchDepth: "basic" | "advanced";
+    /** Tavily request timeout in milliseconds. */
+    timeout: number;
+    /** Maximum Tavily candidates to inspect for primary-source AustLII URLs. */
+    maxResults: number;
   };
   modules: {
     /** Root dir for installed data modules. Default ~/.jurisd/modules. */
@@ -172,6 +183,16 @@ export function loadConfig(): Config {
         process.env.AUSLAW_OALC_SOURCE ||
         `${process.env.HOME ?? process.env.USERPROFILE ?? "~"}/oalc-data/corpus_published.jsonl`,
       enabled: process.env.AUSLAW_OALC_ENABLED !== "false",
+    },
+    tavily: {
+      apiKey: process.env.TAVILY_API_KEY || undefined,
+      austliiFallbackEnabled: process.env.AUSTLII_TAVILY_FALLBACK === "true",
+      searchDepth: process.env.TAVILY_SEARCH_DEPTH === "basic" ? "basic" : "advanced",
+      timeout: parseInt(process.env.TAVILY_TIMEOUT || "20000", 10) || 20_000,
+      maxResults: Math.min(
+        Math.max(parseInt(process.env.TAVILY_MAX_RESULTS || "10", 10) || 10, 1),
+        20,
+      ),
     },
     modules: {
       dir: process.env.JURISD_MODULES_DIR || path.join(homeDir, ".jurisd", "modules"),

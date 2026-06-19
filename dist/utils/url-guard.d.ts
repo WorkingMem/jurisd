@@ -21,6 +21,7 @@ interface RedirectOptions {
     hostname?: string;
     path?: string;
     href?: string;
+    headers?: Record<string, unknown>;
 }
 /**
  * axios `beforeRedirect` hook: re-validate every redirect hop against the

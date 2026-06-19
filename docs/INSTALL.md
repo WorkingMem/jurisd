@@ -5,10 +5,10 @@ with an MCP-compatible client (Claude Code, Claude Desktop, Cursor), and the
 client launches it over stdio on demand.
 
 **The offline floor:** with **no API key and no network**, the local-module
-recall layer still answers. Every environment variable below is optional, and
-every optional dependency degrades visibly when absent (the feature that needs it
-is disabled and reported, nothing throws). The live AustLII layer needs network
-but no key.
+recall layer still answers. Every environment variable below is optional. The
+live AustLII layer needs network but no key; its Cloudflare-aware transport is a
+normal production dependency so hosted installs do not silently lose direct
+document fetch capability.
 
 ## Day-0 install paths
 
@@ -25,17 +25,15 @@ reuse the cached install. Pin a ref by appending `#<ref>` — e.g.
 
 The native local-data package (`@duckdb/node-api`) and local embedding stack
 (`@huggingface/transformers` and its native dependencies) are optional because
-they pull native packages. The server still starts without them: local-module
-query tools report that DuckDB is unavailable, and `semantic_search_local`
-reports that local embeddings are disabled. The `npx` path is best for the base
-server; use a persistent local or global install when you need optional native
-features.
+they pull native packages. The server still starts without the local embedding
+stack: `semantic_search_local` reports that local embeddings are disabled. The
+`npx` path is best for the base server; use a persistent local or global install
+when you need optional local data or embedding features.
 
-To skip all optional native dependencies explicitly:
-
-```bash
-npm_config_omit=optional npx -y github:russellbrenner/jurisd
-```
+Do not use `npm_config_omit=optional` for the default server install. `impit` is
+a normal production dependency, but its platform bindings are optional
+subdependencies; omitting optionals strips those bindings and disables the
+Cloudflare-aware AustLII transport.
 
 ### B. npm global install
 
@@ -209,17 +207,34 @@ distinction is capability presence, framed as baseline vs domain-specialised.
 
 ### Live layer / search defaults
 
-| Variable                | Effect                                                 |
-| ----------------------- | ------------------------------------------------------ |
-| `LOG_LEVEL`             | `0`=DEBUG, `1`=INFO, `2`=WARN, `3`=ERROR.              |
-| `AUSTLII_SEARCH_BASE`   | AustLII search endpoint.                               |
-| `AUSTLII_REFERER`       | Referer header.                                        |
-| `AUSTLII_USER_AGENT`    | User-agent string.                                     |
-| `AUSTLII_TIMEOUT`       | Request timeout (ms).                                  |
-| `DEFAULT_SEARCH_LIMIT`  | Default search results (default 10).                   |
-| `MAX_SEARCH_LIMIT`      | Maximum search results (default 50).                   |
-| `DEFAULT_OUTPUT_FORMAT` | Default format: `json` / `text` / `markdown` / `html`. |
-| `DEFAULT_SORT_BY`       | Default sort: `auto` / `relevance` / `date`.           |
+| Variable                  | Effect                                                 |
+| ------------------------- | ------------------------------------------------------ |
+| `LOG_LEVEL`               | `0`=DEBUG, `1`=INFO, `2`=WARN, `3`=ERROR.              |
+| `AUSTLII_SEARCH_BASE`     | AustLII search endpoint.                               |
+| `AUSTLII_REFERER`         | Referer header.                                        |
+| `AUSTLII_USER_AGENT`      | User-agent string.                                     |
+| `AUSTLII_TIMEOUT`         | Request timeout (ms).                                  |
+| `AUSTLII_CF_CLEARANCE`    | Optional pre-solved Cloudflare `cf_clearance` cookie.  |
+| `AUSLAW_USE_IMPIT`        | Set `false` to disable the default impit transport.    |
+| `AUSTLII_TRANSPORT`       | `auto`, `impit`, or `axios` for AustLII fetches.       |
+| `AUSTLII_TAVILY_FALLBACK` | Set `true` to opt in to Tavily search fallback.        |
+| `TAVILY_API_KEY`          | Tavily API key for AustLII search fallback.            |
+| `TAVILY_SEARCH_DEPTH`     | Tavily search depth: `advanced` (default) or `basic`.  |
+| `TAVILY_TIMEOUT`          | Tavily request timeout (ms).                           |
+| `TAVILY_MAX_RESULTS`      | Tavily max results, clamped to 1-20.                   |
+| `DEFAULT_SEARCH_LIMIT`    | Default search results (default 10).                   |
+| `MAX_SEARCH_LIMIT`        | Maximum search results (default 50).                   |
+| `DEFAULT_OUTPUT_FORMAT`   | Default format: `json` / `text` / `markdown` / `html`. |
+| `DEFAULT_SORT_BY`         | Default sort: `auto` / `relevance` / `date`.           |
+
+When AustLII search endpoints are blocked by a Cloudflare challenge and both
+`TAVILY_API_KEY` and `AUSTLII_TAVILY_FALLBACK=true` are set, jurisd sends the
+search terms to Tavily, asks for AustLII-only primary-source candidates, validates
+them against the requested type and jurisdiction, then fetches the AustLII source
+document before returning result metadata. Tavily extraction is not used for
+AustLII text, because direct extraction still fails on challenged AustLII pages.
+Tavily calls are rate-limited, cached briefly, and circuit-broken after provider
+failures so an exposed command surface does not loop against the configured key.
 
 See [`.env.example`](../.env.example) for a copy-paste template and `src/config.ts`
 for every default.

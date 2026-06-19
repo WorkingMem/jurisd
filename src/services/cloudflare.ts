@@ -49,6 +49,20 @@ export function isCloudflareChallengeHtml(html: string): boolean {
 }
 
 /**
+ * Returns true when Cloudflare marks a response as a Challenge Page via the
+ * documented `cf-mitigated: challenge` response header.
+ */
+export function isCloudflareChallengeHeader(headers: Record<string, string> | undefined): boolean {
+  if (!headers) return false;
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === "cf-mitigated" && value.toLowerCase() === "challenge") {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Returns true when an HTTP status code indicates a Cloudflare block.
  * CF typically returns 403 for the managed-challenge redirect and 503
  * for the "bot fight mode" hard block.
@@ -61,7 +75,8 @@ export function isCloudflareBotBlock(statusCode: number): boolean {
  * Returns true when an HTTP response (status + body) is a Cloudflare challenge
  * rather than a real document.
  *
- * A response is treated as a challenge when either:
+ * A response is treated as a challenge when any of these are true:
+ *   - Cloudflare sets the documented `cf-mitigated: challenge` response header;
  *   - the body matches the challenge-page fingerprint (≥2 markers), regardless
  *     of status (CF sometimes serves the JS challenge with HTTP 200); or
  *   - the status is a CF bot-block code (403/503) **and** the body also looks
@@ -70,8 +85,16 @@ export function isCloudflareBotBlock(statusCode: number): boolean {
  *
  * @param status - HTTP status code.
  * @param body - Response body decoded as a UTF-8 string.
+ * @param headers - Response headers, used for Cloudflare's documented marker.
  */
-export function isCloudflareChallenge(status: number, body: string): boolean {
+export function isCloudflareChallenge(
+  status: number,
+  body: string,
+  headers?: Record<string, string>,
+): boolean {
+  if (isCloudflareChallengeHeader(headers)) {
+    return true;
+  }
   if (isCloudflareChallengeHtml(body)) {
     return true;
   }
@@ -85,7 +108,6 @@ export function isCloudflareChallenge(status: number, body: string): boolean {
 export function cfBlockMessage(url: string): string {
   return (
     `AustLII returned a Cloudflare challenge for ${url}. ` +
-    "Install the optional 'impit' dependency to bypass TLS fingerprinting: " +
-    "npm install impit"
+    "Verify the bundled 'impit' dependency is installed and enabled to bypass TLS fingerprinting."
   );
 }

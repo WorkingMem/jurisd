@@ -49,8 +49,8 @@ export class CloudflareBlockedError extends AustLiiError {
     return (
       `AustLII blocked automated access to ${resourceUrl} behind a Cloudflare challenge. ` +
       `The TLS-impersonating fetch did not clear it${fallbackClause}. ` +
-      "Options: (1) set AUSTLII_CF_CLEARANCE from a browser session; " +
-      "(2) open the URL in a browser; " +
+      "Options: (1) provide a valid AUSTLII_CF_CLEARANCE for the same client environment; " +
+      "(2) verify the bundled impit transport is installed and enabled; " +
       "(3) for covered jurisdictions, retrieve from the primary register " +
       "(hcourt.gov.au / fedcourt.gov.au / legislation.gov.au / caselaw.nsw.gov.au)."
     );
@@ -68,6 +68,20 @@ export class NetworkError extends Error {
   ) {
     super(message);
     this.name = "NetworkError";
+  }
+}
+
+/**
+ * Error thrown when an HTTP response is reachable but not successful after any
+ * domain-specific challenge handling has run.
+ */
+export class HttpStatusError extends NetworkError {
+  constructor(
+    public readonly url: string,
+    public readonly statusCode: number,
+  ) {
+    super(`HTTP ${statusCode} fetching ${url}`, url);
+    this.name = "HttpStatusError";
   }
 }
 

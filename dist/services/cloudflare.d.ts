@@ -20,6 +20,11 @@
  */
 export declare function isCloudflareChallengeHtml(html: string): boolean;
 /**
+ * Returns true when Cloudflare marks a response as a Challenge Page via the
+ * documented `cf-mitigated: challenge` response header.
+ */
+export declare function isCloudflareChallengeHeader(headers: Record<string, string> | undefined): boolean;
+/**
  * Returns true when an HTTP status code indicates a Cloudflare block.
  * CF typically returns 403 for the managed-challenge redirect and 503
  * for the "bot fight mode" hard block.
@@ -29,7 +34,8 @@ export declare function isCloudflareBotBlock(statusCode: number): boolean;
  * Returns true when an HTTP response (status + body) is a Cloudflare challenge
  * rather than a real document.
  *
- * A response is treated as a challenge when either:
+ * A response is treated as a challenge when any of these are true:
+ *   - Cloudflare sets the documented `cf-mitigated: challenge` response header;
  *   - the body matches the challenge-page fingerprint (≥2 markers), regardless
  *     of status (CF sometimes serves the JS challenge with HTTP 200); or
  *   - the status is a CF bot-block code (403/503) **and** the body also looks
@@ -38,8 +44,9 @@ export declare function isCloudflareBotBlock(statusCode: number): boolean;
  *
  * @param status - HTTP status code.
  * @param body - Response body decoded as a UTF-8 string.
+ * @param headers - Response headers, used for Cloudflare's documented marker.
  */
-export declare function isCloudflareChallenge(status: number, body: string): boolean;
+export declare function isCloudflareChallenge(status: number, body: string, headers?: Record<string, string>): boolean;
 /**
  * Returns a user-facing message describing a Cloudflare block, suitable
  * for inclusion in a typed error.
