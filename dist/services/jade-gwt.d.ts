@@ -289,7 +289,7 @@ export interface ProposeCitablesResult {
  *
  * @param responseText - Raw GWT-RPC response string from proposeCitables
  * @returns Object with `results` array and the raw `flatArray` for bridge section extraction
- * @throws Error if the response is a GWT exception (//EX) or has an unexpected prefix
+ * @throws Error if the response is a GWT exception (//EX), malformed, or has an unexpected shape
  */
 export declare function parseProposeCitablesResponse(responseText: string): {
     results: ProposeCitablesResult[];
