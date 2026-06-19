@@ -554,7 +554,7 @@ export function parseCitatorResponse(responseText) {
  *
  * @param responseText - Raw GWT-RPC response string from proposeCitables
  * @returns Object with `results` array and the raw `flatArray` for bridge section extraction
- * @throws Error if the response is a GWT exception (//EX) or has an unexpected prefix
+ * @throws Error if the response is a GWT exception (//EX), malformed, or has an unexpected shape
  */
 export function parseProposeCitablesResponse(responseText) {
     if (responseText.startsWith("//EX")) {
@@ -570,14 +570,17 @@ export function parseProposeCitablesResponse(responseText) {
     try {
         parsed = JSON.parse(joined);
     }
-    catch {
-        return empty;
+    catch (error) {
+        throw new Error(`Failed to parse proposeCitables GWT-RPC response: ${error instanceof Error ? error.message : String(error)}`);
     }
     if (!Array.isArray(parsed) || parsed.length < 4) {
-        return empty;
+        throw new Error("Malformed proposeCitables GWT-RPC response envelope");
     }
     const stringTable = parsed[parsed.length - 3];
-    if (!Array.isArray(stringTable) || stringTable.length === 0) {
+    if (!Array.isArray(stringTable)) {
+        throw new Error("Malformed proposeCitables GWT-RPC response string table");
+    }
+    if (stringTable.length === 0) {
         return empty;
     }
     // Everything before the last 4 elements is the flat integer/string array
