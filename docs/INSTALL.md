@@ -234,20 +234,20 @@ mid-conversation. Modules are published as Hugging Face datasets under the
 > **Status: first module published.** `legislation-cth` is available from
 > `workingmem/legislation-cth` on Hugging Face. It provides Commonwealth primary
 > and secondary legislation, 32,143 documents, 857,262 chunks, citation edges,
-> unmatched citations, and local bge-small embeddings. `jurisd fetch-module
-legislation-cth` downloads the manifest and parquet files from Hugging Face,
-> verifies every file against the manifest sha256 values, and installs the module
-> atomically.
+> unmatched citations, and local bge-small embeddings. Running
+> `jurisd fetch-module legislation-cth` downloads the manifest and parquet files
+> from Hugging Face, verifies every file against the manifest sha256 values, and
+> installs the module atomically.
 
 ```bash
-jurisd fetch-module <name> [--manifest-url URL] [--modules-dir DIR]
+jurisd fetch-module <name> [--modules-dir DIR]
 jurisd verify-module <name> [--modules-dir DIR]
 jurisd list-modules [--modules-dir DIR]
 ```
 
 `fetch-module`:
 
-1. Resolves the module manifest from the default Hugging Face dataset URL, or from `--manifest-url`.
+1. Resolves the module manifest from the default Hugging Face dataset URL.
 2. Downloads `manifest.json` first and validates it against the vendored schema —
    checks the schema version is implemented and the release is not yanked
    **before** downloading any parquet (fail fast, save bandwidth).
@@ -266,6 +266,20 @@ installed and why a module is or is not loading.
 
 The default install root is `~/.jurisd/modules/` (override with
 `JURISD_MODULES_DIR` or `--modules-dir`).
+
+### Advanced manifest override
+
+Use `--manifest-url URL` only when the manifest source is explicitly trusted, for
+example a Hugging Face dataset and revision you operate or have independently
+reviewed:
+
+```bash
+jurisd fetch-module <name> --manifest-url URL [--modules-dir DIR]
+```
+
+`verify-module` checks installed files against the manifest. It does not prove
+the manifest's provenance or protect against a malicious or compromised manifest
+source.
 
 ## Offline / baseline guarantee
 
