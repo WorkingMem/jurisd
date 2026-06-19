@@ -9,6 +9,89 @@ function ensureContent(text) {
         ]
         : [{ type: "text", text: "" }];
 }
+const MARKDOWN_SPECIALS = new RegExp("([\\\\`*_{}\\[\\]()#+\\-.!|<>])", "g");
+const MARKDOWN_CODE_SPECIALS = new RegExp("([\\\\`\\[\\]()])", "g");
+function stripAnsiAndOsc(input) {
+    let output = "";
+    for (let i = 0; i < input.length; i += 1) {
+        const code = input.charCodeAt(i);
+        if (code !== 0x1b) {
+            output += input[i];
+            continue;
+        }
+        const next = input[i + 1];
+        if (next === "]") {
+            i += 2;
+            while (i < input.length) {
+                const current = input.charCodeAt(i);
+                if (current === 0x07) {
+                    break;
+                }
+                if (current === 0x1b && input[i + 1] === "\\") {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+        if (next === "[") {
+            i += 2;
+            while (i < input.length) {
+                const current = input.charCodeAt(i);
+                if (current >= 0x40 && current <= 0x7e) {
+                    break;
+                }
+                i += 1;
+            }
+        }
+    }
+    return output;
+}
+function isUnsafeInlineCodePoint(codePoint) {
+    return ((codePoint >= 0x00 && codePoint <= 0x08) ||
+        codePoint === 0x0b ||
+        codePoint === 0x0c ||
+        (codePoint >= 0x0e && codePoint <= 0x1f) ||
+        (codePoint >= 0x7f && codePoint <= 0x9f) ||
+        codePoint === 0x061c ||
+        codePoint === 0x200e ||
+        codePoint === 0x200f ||
+        (codePoint >= 0x202a && codePoint <= 0x202e) ||
+        (codePoint >= 0x2066 && codePoint <= 0x2069));
+}
+function stripUnsafeInlineControls(input) {
+    return Array.from(input)
+        .filter((char) => {
+        const codePoint = char.codePointAt(0);
+        return codePoint === undefined || !isUnsafeInlineCodePoint(codePoint);
+    })
+        .join("");
+}
+function terminalSafeInline(input) {
+    return stripUnsafeInlineControls(stripAnsiAndOsc(input))
+        .replace(/[\r\n\t]+/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+}
+function terminalSafeBlock(input) {
+    return stripUnsafeInlineControls(stripAnsiAndOsc(input)).replace(/\r\n?/g, "\n");
+}
+function escapeMarkdown(input) {
+    return terminalSafeInline(input).replace(MARKDOWN_SPECIALS, "\\$1");
+}
+function escapeMarkdownCode(input) {
+    return terminalSafeInline(input).replace(MARKDOWN_CODE_SPECIALS, "\\$1");
+}
+function markdownUrl(input) {
+    return terminalSafeInline(input).replace(/\)/g, "%29").replace(/\s/g, "%20");
+}
+function markdownCodeFence(input) {
+    const safe = terminalSafeBlock(input);
+    const longestBacktickRun = Math.max(0, ...Array.from(safe.matchAll(/`+/g), (match) => match[0].length));
+    const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
+    return `${fence}text\n${safe}\n${fence}`;
+}
 /**
  * Formats an array of search results into the requested output format.
  *
@@ -58,8 +141,8 @@ export function formatSearchResults(results, format) {
         }
         case "markdown": {
             const lines = enriched.map((result) => {
-                const summary = result.summary ? ` - ${result.summary}` : "";
-                return `- [${result.title}](${result.url}) (\`${result.aglc4}\`)${summary}`;
+                const summary = result.summary ? ` - ${escapeMarkdown(result.summary)}` : "";
+                return `- [${escapeMarkdown(result.title)}](${markdownUrl(result.url)}) (\`${escapeMarkdownCode(result.aglc4)}\`)${summary}`;
             });
             return {
                 content: ensureContent(lines.join("\n")),
@@ -68,8 +151,8 @@ export function formatSearchResults(results, format) {
         case "text":
         default: {
             const lines = enriched.map((result, idx) => {
-                const summary = result.summary ? `\n  ${result.summary}` : "";
-                return `${idx + 1}. ${result.aglc4}\n   ${result.url}${summary}`;
+                const summary = result.summary ? `\n  ${terminalSafeInline(result.summary)}` : "";
+                return `${idx + 1}. ${terminalSafeInline(result.aglc4)}\n   ${terminalSafeInline(result.url)}${summary}`;
             });
             return {
                 content: ensureContent(lines.join("\n")),
@@ -100,22 +183,17 @@ export function formatFetchResponse(response, format) {
             };
         }
         case "html":
-            if (response.html) {
-                return {
-                    content: ensureContent(wrapInStyledDocument(response.html, response.sourceUrl)),
-                };
-            }
             return {
-                content: ensureContent(`<article data-source="${escapeHtml(response.sourceUrl)}"><pre>${escapeHtml(response.text)}</pre></article>`),
+                content: ensureContent(wrapInStyledDocument(`<article data-source="${escapeHtml(terminalSafeInline(response.sourceUrl))}"><pre>${escapeHtml(terminalSafeBlock(response.text))}</pre></article>`, terminalSafeInline(response.sourceUrl))),
             };
         case "markdown":
             return {
-                content: ensureContent(`> Source: ${response.sourceUrl}\n\n${response.text}`),
+                content: ensureContent(`> Source: ${markdownUrl(response.sourceUrl)}\n\n${markdownCodeFence(response.text)}`),
             };
         case "text":
         default:
             return {
-                content: ensureContent(response.text),
+                content: ensureContent(terminalSafeBlock(response.text)),
             };
     }
 }

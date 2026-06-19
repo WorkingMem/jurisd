@@ -41,6 +41,15 @@ export declare class NetworkError extends Error {
     constructor(message: string, url: string, cause?: Error | undefined);
 }
 /**
+ * Error thrown when an HTTP response is reachable but not successful after any
+ * domain-specific challenge handling has run.
+ */
+export declare class HttpStatusError extends NetworkError {
+    readonly url: string;
+    readonly statusCode: number;
+    constructor(url: string, statusCode: number);
+}
+/**
  * Error thrown when parsing HTML or other response content fails.
  */
 export declare class ParseError extends Error {

@@ -65,8 +65,7 @@ export interface Config {
     transport: {
         /**
          * When true, use the impit HTTP client (TLS impersonation) for AustLII
-         * requests instead of axios. Requires the optional 'impit' dependency.
-         * Defaults to true when impit is installed.
+         * requests instead of axios. Defaults to true.
          */
         useImpit: boolean;
         /**
@@ -87,6 +86,18 @@ export interface Config {
          * document text when live AustLII fetch fails.
          */
         enabled: boolean;
+    };
+    tavily: {
+        /** API key for Tavily search fallback. Never logged or returned. */
+        apiKey?: string;
+        /** When true, use Tavily to discover AustLII URLs if native AustLII search is CF-blocked. */
+        austliiFallbackEnabled: boolean;
+        /** Tavily search depth used for fallback discovery. */
+        searchDepth: "basic" | "advanced";
+        /** Tavily request timeout in milliseconds. */
+        timeout: number;
+        /** Maximum Tavily candidates to inspect for primary-source AustLII URLs. */
+        maxResults: number;
     };
     modules: {
         /** Root dir for installed data modules. Default ~/.jurisd/modules. */

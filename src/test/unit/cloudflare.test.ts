@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   isCloudflareChallengeHtml,
+  isCloudflareChallengeHeader,
   isCloudflareBotBlock,
   isCloudflareChallenge,
   cfBlockMessage,
@@ -62,8 +63,26 @@ describe("isCloudflareBotBlock", () => {
   });
 });
 
+describe("isCloudflareChallengeHeader", () => {
+  it("detects Cloudflare's documented cf-mitigated challenge header", () => {
+    expect(isCloudflareChallengeHeader({ "cf-mitigated": "challenge" })).toBe(true);
+  });
+
+  it("matches the cf-mitigated header case-insensitively", () => {
+    expect(isCloudflareChallengeHeader({ "Cf-Mitigated": "Challenge" })).toBe(true);
+  });
+
+  it("does not flag unrelated cf-mitigated values", () => {
+    expect(isCloudflareChallengeHeader({ "cf-mitigated": "none" })).toBe(false);
+  });
+});
+
 describe("isCloudflareChallenge", () => {
   const challengeBody = "<title>Just a moment...</title><script>window._cf_chl_opt = {};</script>";
+
+  it("returns true when cf-mitigated marks the response as a challenge", () => {
+    expect(isCloudflareChallenge(200, "<html></html>", { "cf-mitigated": "challenge" })).toBe(true);
+  });
 
   it("returns true when the body is a challenge page, regardless of a 200 status", () => {
     expect(isCloudflareChallenge(200, challengeBody)).toBe(true);

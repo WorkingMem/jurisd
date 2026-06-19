@@ -1,6 +1,6 @@
 /**
  * Smoke tests for jade.io search functions.
- * Network tests are skipped in CI; pure-function tests always run.
+ * Live network tests require JURISD_RUN_LIVE_JADE=1; pure-function tests always run.
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -11,14 +11,14 @@ import {
   extractArticleId,
 } from "../../services/jade.js";
 
-const CI = !!process.env.CI;
+const RUN_LIVE_JADE = process.env.JURISD_RUN_LIVE_JADE === "1";
 
 describe("searchJade", () => {
-  it.skipIf(CI)(
+  it.skipIf(!RUN_LIVE_JADE)(
     "returns results for 'native title' when session cookie is configured",
     async () => {
       if (!process.env.JADE_SESSION_COOKIE) {
-        console.warn("JADE_SESSION_COOKIE not set — skipping live jade search smoke test");
+        console.warn("JADE_SESSION_COOKIE not set - skipping live jade search smoke test");
         return;
       }
       const results = await searchJade("native title", { type: "case", limit: 3 });
@@ -46,7 +46,7 @@ describe("searchJade", () => {
 });
 
 describe("resolveArticleFromUrl", () => {
-  it.skipIf(CI)(
+  it.skipIf(!RUN_LIVE_JADE)(
     "resolves Mabo v Queensland article from jade.io URL",
     async () => {
       const article = await resolveArticleFromUrl("https://jade.io/article/67683");

@@ -1,15 +1,15 @@
 /**
  * Smoke tests for AustLII search functions.
- * These hit the live AustLII service and are skipped in CI (CI env var set).
+ * These hit the live AustLII service and are skipped unless explicitly enabled.
  */
 import { describe, it, expect } from "vitest";
 import { searchAustLii, calculateAuthorityScore, isCaseNameQuery } from "../../services/austlii.js";
 import type { SearchResult } from "../../services/austlii.js";
 
-const CI = !!process.env.CI;
+const RUN_LIVE_AUSTLII = process.env.JURISD_RUN_LIVE_AUSTLII === "1";
 
 describe("searchAustLii", () => {
-  it.skipIf(CI)(
+  it.skipIf(!RUN_LIVE_AUSTLII)(
     "returns results for 'Mabo v Queensland'",
     async () => {
       const results = await searchAustLii("Mabo v Queensland", { type: "case", limit: 5 });
@@ -21,7 +21,7 @@ describe("searchAustLii", () => {
     30_000,
   );
 
-  it.skipIf(CI)(
+  it.skipIf(!RUN_LIVE_AUSTLII)(
     "returns HCA cases when jurisdiction is cth",
     async () => {
       const results = await searchAustLii("[1992] HCA 23", {
@@ -36,7 +36,7 @@ describe("searchAustLii", () => {
     30_000,
   );
 
-  it.skipIf(CI)(
+  it.skipIf(!RUN_LIVE_AUSTLII)(
     "returns legislation results when type is legislation",
     async () => {
       const results = await searchAustLii("Privacy Act", {

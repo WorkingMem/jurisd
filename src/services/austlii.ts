@@ -1,10 +1,12 @@
 import * as cheerio from "cheerio";
 import { config } from "../config.js";
 import { REPORTED_CITATION_PATTERNS } from "../constants.js";
-import { austliiRateLimiter } from "../utils/rate-limiter.js";
+import { austliiRateLimiter, tavilyRateLimiter } from "../utils/rate-limiter.js";
 import { fetcherForUrl } from "./transport.js";
 import { isCloudflareChallenge } from "./cloudflare.js";
-import { AustLiiError, CloudflareBlockedError } from "../errors.js";
+import { austliiUrlToNeutralCitation, toClassicUrl } from "./austlii-url.js";
+import { AustLiiError, CloudflareBlockedError, HttpStatusError } from "../errors.js";
+import { assertFetchableUrl } from "../utils/url-guard.js";
 
 export interface SearchResult {
   title: string;
@@ -13,6 +15,7 @@ export interface SearchResult {
   reportedCitation?: string; // e.g., "(2024) 350 ALR 123"
   url: string;
   source: "austlii" | "jade";
+  discoverySource?: "austlii-search" | "tavily-fallback";
   summary?: string;
   jurisdiction?: string;
   year?: string;
@@ -51,12 +54,72 @@ export interface SearchOptions {
   offset?: number; // For pagination - skip first N results
 }
 
+interface TavilySearchResult {
+  title?: unknown;
+  url?: unknown;
+  content?: unknown;
+  raw_content?: unknown;
+  score?: unknown;
+}
+
+interface TavilySearchResponse {
+  results?: unknown;
+}
+
+const NEUTRAL_CITATION_RE = /\[(\d{4})\]\s*([A-Z][A-Z0-9]+)\s*(\d+)/;
+const TAVILY_FALLBACK_CACHE_TTL_MS = 15 * 60_000;
+const TAVILY_FALLBACK_FAILURE_COOLDOWN_MS = 5 * 60_000;
+const TAVILY_FALLBACK_CACHE_MAX_ENTRIES = 100;
+const TAVILY_FALLBACK_MAX_QUERY_LENGTH = 500;
+
+const tavilyFallbackCache = new Map<string, { expiresAt: number; results: SearchResult[] }>();
+let tavilyFallbackCircuitOpenUntil = 0;
+
+/** @internal test helper */
+export function __clearTavilyFallbackStateForTests(): void {
+  tavilyFallbackCache.clear();
+  tavilyFallbackCircuitOpenUntil = 0;
+}
+
+function pruneTavilyFallbackCache(now = Date.now()): void {
+  for (const [key, value] of tavilyFallbackCache) {
+    if (value.expiresAt <= now) {
+      tavilyFallbackCache.delete(key);
+    }
+  }
+
+  while (tavilyFallbackCache.size > TAVILY_FALLBACK_CACHE_MAX_ENTRIES) {
+    const oldest = tavilyFallbackCache.keys().next().value as string | undefined;
+    if (!oldest) return;
+    tavilyFallbackCache.delete(oldest);
+  }
+}
+const AUSTLII_SEARCH_HOSTS = new Set(["www.austlii.edu.au", "classic.austlii.edu.au"]);
+const SEARCH_DECORATION_PARAMS = new Set([
+  "stem",
+  "synonyms",
+  "num",
+  "mask_path",
+  "meta",
+  "query",
+  "method",
+]);
+
 /**
  * Browser-like headers for AustLII search requests, sourced from
  * `config.austlii` (fixes the v1 defect where these were hardcoded and the
  * configurable userAgent/referer/accept fields were dead).
  */
-function austliiHeaders(): Record<string, string> {
+function assertAllowedAustliiSearchUrl(url: string): void {
+  assertFetchableUrl(url);
+  const parsed = new URL(url);
+  if (!AUSTLII_SEARCH_HOSTS.has(parsed.hostname.toLowerCase())) {
+    throw new Error(`AustLII search host '${parsed.hostname}' is not permitted`);
+  }
+}
+
+function austliiHeaders(targetUrl: string): Record<string, string> {
+  assertAllowedAustliiSearchUrl(targetUrl);
   const headers: Record<string, string> = {
     "User-Agent": config.austlii.userAgent,
     Accept: config.austlii.accept,
@@ -69,6 +132,331 @@ function austliiHeaders(): Record<string, string> {
     headers["Cookie"] = `cf_clearance=${config.austlii.cfClearance}`;
   }
   return headers;
+}
+
+function uniqueUrls(urls: string[]): string[] {
+  return Array.from(new Set(urls));
+}
+
+function austliiSearchTargets(searchUrl: URL): string[] {
+  const primary = searchUrl.toString();
+  return uniqueUrls([primary, toClassicUrl(primary)]);
+}
+
+async function fetchAustliiSearchHtml(searchUrl: URL): Promise<string> {
+  let sawCloudflareChallenge = false;
+  let challengedUrl = searchUrl.toString();
+  let lastError: unknown;
+
+  for (const target of austliiSearchTargets(searchUrl)) {
+    let response;
+    try {
+      assertAllowedAustliiSearchUrl(target);
+      await austliiRateLimiter.throttle();
+      const fetcher = fetcherForUrl(target, config.austlii.transport);
+      response = await fetcher.get(target, {
+        headers: austliiHeaders(target),
+        timeoutMs: config.austlii.timeout,
+      });
+    } catch (error) {
+      if (error instanceof CloudflareBlockedError) {
+        sawCloudflareChallenge = true;
+        challengedUrl = target;
+        continue;
+      }
+      if (error instanceof AustLiiError) {
+        throw error;
+      }
+      lastError = error;
+      continue;
+    }
+
+    const html = response.body.toString("utf-8");
+    if (isCloudflareChallenge(response.status, html, response.headers)) {
+      sawCloudflareChallenge = true;
+      challengedUrl = target;
+      continue;
+    }
+    if (response.status < 200 || response.status >= 300) {
+      lastError = new HttpStatusError(target, response.status);
+      continue;
+    }
+
+    return html;
+  }
+
+  if (sawCloudflareChallenge) {
+    throw new CloudflareBlockedError(challengedUrl, false);
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("AustLII search failed");
+}
+
+function normaliseAustliiSearchResultUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url, "https://www.austlii.edu.au");
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    const host = parsed.hostname.toLowerCase();
+    if (host !== "austlii.edu.au" && !host.endsWith(".austlii.edu.au")) {
+      return null;
+    }
+    parsed.protocol = "https:";
+    parsed.hostname = "www.austlii.edu.au";
+    for (const param of SEARCH_DECORATION_PARAMS) {
+      parsed.searchParams.delete(param);
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function tavilyQueryForAustlii(query: string, options: SearchOptions): string {
+  const citation = query.match(NEUTRAL_CITATION_RE)?.[0];
+  const coreQuery = citation ?? query;
+  const maskPath = buildSearchParams(coreQuery, options).mask_path;
+  const pathHint = maskPath
+    ? `site:austlii.edu.au/${maskPath}`
+    : `site:austlii.edu.au/${options.jurisdiction === "nz" ? "nz" : "au"}`;
+  return `${coreQuery} ${pathHint}`;
+}
+
+function extractResultYear(neutralCitation: string | undefined): string | undefined {
+  return neutralCitation?.match(NEUTRAL_CITATION_RE)?.[1];
+}
+
+function jurisdictionFromAustliiUrl(url: string): string | undefined {
+  const auJurisdictionMatch = url.match(/\/au\/cases\/(cth|vic|nsw|qld|sa|wa|tas|nt|act)\//i);
+  const nzJurisdictionMatch = url.match(/\/nz\/cases\//i);
+  return auJurisdictionMatch?.[1]?.toLowerCase() || (nzJurisdictionMatch ? "nz" : undefined);
+}
+
+function matchesAustliiMaskPath(url: string, options: SearchOptions): boolean {
+  const maskPath = buildSearchParams("", options).mask_path;
+  if (!maskPath) {
+    return true;
+  }
+
+  const path = new URL(url).pathname.toLowerCase();
+  const expected = `/${maskPath.toLowerCase()}`;
+  return path === expected || path.endsWith(expected) || path.includes(`${expected}/`);
+}
+
+function truncateSummary(text: string): string {
+  return text.replace(/\s+/g, " ").trim().slice(0, 280);
+}
+
+function tavilyResultToCandidateUrl(
+  result: TavilySearchResult,
+  options: SearchOptions,
+): string | null {
+  if (typeof result.url !== "string" || typeof result.title !== "string") {
+    return null;
+  }
+
+  const url = normaliseAustliiSearchResultUrl(result.url);
+  if (!url) {
+    return null;
+  }
+  if (url.includes("/journals/")) {
+    return null;
+  }
+  if (options.type === "case" && !url.includes("/cases/")) {
+    return null;
+  }
+  if (options.type === "legislation" && !url.includes("/legis/")) {
+    return null;
+  }
+  if (!matchesAustliiMaskPath(url, options)) {
+    return null;
+  }
+
+  return url;
+}
+
+function titleFromFetchedDocument(
+  text: string,
+  neutralCitation: string | undefined,
+  fallbackUrl: string,
+  type: SearchOptions["type"],
+): string {
+  const lines = text
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => line.length > 0 && line.length <= 220);
+  const citationLine = neutralCitation
+    ? lines.find((line) => line.includes(neutralCitation))
+    : undefined;
+  const titleLine = citationLine ?? lines.find((line) => /[A-Za-z]/.test(line));
+  if (titleLine) {
+    return titleLine.slice(0, 180);
+  }
+  if (neutralCitation) {
+    return `${neutralCitation} - AustLII`;
+  }
+  const pathTitle = new URL(fallbackUrl).pathname.split("/").pop()?.replace(/[_-]+/g, " ");
+  return pathTitle || (type === "legislation" ? "AustLII legislation" : "AustLII result");
+}
+
+async function verifiedTavilyCandidateToSearchResult(
+  url: string,
+  options: SearchOptions,
+): Promise<SearchResult | null> {
+  const { fetchDocumentText } = await import("./fetcher.js");
+  let fetched: import("./fetcher.js").FetchResponse;
+  try {
+    fetched = await fetchDocumentText(url);
+  } catch {
+    return null;
+  }
+
+  const neutralCitation =
+    options.type === "case"
+      ? (austliiUrlToNeutralCitation(url) ?? fetched.text.match(NEUTRAL_CITATION_RE)?.[0])
+      : undefined;
+  const reportedCitation = extractReportedCitation(fetched.text);
+  const summaryParts = [
+    "Discovered via Tavily fallback and verified by fetching the AustLII source.",
+  ];
+  const snippet = truncateSummary(fetched.text);
+  if (snippet) {
+    summaryParts.push(snippet);
+  }
+
+  return {
+    title: titleFromFetchedDocument(fetched.text, neutralCitation, url, options.type),
+    neutralCitation,
+    reportedCitation,
+    url,
+    source: "austlii",
+    discoverySource: "tavily-fallback",
+    summary: summaryParts.join(" "),
+    jurisdiction: jurisdictionFromAustliiUrl(url),
+    year: extractResultYear(neutralCitation),
+    type: options.type,
+  };
+}
+
+function tavilyFallbackCacheKey(query: string, options: SearchOptions, limit: number): string {
+  return JSON.stringify({
+    query,
+    type: options.type,
+    jurisdiction: options.jurisdiction,
+    limit,
+    maxResults: config.tavily.maxResults,
+    searchDepth: config.tavily.searchDepth,
+  });
+}
+
+function cloneSearchResults(results: SearchResult[]): SearchResult[] {
+  return results.map((result) => ({ ...result }));
+}
+
+function rememberTavilyFallbackResult(key: string, results: SearchResult[]): void {
+  pruneTavilyFallbackCache();
+  if (
+    !tavilyFallbackCache.has(key) &&
+    tavilyFallbackCache.size >= TAVILY_FALLBACK_CACHE_MAX_ENTRIES
+  ) {
+    const oldest = tavilyFallbackCache.keys().next().value as string | undefined;
+    if (oldest) {
+      tavilyFallbackCache.delete(oldest);
+    }
+  }
+
+  tavilyFallbackCache.set(key, {
+    expiresAt: Date.now() + TAVILY_FALLBACK_CACHE_TTL_MS,
+    results: cloneSearchResults(results),
+  });
+}
+
+async function searchAustliiViaTavily(
+  query: string,
+  options: SearchOptions,
+  limit: number,
+): Promise<SearchResult[]> {
+  if (!config.tavily.austliiFallbackEnabled || !config.tavily.apiKey) {
+    return [];
+  }
+
+  const trimmedQuery = query.trim();
+  if (trimmedQuery.length > TAVILY_FALLBACK_MAX_QUERY_LENGTH) {
+    throw new Error(`Tavily fallback query exceeds ${TAVILY_FALLBACK_MAX_QUERY_LENGTH} characters`);
+  }
+
+  const now = Date.now();
+  if (tavilyFallbackCircuitOpenUntil > now) {
+    throw new Error("Tavily fallback is temporarily disabled after a recent provider failure");
+  }
+
+  pruneTavilyFallbackCache(now);
+  const cacheKey = tavilyFallbackCacheKey(trimmedQuery, options, limit);
+  const cached = tavilyFallbackCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    tavilyFallbackCache.delete(cacheKey);
+    tavilyFallbackCache.set(cacheKey, cached);
+    return cloneSearchResults(cached.results);
+  }
+
+  const candidateLimit = Math.min(config.tavily.maxResults, 20);
+  let body: TavilySearchResponse;
+  try {
+    await tavilyRateLimiter.throttle();
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.tavily.apiKey}`,
+      },
+      body: JSON.stringify({
+        query: tavilyQueryForAustlii(trimmedQuery, options),
+        search_depth: config.tavily.searchDepth,
+        max_results: candidateLimit,
+        include_domains: ["austlii.edu.au"],
+        include_raw_content: false,
+      }),
+      signal: AbortSignal.timeout(config.tavily.timeout),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Tavily search returned HTTP ${response.status}`);
+    }
+
+    body = (await response.json()) as TavilySearchResponse;
+  } catch (error) {
+    tavilyFallbackCircuitOpenUntil = Date.now() + TAVILY_FALLBACK_FAILURE_COOLDOWN_MS;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Tavily fallback failed: ${message}`);
+  }
+  if (!Array.isArray(body.results)) {
+    return [];
+  }
+
+  const candidateUrls = body.results
+    .slice(0, candidateLimit)
+    .map((item) => tavilyResultToCandidateUrl(item as TavilySearchResult, options))
+    .filter((item): item is string => item !== null);
+  const seen = new Set<string>();
+  const results: SearchResult[] = [];
+  for (const url of candidateUrls) {
+    if (seen.has(url)) {
+      continue;
+    }
+    seen.add(url);
+    const result = await verifiedTavilyCandidateToSearchResult(url, options);
+    if (!result) {
+      continue;
+    }
+    results.push(result);
+    if (results.length >= limit) {
+      break;
+    }
+  }
+
+  rememberTavilyFallbackResult(cacheKey, results);
+  return results;
 }
 
 export interface SearchParams {
@@ -290,18 +678,18 @@ export async function searchAustLii(
       searchUrl.searchParams.set("view", "date-latest");
     }
 
-    await austliiRateLimiter.throttle();
-    const fetcher = fetcherForUrl(searchUrl.toString(), config.austlii.transport);
-    const response = await fetcher.get(searchUrl.toString(), {
-      headers: austliiHeaders(),
-      timeoutMs: config.austlii.timeout,
-    });
-
-    const html = response.body.toString("utf-8");
-    if (isCloudflareChallenge(response.status, html)) {
-      throw new CloudflareBlockedError(searchUrl.toString(), false);
+    let html: string;
+    try {
+      html = await fetchAustliiSearchHtml(searchUrl);
+    } catch (error) {
+      if (error instanceof CloudflareBlockedError) {
+        const tavilyResults = await searchAustliiViaTavily(query, options, limit);
+        if (tavilyResults.length > 0) {
+          return tavilyResults.slice(0, limit);
+        }
+      }
+      throw error;
     }
-
     const $ = cheerio.load(html);
     const results: SearchResult[] = [];
 
@@ -310,36 +698,7 @@ export async function searchAustLii(
       const $li = $(element);
       const $link = $li.find("a").first();
       const title = $link.text().trim();
-      let url = $link.attr("href") || "";
-
-      // Make URL absolute if relative
-      if (url && !url.startsWith("http")) {
-        // Strip AustLII search-decoration params (stem, synonyms, etc.) but keep the base path
-        const [basePath, queryString] = url.split("?");
-        let cleanUrl = basePath!;
-        if (queryString) {
-          const preservedParams = new URLSearchParams();
-          const searchDecorations = new Set([
-            "stem",
-            "synonyms",
-            "num",
-            "mask_path",
-            "meta",
-            "query",
-            "method",
-          ]);
-          for (const [key, val] of new URLSearchParams(queryString)) {
-            if (!searchDecorations.has(key)) {
-              preservedParams.set(key, val);
-            }
-          }
-          const remaining = preservedParams.toString();
-          if (remaining) {
-            cleanUrl = `${basePath}?${remaining}`;
-          }
-        }
-        url = `https://www.austlii.edu.au${cleanUrl}`;
-      }
+      const url = normaliseAustliiSearchResultUrl($link.attr("href") || "");
 
       if (title && url) {
         // Always skip journal articles - we only want primary sources
@@ -355,6 +714,10 @@ export async function searchAustLii(
         // For legislation, only include legislation databases
         if (options.type === "legislation" && !url.includes("/legis/")) {
           return; // Skip non-legislation results
+        }
+
+        if (!matchesAustliiMaskPath(url, options)) {
+          return; // Skip out-of-scope type/jurisdiction results
         }
 
         // Try to extract neutral citation from title

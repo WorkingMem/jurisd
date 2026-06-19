@@ -27,6 +27,11 @@ vi.mock("../../services/cloudflare.js", () => ({
   isCloudflareChallenge: isCloudflareChallengeMock,
 }));
 
+vi.mock("../../utils/rate-limiter.js", () => ({
+  austliiRateLimiter: { throttle: vi.fn().mockResolvedValue(undefined) },
+  jadeRateLimiter: { throttle: vi.fn().mockResolvedValue(undefined) },
+}));
+
 vi.mock("file-type", () => ({
   fileTypeFromBuffer: vi.fn().mockResolvedValue(undefined),
 }));
@@ -90,6 +95,53 @@ describe("fetchDocumentText AustLII routing (transport seam)", () => {
     expect(getMock).toHaveBeenCalledTimes(1);
     const target = String(getMock.mock.calls[0]?.[0] ?? "");
     expect(target).toBe("https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html");
+  });
+
+  it("tries the www direct document when the classic direct document is challenged", async () => {
+    getMock
+      .mockResolvedValueOnce({
+        status: 403,
+        headers: { "content-type": "text/html", "cf-mitigated": "challenge" },
+        body: Buffer.from("Just a moment...", "utf-8"),
+        finalUrl: "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+        via: "impit" as const,
+      })
+      .mockResolvedValueOnce(htmlResponse(AUSTLII_CLASSIC_JUDGMENT_HTML));
+    isCloudflareChallengeMock.mockReturnValueOnce(true).mockReturnValue(false);
+
+    const result = await fetchDocumentText(MABO_URL);
+    expect(result.text).toContain("Mabo");
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(String(getMock.mock.calls[0]?.[0] ?? "")).toBe(
+      "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+    );
+    expect(String(getMock.mock.calls[1]?.[0] ?? "")).toBe(
+      "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+    );
+    expect(lookupByCitationMock).not.toHaveBeenCalled();
+  });
+
+  it("tries the www direct document when the classic direct document returns non-CF HTTP failure", async () => {
+    getMock
+      .mockResolvedValueOnce({
+        status: 500,
+        headers: { "content-type": "text/html" },
+        body: Buffer.from("<html>server error</html>", "utf-8"),
+        finalUrl: "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+        via: "impit" as const,
+      })
+      .mockResolvedValueOnce(htmlResponse(AUSTLII_CLASSIC_JUDGMENT_HTML));
+
+    const result = await fetchDocumentText(MABO_URL);
+    expect(result.text).toContain("Mabo");
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(String(getMock.mock.calls[0]?.[0] ?? "")).toBe(
+      "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+    );
+    expect(String(getMock.mock.calls[1]?.[0] ?? "")).toBe(
+      "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+    );
+    expect(lookupByCitationMock).not.toHaveBeenCalled();
   });
 
   it("sends the User-Agent from config.austlii (fixes the v1 UA bug)", async () => {

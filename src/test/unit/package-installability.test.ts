@@ -46,23 +46,29 @@ describe("package installability metadata", () => {
     expect(gitignore.split(/\r?\n/)).not.toContain("dist");
   });
 
-  it("keeps native recall stacks out of mandatory install metadata", () => {
+  it("keeps native recall stacks optional while installing the AustLII transport by default", () => {
     expect(packageJson.dependencies).not.toHaveProperty("@duckdb/node-api");
     expect(packageJson.dependencies).not.toHaveProperty("@huggingface/transformers");
+    expect(packageJson.dependencies).toHaveProperty("impit", "0.14.1");
     expect(packageJson.optionalDependencies).toHaveProperty("@duckdb/node-api");
     expect(packageJson.optionalDependencies).not.toHaveProperty("@huggingface/transformers");
+    expect(packageJson.optionalDependencies).not.toHaveProperty("impit");
 
     const rootLock = packageLock.packages[""];
     expect(rootLock.dependencies).not.toHaveProperty("@duckdb/node-api");
     expect(rootLock.dependencies).not.toHaveProperty("@huggingface/transformers");
+    expect(rootLock.dependencies).toHaveProperty("impit", "0.14.1");
     expect(rootLock.optionalDependencies).toHaveProperty("@duckdb/node-api");
     expect(rootLock.optionalDependencies).not.toHaveProperty("@huggingface/transformers");
+    expect(rootLock.optionalDependencies).not.toHaveProperty("impit");
   });
 
-  it("adds optional native runtime packages explicitly in the container", () => {
-    expect(dockerfile).toContain("RUN npm ci --omit=dev --omit=optional");
-    expect(dockerfile).toContain("@duckdb/node-api@1.5.3-r.3");
-    expect(dockerfile).toContain("impit@0.14.1");
+  it("keeps optional native production dependencies in the container", () => {
+    expect(dockerfile).toContain("RUN npm ci --omit=dev");
+    expect(dockerfile).not.toContain("--omit=optional");
+    expect(dockerfile).toContain("optional native packages declared by");
+    expect(dockerfile).toContain("@duckdb/node-api is also included");
+    expect(dockerfile).toContain("impit itself is a normal production");
   });
 
   it("checks that committed dist artifacts match the source build", () => {

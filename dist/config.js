@@ -64,6 +64,13 @@ export function loadConfig() {
                 `${process.env.HOME ?? process.env.USERPROFILE ?? "~"}/oalc-data/corpus_published.jsonl`,
             enabled: process.env.AUSLAW_OALC_ENABLED !== "false",
         },
+        tavily: {
+            apiKey: process.env.TAVILY_API_KEY || undefined,
+            austliiFallbackEnabled: process.env.AUSTLII_TAVILY_FALLBACK === "true",
+            searchDepth: process.env.TAVILY_SEARCH_DEPTH === "basic" ? "basic" : "advanced",
+            timeout: parseInt(process.env.TAVILY_TIMEOUT || "20000", 10) || 20_000,
+            maxResults: Math.min(Math.max(parseInt(process.env.TAVILY_MAX_RESULTS || "10", 10) || 10, 1), 20),
+        },
         modules: {
             dir: process.env.JURISD_MODULES_DIR || path.join(homeDir, ".jurisd", "modules"),
             enabled: process.env.JURISD_MODULES_ENABLED !== "false",

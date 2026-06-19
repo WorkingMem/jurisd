@@ -15,11 +15,31 @@ import {
 } from "../services/jade.js";
 import type { SearchResult } from "../services/austlii.js";
 
-// Skip live network tests in CI to prevent flaky failures
-const describeLive = process.env.CI ? describe.skip : describe;
+const RUN_LIVE_JADE = process.env.JURISD_RUN_LIVE_JADE === "1";
 
-// Authenticated GWT-RPC tests — require JADE_SESSION_COOKIE env var
-const describeAuth = process.env.CI || !process.env.JADE_SESSION_COOKIE ? describe.skip : describe;
+// Live network tests are opt-in to keep the default suite deterministic.
+const describeLive = RUN_LIVE_JADE ? describe : describe.skip;
+
+// Authenticated GWT-RPC tests require both live opt-in and JADE_SESSION_COOKIE.
+const describeAuth = RUN_LIVE_JADE && process.env.JADE_SESSION_COOKIE ? describe : describe.skip;
+
+async function withoutConfiguredJadeSession<T>(fn: () => Promise<T>): Promise<T> {
+  const originalEnvCookie = process.env.JADE_SESSION_COOKIE;
+  const { config } = await import("../config.js");
+  const originalConfigCookie = config.jade.sessionCookie;
+
+  delete process.env.JADE_SESSION_COOKIE;
+  (config.jade as { sessionCookie: string | undefined }).sessionCookie = undefined;
+
+  try {
+    return await fn();
+  } finally {
+    if (originalEnvCookie !== undefined) {
+      process.env.JADE_SESSION_COOKIE = originalEnvCookie;
+    }
+    (config.jade as { sessionCookie: string | undefined }).sessionCookie = originalConfigCookie;
+  }
+}
 
 // ── Unit tests (no network) ───────────────────────────────────────────
 
@@ -276,6 +296,17 @@ describe("jade.io cross-referencing", () => {
 
 describe("jade.io search", () => {
   it("returns case results when configured, otherwise degrades to an empty array", async () => {
+    if (!RUN_LIVE_JADE) {
+      const results = await withoutConfiguredJadeSession(() =>
+        searchJade("negligence", {
+          type: "case",
+          limit: 5,
+        }),
+      );
+      expect(results).toEqual([]);
+      return;
+    }
+
     const results = await searchJade("negligence", {
       type: "case",
       limit: 5,
@@ -297,6 +328,16 @@ describe("jade.io search", () => {
   });
 
   it("returns legislation results when configured, otherwise degrades to an empty array", async () => {
+    if (!RUN_LIVE_JADE) {
+      const results = await withoutConfiguredJadeSession(() =>
+        searchJade("corporations act", {
+          type: "legislation",
+        }),
+      );
+      expect(results).toEqual([]);
+      return;
+    }
+
     const results = await searchJade("corporations act", {
       type: "legislation",
     });

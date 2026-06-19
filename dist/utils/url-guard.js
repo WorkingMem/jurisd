@@ -35,6 +35,16 @@ export function assertFetchableUrl(url) {
  * at most once or twice.
  */
 export const MAX_REDIRECTS = 3;
+const SENSITIVE_REDIRECT_HEADERS = new Set(["authorization", "cookie", "proxy-authorization"]);
+function stripSensitiveRedirectHeaders(headers) {
+    if (!headers)
+        return;
+    for (const key of Object.keys(headers)) {
+        if (SENSITIVE_REDIRECT_HEADERS.has(key.toLowerCase())) {
+            delete headers[key];
+        }
+    }
+}
 /**
  * axios `beforeRedirect` hook: re-validate every redirect hop against the
  * allowlist so a redirect cannot escape to an internal/disallowed host
@@ -46,5 +56,6 @@ export function assertRedirectAllowed(options) {
     const href = options.href ??
         `${options.protocol ?? "https:"}//${options.host ?? options.hostname ?? ""}${options.path ?? ""}`;
     assertFetchableUrl(href);
+    stripSensitiveRedirectHeaders(options.headers);
 }
 //# sourceMappingURL=url-guard.js.map

@@ -6,11 +6,11 @@ import { MAX_CONTENT_LENGTH } from "../constants.js";
 import { isJadeUrl, extractArticleId, fetchJadeArticleContent } from "./jade.js";
 import { assertFetchableUrl, assertRedirectAllowed, MAX_REDIRECTS } from "../utils/url-guard.js";
 import { austliiRateLimiter, jadeRateLimiter } from "../utils/rate-limiter.js";
-import { isAustliiUrl, toClassicDocUrl, austliiUrlToNeutralCitation, austliiUrlIsLegislation, } from "./austlii-url.js";
+import { isAustliiUrl, toClassicDocUrl, toWwwUrl, austliiUrlToNeutralCitation, austliiUrlIsLegislation, } from "./austlii-url.js";
 import { fetcherForUrl } from "./transport.js";
 import { isCloudflareChallenge } from "./cloudflare.js";
 import { lookupByCitation } from "./oalc.js";
-import { CloudflareBlockedError } from "../errors.js";
+import { CloudflareBlockedError, HttpStatusError } from "../errors.js";
 async function extractTextFromPdf(buffer, url) {
     try {
         const { PDFParse } = await import("pdf-parse");
@@ -203,12 +203,23 @@ async function parseDocumentBuffer(buffer, rawContentType, url, extra) {
         lastModified: extra?.lastModified,
     };
 }
+function uniqueUrls(urls) {
+    return Array.from(new Set(urls));
+}
+function austliiDocumentTargets(url) {
+    const classicDoc = toClassicDocUrl(url);
+    const wwwDoc = toWwwUrl(classicDoc);
+    const targets = config.austlii.classicRewrite
+        ? [classicDoc, wwwDoc, url]
+        : [url, classicDoc, wwwDoc];
+    return uniqueUrls(targets);
+}
 /**
  * Fetches an AustLII document through the impit TLS-impersonating transport,
  * detecting Cloudflare challenges and falling back to the local OALC corpus.
  *
  * Flow (per the C0 routing contract, live-AustLII layer + OALC fallback):
- *   1. Optionally rewrite to the classic direct-document URL.
+ *   1. Try the configured URL form, plus classic/www direct-document fallbacks.
  *   2. Build headers from config.austlii; attach cf_clearance cookie if set.
  *   3. Fetch via the host-routed fetcher (impit for AustLII).
  *   4. If the response is a Cloudflare challenge: when OALC is enabled, join on
@@ -217,8 +228,6 @@ async function parseDocumentBuffer(buffer, rawContentType, url, extra) {
  *   5. Otherwise parse the body exactly as the generic path does.
  */
 async function fetchAustliiDocument(url) {
-    await austliiRateLimiter.throttle();
-    const target = config.austlii.classicRewrite ? toClassicDocUrl(url) : url;
     const headers = {
         "User-Agent": config.austlii.userAgent,
         Accept: config.austlii.accept,
@@ -230,10 +239,36 @@ async function fetchAustliiDocument(url) {
     if (config.austlii.cfClearance) {
         headers["Cookie"] = `cf_clearance=${config.austlii.cfClearance}`;
     }
-    const fetcher = fetcherForUrl(target, config.austlii.transport);
-    const r = await fetcher.get(target, { headers, timeoutMs: config.austlii.timeout });
-    const bodyText = r.body.toString("utf-8");
-    if (isCloudflareChallenge(r.status, bodyText)) {
+    let sawCloudflareChallenge = false;
+    let challengedUrl = url;
+    let lastError;
+    for (const target of austliiDocumentTargets(url)) {
+        let r;
+        try {
+            await austliiRateLimiter.throttle();
+            const fetcher = fetcherForUrl(target, config.austlii.transport);
+            r = await fetcher.get(target, { headers, timeoutMs: config.austlii.timeout });
+        }
+        catch (error) {
+            lastError = error;
+            continue;
+        }
+        const bodyText = r.body.toString("utf-8");
+        if (isCloudflareChallenge(r.status, bodyText, r.headers)) {
+            sawCloudflareChallenge = true;
+            challengedUrl = target;
+            continue;
+        }
+        if (r.status < 200 || r.status >= 300) {
+            lastError = new HttpStatusError(target, r.status);
+            continue;
+        }
+        return parseDocumentBuffer(r.body, r.headers["content-type"], url, {
+            etag: r.headers["etag"],
+            lastModified: r.headers["last-modified"],
+        });
+    }
+    if (sawCloudflareChallenge) {
         if (config.oalc.enabled) {
             const cite = austliiUrlToNeutralCitation(url);
             if (cite) {
@@ -245,14 +280,13 @@ async function fetchAustliiDocument(url) {
                     });
                 }
             }
-            throw new CloudflareBlockedError(url, true);
+            throw new CloudflareBlockedError(challengedUrl, true);
         }
-        throw new CloudflareBlockedError(url, false);
+        throw new CloudflareBlockedError(challengedUrl, false);
     }
-    return parseDocumentBuffer(r.body, r.headers["content-type"], url, {
-        etag: r.headers["etag"],
-        lastModified: r.headers["last-modified"],
-    });
+    throw lastError instanceof Error
+        ? lastError
+        : new Error(`Failed to fetch AustLII document: ${url}`);
 }
 /**
  * Fetches a legal document from a URL and extracts its text content.
