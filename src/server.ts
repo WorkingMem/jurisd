@@ -2,16 +2,20 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import path from "node:path";
-import { formatFetchResponse, formatSearchResults } from "./utils/formatter.js";
+import {
+  formatFetchResponse,
+  formatSearchResults,
+  type SearchSourceStatuses,
+  type SearchWarning,
+} from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii, type SearchResult, type SearchOptions } from "./services/austlii.js";
 import { searchAustliiViaExa } from "./services/exa.js";
-import { AustLiiError } from "./errors.js";
 import { mergeCaseSearchResults } from "./services/search-merge.js";
 import {
   resolveArticle,
   buildCitationLookupUrl,
-  searchJade,
+  searchJadeWithStatus,
   searchCitingCases,
 } from "./services/jade.js";
 import {
@@ -47,6 +51,7 @@ import {
 } from "./services/modules.js";
 import { getActiveAdapter } from "./services/capabilities.js";
 import { config } from "./config.js";
+import { CloudflareBlockedError } from "./errors.js";
 
 const formatEnum = z.enum(["json", "text", "markdown", "html"]).default("json");
 const jurisdictionEnum = z.enum([
@@ -99,28 +104,16 @@ function citedBySourceKey(parentCiteKey: string, neutralCitation: string): strin
   return `${parentCiteKey}_citing_${slug}`;
 }
 
-/**
- * Apply the Exa search-discovery fallback when the free providers return nothing.
- *
- * AustLII's live search is Cloudflare-blocked, so when it (and jade) yield no
- * results we try Exa — when EXA_API_KEY is configured — to recover canonical
- * austlii.edu.au URLs. When nothing is configured and AustLII was challenged,
- * the typed CloudflareBlockedError is surfaced so the caller learns to set
- * EXA_API_KEY or JADE_SESSION_COOKIE. A genuine zero-result search (no
- * challenge) returns an empty list rather than an error.
- */
-async function withExaFallback(
-  query: string,
-  options: SearchOptions,
-  limit: number,
-  current: SearchResult[],
-  austliiError: unknown,
-): Promise<SearchResult[]> {
-  if (current.length > 0) return current;
-  const exaResults = await searchAustliiViaExa(query, options, limit);
-  if (exaResults.length > 0) return exaResults;
-  if (austliiError instanceof AustLiiError) throw austliiError;
-  return current;
+function austliiSearchWarning(error: unknown): SearchWarning | undefined {
+  if (!(error instanceof CloudflareBlockedError)) return undefined;
+  return {
+    code: "austlii_cloudflare_blocked",
+    source: "austlii",
+    message:
+      "AustLII search is blocked by a Cloudflare challenge. Configure EXA_API_KEY " +
+      "(Exa neural search) or JADE_SESSION_COOKIE (jade.io) to recover results; " +
+      "direct document fetch still works when you already have a URL.",
+  };
 }
 
 /**
@@ -174,22 +167,27 @@ export function createMcpServer(): McpServer {
         offset,
       };
 
-      let results: SearchResult[] = [];
-      let austliiError: unknown;
       try {
-        results = await searchAustLii(query, options);
-      } catch (err) {
-        if (!(err instanceof AustLiiError)) throw err;
-        austliiError = err;
+        const results = await searchAustLii(query, options);
+        return formatSearchResults(results, format ?? "json");
+      } catch (error) {
+        const warning = austliiSearchWarning(error);
+        if (!warning) throw error;
+        const exaResults = await searchAustliiViaExa(
+          query,
+          options,
+          limit ?? config.defaults.searchLimit,
+        );
+        if (exaResults.length > 0) {
+          return formatSearchResults(exaResults, format ?? "json", {
+            sources: { austlii: "blocked", exa: "ok" },
+          });
+        }
+        return formatSearchResults([], format ?? "json", {
+          warnings: [warning],
+          sources: { austlii: "blocked" },
+        });
       }
-      results = await withExaFallback(
-        query,
-        options,
-        limit ?? config.defaults.searchLimit,
-        results,
-        austliiError,
-      );
-      return formatSearchResults(results, format ?? "json");
     },
   );
 
@@ -226,26 +224,55 @@ export function createMcpServer(): McpServer {
         offset,
       };
 
-      // Free providers run resiliently: a Cloudflare block on AustLII must not
-      // take down jade results (Promise.all would reject the whole search).
-      const [austliiSettled, jadeSettled] = await Promise.allSettled([
+      const warnings: SearchWarning[] = [];
+      const sources: SearchSourceStatuses = {};
+
+      // Run AustLII and jade.io searches independently so a blocked AustLII
+      // search cannot discard useful jade.io case results.
+      const [austliiOutcome, jadeOutcome] = await Promise.allSettled([
         searchAustLii(query, caseOptions),
-        searchJade(query, { type: "case", jurisdiction, limit }),
+        searchJadeWithStatus(query, { type: "case", jurisdiction, limit }),
       ]);
-      const austliiResults = austliiSettled.status === "fulfilled" ? austliiSettled.value : [];
-      const jadeResults = jadeSettled.status === "fulfilled" ? jadeSettled.value : [];
-      const austliiError = austliiSettled.status === "rejected" ? austliiSettled.reason : undefined;
 
-      const merged = mergeCaseSearchResults(austliiResults, jadeResults, limit);
-      const results = await withExaFallback(
-        query,
-        caseOptions,
-        limit ?? config.defaults.searchLimit,
+      let austliiResults: SearchResult[] = [];
+      if (austliiOutcome.status === "fulfilled") {
+        austliiResults = austliiOutcome.value;
+        sources.austlii = "ok";
+      } else {
+        const warning = austliiSearchWarning(austliiOutcome.reason);
+        if (!warning) throw austliiOutcome.reason;
+        warnings.push(warning);
+        sources.austlii = "blocked";
+      }
+
+      if (jadeOutcome.status === "rejected") throw jadeOutcome.reason;
+
+      const jadeResults = jadeOutcome.value.results;
+      sources.jade = jadeOutcome.value.status;
+      let merged = mergeCaseSearchResults(austliiResults, jadeResults, limit);
+
+      // Exa neural-search fallback: when the free providers return nothing and
+      // AustLII was Cloudflare-blocked, recover canonical austlii.edu.au URLs.
+      if (merged.length === 0 && sources.austlii === "blocked") {
+        const exaResults = await searchAustliiViaExa(
+          query,
+          caseOptions,
+          limit ?? config.defaults.searchLimit,
+        );
+        if (exaResults.length > 0) {
+          merged = exaResults.slice(0, limit ?? config.defaults.searchLimit);
+          sources.exa = "ok";
+        }
+      }
+
+      const includeSourceStatus =
+        warnings.length > 0 || Object.values(sources).some((status) => status !== "ok");
+
+      return formatSearchResults(
         merged,
-        austliiError,
+        format ?? "json",
+        includeSourceStatus ? { warnings, sources } : undefined,
       );
-
-      return formatSearchResults(results, format ?? "json");
     },
   );
 

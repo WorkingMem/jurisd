@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No changes yet.
+
+## [0.2.0] - 2026-06-16
+
 ### Added
 
 - **Local-module data layer**: a Layer-1 offline recall path over installed
@@ -37,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `JURISD_MODULES_ENABLED`, `JURISD_MODULE_STALENESS_DAYS`, `JURISD_MODULE_VERIFY_ON_LOAD`,
   `JURISD_MODELS_DIR`, `JURISD_EMBED_OFFLINE`, and `ISAACUS_API_KEY` / `ISAACUS_BASE_URL`.
 - **Container image + release plumbing**: a multi-stage `Dockerfile` (Debian-slim
-  glibc Node 20; builds TS in a discarded builder, then a slim runtime carrying only
+  glibc Node 26; builds TS in a discarded builder, then a slim runtime carrying only
   the two optional natives the server uses — `@duckdb/node-api` and `impit` — while
   `@huggingface/transformers` stays unbundled to keep the image small), a
   `docker-compose.yaml` smoke-test/build example honest about the stdio per-invocation
@@ -96,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   local-first three-layer story (local data modules → live AustLII → OALC fallback), a
   grouped 15-tool table, the data-module / `fetch-module` / baseline-vs-domain-specialised /
   BYOK-adapter sections, an honest quality section linking the `jurisd-data` gold-set eval
-  (strict + aligned metrics), and per-source licensing notes (code MIT; module data per-source,
+  (strict + aligned metrics), and per-source licensing notes (code Apache-2.0; module data per-source,
   AustLII excluded, VIC/NT recipe-only). Added `docs/INSTALL.md` with day-0 install paths
   (npx-from-GitHub, local clone, Claude Code config), the all-optional env-var reference, the
   `fetch-module` install flow, and the offline/baseline guarantee.
@@ -147,5 +151,6 @@ legal research across AustLII and jade.io.
 - Source-store citeKey hardening against path traversal (#108)
 - Dependency updates resolving known HIGH severity advisories; npm audit in CI
 
-[Unreleased]: https://github.com/russellbrenner/jurisd/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/russellbrenner/jurisd/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/russellbrenner/jurisd/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/russellbrenner/jurisd/releases/tag/v0.1.0

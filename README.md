@@ -1,6 +1,6 @@
 # jurisd
 
-A command-line, terminal-user-interface and MCP Australian & NZ legal research tool, built
+A command-line, terminal-user-interface and MCP-server Australian & NZ legal research tool, built
 **local-first**. jurisd gives an AI assistant a fast, offline-capable recall
 layer over installed legal data modules — deterministic provision lookup,
 local semantic search, and a citation graph — and falls back to live AustLII
@@ -43,8 +43,20 @@ live results — when you supply your own session cookie.
 npx -y github:russellbrenner/jurisd
 ```
 
-`npx` clones the repository, installs dependencies, builds, and launches the
-server over stdio in one step.
+`npx` installs the package from its built distribution and launches the server
+over stdio in one step.
+
+### Install the CLI persistently from GitHub
+
+```bash
+npm install -g https://github.com/russellbrenner/jurisd/archive/refs/heads/main.tar.gz
+jurisd --help
+```
+
+Use the GitHub tarball form for persistent installs before the npm registry
+package is published. Bare git installs such as `npm install -g
+github:russellbrenner/jurisd` depend on npm's `install-links` setting and can
+leave a broken global bin on hosts where `install-links=false`.
 
 ### Register with Claude Code
 
@@ -109,10 +121,18 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 > | **Exa**    | `EXA_API_KEY`         | Paid (free tier)  | Neural search returns the canonical AustLII case/legislation URL (usually rank #1), even for obscure cases. | Discovery only (URL + citation); full text is fetched separately.        |
 > | **jade.io**| `JADE_SESSION_COOKIE` | Free (account)    | Full-text search **and** document retrieval via jade.io, plus the citator.                      | Needs a jade.io account; the session cookie expires and must be re-extracted. |
 > | **both**   | both of the above     | —                 | Best coverage — jade runs first (free), Exa fills the gaps it misses.                            | —                                                                        |
-> | **none**   | —                     | —                 | —                                                                                               | Search returns an actionable error naming the env vars; document fetch still falls back to the local OALC corpus when available. |
+> | **none**   | —                     | —                 | —                                                                                               | Search returns a degraded result whose warning names the env vars; document fetch still falls back to the local OALC corpus when available. |
 >
 > Resolution order: free providers (jade live + AustLII, in case Cloudflare ever
-> relaxes) → Exa → typed error. The document source remains AustLII throughout.
+> relaxes) → Exa → degraded result. The document source remains AustLII throughout.
+
+When AustLII search is Cloudflare-blocked, the tools degrade gracefully rather
+than failing: `search_cases` returns any jade.io (or Exa) results it can find
+plus a `warning`, `sources`, and `degraded: true`, and reports incomplete
+configured coverage (for example `jade: "not_configured"`) instead of hiding
+that source status. `search_legislation` returns an empty degraded result with
+the same machine-readable status instead of failing the tool call. CLI search
+commands exit 4 for degraded source coverage.
 
 ### Citation + bibliography (AGLC4)
 
@@ -145,21 +165,32 @@ and snapshot date (plus a staleness advisory when the snapshot is old).
 Full parameter tables for every tool are in
 [docs/AGENT-GUIDE.md](docs/AGENT-GUIDE.md).
 
+## CLI foundation and compatibility
+
+jurisd keeps the MCP server as the compatibility surface while the CLI is being
+reorganised around task-oriented command contracts.
+
+- CLI guide: [docs/CLI.md](docs/CLI.md)
+- MCP compatibility reference: [docs/MCP-COMPATIBILITY.md](docs/MCP-COMPATIBILITY.md)
+- Security and authority model: [docs/SECURITY-AUTHORITY.md](docs/SECURITY-AUTHORITY.md)
+
+Existing flat CLI commands remain available during the foundation work.
+
 ## Data modules
 
 A **data module** is a self-describing parquet bundle (documents, chunks, edges,
-unmatched citations, plus a `manifest.json`) published as a GitHub release asset
-on the `jurisd-data` repository. Everything needed to load and query a module —
-schema version, coverage, embedding descriptor, file hashes, and licence posture
-— is in its manifest. No out-of-band config.
+unmatched citations, plus a `manifest.json`) published as a Hugging Face dataset.
+Everything needed to load and query a module — schema version, coverage,
+embedding descriptor, file hashes, and licence posture — is in its manifest. No
+out-of-band config.
 
-> **Status: no modules published yet.** The `jurisd-data` publishing repo and its
-> first release are still being built, so `jurisd fetch-module` has nothing to
-> download today (it resolves the release and fails fast with a `404`). The
-> server runs without any module — the live AustLII layer and citation tools work
-> standalone, and the five local-recall tools report "no modules" (degrade
-> visibly). The CLI flow below is implemented and ready for the first publish;
-> this section documents the intended install once modules land.
+> **Status: first module published.** `legislation-cth` is available from
+> `workingmem/legislation-cth` on Hugging Face. It provides Commonwealth primary
+> and secondary legislation, 32,143 documents, 857,262 chunks, citation edges,
+> unmatched citations, and local bge-small embeddings. Running
+> `jurisd fetch-module legislation-cth` downloads the manifest and parquet files
+> from Hugging Face, verifies every file against the manifest sha256 values, and
+> installs the module atomically.
 
 Modules are queried in place: DuckDB scans the parquet on disk and never
 materialises a whole table into memory, so a host can install many modules
@@ -171,9 +202,9 @@ Modules are **operator-installed via the CLI** (kept off the tool surface so an
 LLM never triggers a large download mid-conversation):
 
 ```bash
-jurisd fetch-module <name> [--version X.Y.Z]   # download + sha256-verify + atomic install
-jurisd verify-module <name>                     # re-verify installed files against the manifest
-jurisd list-modules                             # list installed modules (incl. refused)
+jurisd fetch-module <name> [--modules-dir DIR]   # download + sha256-verify + atomic install
+jurisd verify-module <name> [--modules-dir DIR]  # re-verify installed files against the manifest
+jurisd list-modules [--modules-dir DIR]          # list installed modules (incl. refused)
 ```
 
 The default install root is `~/.jurisd/modules/` (override with
@@ -182,6 +213,11 @@ and checks the schema version **before** downloading any parquet, sha256-verifie
 every file against the manifest, installs atomically (temp-then-rename, so a
 half-written module never appears), and prints the licence attribution lines at
 install time.
+
+Advanced operators can pass `--manifest-url URL` to install from an explicitly
+trusted manifest. The sha256 checks prove downloaded files match that manifest;
+they do not prove the manifest's provenance or protect against a malicious or
+compromised manifest source.
 
 ### Baseline vs domain-specialised variants
 
@@ -220,10 +256,9 @@ into a tool result.
 ## Quality
 
 jurisd's local data layer is built and scored honestly against a gold set. The
-`jurisd-data` gold-set evaluation (to be published alongside the first module
-release; the `jurisd-data` repo is still being built) measures the local enricher
-(segments, defined terms, citation crossrefs) against 90 Open Australian Legal
-Corpus / Kanon ILDGS documents, under two parallel metrics:
+`jurisd-data` gold-set evaluation measures the local enricher (segments, defined
+terms, citation crossrefs) against 90 Open Australian Legal Corpus / Kanon ILDGS
+documents, under two parallel metrics:
 
 - **strict** — the conservative audit metric: every typed prediction unmatched
   within its type is a false positive.
@@ -237,12 +272,13 @@ citation precision, citation recall, defined-term F1). Headline segment F1 is
 0.44 strict / 0.64 aligned against a 0.85 gate. The report localises every gap
 to a specific rule (the residual segment gap is genuine over-segmentation, chiefly
 an endnotes-boundary flood; citation precision is internal-ref over-firing on
-structural lines). It is published in full, both metrics, as the honest current
-state, not a marketing number.
+structural lines). The published module exposes the resulting data artefacts;
+evaluation reports remain part of the module publishing workflow until a public
+report location is available.
 
 ## Licensing
 
-- **Code:** MIT (see [LICENSE](LICENSE)). Third-party dependency licences are
+- **Code:** Apache-2.0 (see [LICENSE](LICENSE)). Third-party dependency licences are
   catalogued in [LICENSE-THIRD-PARTY.md](LICENSE-THIRD-PARTY.md).
 - **Module data:** licensed **per source**, declared in each module's
   `manifest.json` `licence` block, and surfaced at `fetch-module` install time.
@@ -258,21 +294,22 @@ state, not a marketing number.
     case-law sources are redistributable under the CC-BY-4.0 aggregate, subject to
     per-source confirmation before each module publishes.
 
-The full per-source verdict table ships as `jurisd-data/LICENSING.md` with the
-first module release (the `jurisd-data` repo is still being built); each
-published module also carries its own `licence` block in `manifest.json`, surfaced
-at `fetch-module` install time.
+Each published module carries its own `licence` block in `manifest.json`,
+surfaced at `fetch-module` install time.
 
 ## Documentation
 
 | Document                                                 | Description                                                                |
 | -------------------------------------------------------- | -------------------------------------------------------------------------- |
 | [INSTALL.md](docs/INSTALL.md)                            | Day-0 install paths, Claude Code config, env vars, module flow             |
+| [CLI.md](docs/CLI.md)                                    | CLI command shape, compatibility aliases, output rules, exit codes         |
+| [MCP-COMPATIBILITY.md](docs/MCP-COMPATIBILITY.md)        | Compatibility reference for the current MCP tool surface                   |
+| [SECURITY-AUTHORITY.md](docs/SECURITY-AUTHORITY.md)      | Command authority, side-effect classes, terminal safety, credential rules  |
 | [jurisd-research skill](skills/jurisd-research/SKILL.md) | Claude Code skill: tool decision guidance, AGLC4 workflows, worked example |
 | [AGENT-GUIDE.md](docs/AGENT-GUIDE.md)                    | Agent-facing usage guide with full tool catalog and examples               |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md)                  | System architecture, deployment topology, CI/CD                            |
 | [DOCKER.md](docs/DOCKER.md)                              | Docker deployment guide                                                    |
-| [ROADMAP.md](docs/ROADMAP.md)                            | Development history and future plans                                       |
+| [ROADMAP.md](docs/ROADMAP.md)                            | Forward-looking project roadmap and review gates                           |
 
 ## Jurisdictions
 
@@ -362,4 +399,4 @@ advice.**
 
 ## License
 
-MIT
+Apache-2.0

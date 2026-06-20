@@ -4,7 +4,7 @@
 
 server:
   name: jurisd
-  version: 0.1.0
+  version: 0.2.0
   description: Australian legislation and case law searcher with document retrieval.
 
 austlii:
@@ -25,7 +25,7 @@ jade:
   baseUrl: ${JADE_BASE_URL:-https://jade.io}
 
   # User agent for jade.io requests
-  userAgent: ${JADE_USER_AGENT:-jurisd/0.1.0 (legal research tool)}
+  userAgent: ${JADE_USER_AGENT:-jurisd/0.2.0 (legal research tool)}
 
   # Request timeout in milliseconds
   timeout: ${JADE_TIMEOUT:-15000}

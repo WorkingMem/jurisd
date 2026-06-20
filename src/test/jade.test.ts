@@ -15,11 +15,27 @@ import {
 } from "../services/jade.js";
 import type { SearchResult } from "../services/austlii.js";
 
-// Skip live network tests in CI to prevent flaky failures
-const describeLive = process.env.CI ? describe.skip : describe;
+const RUN_LIVE_JADE = process.env.JURISD_RUN_LIVE_JADE === "1";
+const describeLive = RUN_LIVE_JADE ? describe : describe.skip;
 
 // Authenticated GWT-RPC tests — require JADE_SESSION_COOKIE env var
-const describeAuth = process.env.CI || !process.env.JADE_SESSION_COOKIE ? describe.skip : describe;
+const describeAuth = RUN_LIVE_JADE && process.env.JADE_SESSION_COOKIE ? describe : describe.skip;
+
+async function searchJadeForDefaultTest(
+  query: string,
+  options: Parameters<typeof searchJade>[1],
+): ReturnType<typeof searchJade> {
+  const { config } = await import("../config.js");
+  const savedCookie = config.jade.sessionCookie;
+  if (!RUN_LIVE_JADE) {
+    (config.jade as { sessionCookie: string | undefined }).sessionCookie = undefined;
+  }
+  try {
+    return await searchJade(query, options);
+  } finally {
+    (config.jade as { sessionCookie: string | undefined }).sessionCookie = savedCookie;
+  }
+}
 
 // ── Unit tests (no network) ───────────────────────────────────────────
 
@@ -274,20 +290,45 @@ describe("jade.io cross-referencing", () => {
   });
 });
 
-describe("jade.io search placeholder", () => {
-  it("should return empty array (no public API)", async () => {
-    const results = await searchJade("negligence", {
+describe("jade.io search", () => {
+  it("returns case results when configured, otherwise degrades to an empty array", async () => {
+    const results = await searchJadeForDefaultTest("negligence", {
       type: "case",
       limit: 5,
     });
-    expect(results).toEqual([]);
+
+    if (!RUN_LIVE_JADE || !process.env.JADE_SESSION_COOKIE) {
+      expect(results).toEqual([]);
+      return;
+    }
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.length).toBeLessThanOrEqual(5);
+    for (const result of results) {
+      expect(result.source).toBe("jade");
+      expect(result.type).toBe("case");
+      expect(result.title.length).toBeGreaterThan(0);
+      expect(result.url).toMatch(/^https:\/\/jade\.io\//);
+    }
   });
 
-  it("should return empty array for legislation search", async () => {
-    const results = await searchJade("corporations act", {
+  it("returns legislation results when configured, otherwise degrades to an empty array", async () => {
+    const results = await searchJadeForDefaultTest("corporations act", {
       type: "legislation",
     });
-    expect(results).toEqual([]);
+
+    if (!RUN_LIVE_JADE || !process.env.JADE_SESSION_COOKIE) {
+      expect(results).toEqual([]);
+      return;
+    }
+
+    expect(results.length).toBeGreaterThan(0);
+    for (const result of results) {
+      expect(result.source).toBe("jade");
+      expect(result.type).toBe("legislation");
+      expect(result.title.length).toBeGreaterThan(0);
+      expect(result.url).toMatch(/^https:\/\/jade\.io\//);
+    }
   });
 });
 

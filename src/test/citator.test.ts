@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import { searchCitingCases } from "../services/jade.js";
 
 // Authenticated citator tests -- require JADE_SESSION_COOKIE env var
-const describeAuth = process.env.CI || !process.env.JADE_SESSION_COOKIE ? describe.skip : describe;
+const describeAuth =
+  process.env.JURISD_RUN_LIVE_JADE === "1" && process.env.JADE_SESSION_COOKIE
+    ? describe
+    : describe.skip;
 
 /**
  * Live citator integration tests

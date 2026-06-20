@@ -269,7 +269,8 @@ export async function tryLoadDuckDB(): Promise<typeof import("@duckdb/node-api")
       _duckdbUnavailable = true;
       console.warn(
         "[modules] @duckdb/node-api is not installed. Local-module query tools are disabled. " +
-          "Run: npm install @duckdb/node-api",
+          "Use a persistent local/global install for optional native dependencies; see " +
+          "https://github.com/russellbrenner/jurisd/blob/main/docs/INSTALL.md#optional-native-dependencies",
       );
       return null;
     }
@@ -817,8 +818,8 @@ function modelIdCompatible(manifestModelId: string, embedderModelId: string): bo
  * local embedder being present AND the module being embedded with a matching
  * descriptor. Facet pre-filters are applied before ranking.
  *
- * Returns `found:false` with a note when the embedder is absent (degrade
- * visibly), never throwing into the result.
+ * Returns `found:false` with a note when no embedded module or no embedder is
+ * available (degrade visibly), never throwing into the result.
  */
 export async function semanticSearchLocal(
   args: {
@@ -837,15 +838,6 @@ export async function semanticSearchLocal(
   const k = args.k ?? 10;
   const notes: string[] = [];
 
-  const embed = await getQueryEmbedder();
-  if (!embed) {
-    notes.push(
-      "local embedder unavailable (@huggingface/transformers not installed); semantic_search_local disabled",
-    );
-    return { found: false, hits: [], notes };
-  }
-  const embedderDesc = activeEmbedderDescriptor();
-
   const candidates = selectModules({
     pin: args.module,
     jurisdiction: args.filter?.jurisdiction,
@@ -855,6 +847,15 @@ export async function semanticSearchLocal(
     notes.push("no embedded ready module available");
     return { found: false, hits: [], notes };
   }
+
+  const embed = await getQueryEmbedder();
+  if (!embed) {
+    notes.push(
+      "local embedder unavailable (@huggingface/transformers not installed); semantic_search_local disabled",
+    );
+    return { found: false, hits: [], notes };
+  }
+  const embedderDesc = activeEmbedderDescriptor();
 
   const queryVec = Array.from(await embed(args.query));
   const dim = queryVec.length;

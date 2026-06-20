@@ -123,14 +123,20 @@ Filter to one logical document with `document`. List/inspect with `op=list` / `o
   triggers a large download mid-conversation):
 
   ```bash
-  jurisd fetch-module <name> [--version X.Y.Z]   # download + sha256-verify + atomic install
-  jurisd verify-module <name>                     # re-verify installed files vs manifest
-  jurisd list-modules                             # list installed (incl. refused)
+  jurisd fetch-module <name> [--modules-dir DIR]   # download + sha256-verify + atomic install
+  jurisd verify-module <name> [--modules-dir DIR]  # re-verify installed files vs manifest
+  jurisd list-modules [--modules-dir DIR]          # list installed (incl. refused)
   ```
 
-  **No modules are published yet** — the `jurisd-data` release repo is still being built,
-  so `fetch-module` currently fails fast with a `404`. Lead with the live tools until the
-  first module lands; `list_data_modules` will report an empty store in the meantime.
+  `legislation-cth` is published as `workingmem/legislation-cth` on Hugging Face. It
+  provides Commonwealth primary and secondary legislation, citation edges, unmatched
+  citations, and local bge-small embeddings. `fetch-module` downloads the manifest and
+  parquet files, verifies each file against the manifest sha256 values, and installs the
+  module atomically.
+
+  Advanced operators can pass `--manifest-url URL` only for an explicitly trusted
+  manifest source. The sha256 checks prove files match that manifest; they do not prove
+  the manifest's provenance.
 
   Install root defaults to `~/.jurisd/modules/` (override `JURISD_MODULES_DIR`). Local
   tools need optional `@duckdb/node-api`; `semantic_search_local` also needs

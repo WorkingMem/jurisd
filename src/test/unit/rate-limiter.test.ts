@@ -88,4 +88,48 @@ describe("RateLimiter", () => {
       vi.useRealTimers();
     }
   });
+
+  it("serializes concurrent waiters instead of releasing them in one refill", async () => {
+    vi.useFakeTimers();
+    try {
+      const limiter = new RateLimiter(1);
+      await limiter.throttle();
+
+      let firstResolved = false;
+      let secondResolved = false;
+      const first = limiter.throttle().then(() => {
+        firstResolved = true;
+      });
+      const second = limiter.throttle().then(() => {
+        secondResolved = true;
+      });
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await first;
+      expect(firstResolved).toBe(true);
+      expect(secondResolved).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await second;
+      expect(secondResolved).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects when the queue cap is reached", async () => {
+    vi.useFakeTimers();
+    try {
+      const limiter = new RateLimiter(1, { maxQueue: 1 });
+      await limiter.throttle();
+
+      const queued = limiter.throttle();
+      await expect(limiter.throttle()).rejects.toThrow("Rate limiter queue is full");
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await queued;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

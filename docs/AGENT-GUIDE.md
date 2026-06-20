@@ -100,22 +100,47 @@
 **Response Format (JSON):**
 
 ```json
+[
+  {
+    "title": "Case Name",
+    "neutralCitation": "[2024] HCA 1",
+    "reportedCitation": "(2024) 350 ALR 123",
+    "jurisdiction": "cth",
+    "court": "HCA",
+    "date": "2024-02-15",
+    "url": "https://www.austlii.edu.au/...",
+    "source": "jade",
+    "snippet": "..."
+  }
+]
+```
+
+When a search source is unavailable but the tool call itself succeeds, JSON
+responses use a degraded object instead of the normal array. This includes
+AustLII search blocks and incomplete configured coverage such as
+`jade: "not_configured"`:
+
+```json
 {
-  "results": [
+  "results": [],
+  "warnings": [
     {
-      "title": "Case Name",
-      "neutralCitation": "[2024] HCA 1",
-      "reportedCitation": "(2024) 350 ALR 123",
-      "jurisdiction": "cth",
-      "court": "HCA",
-      "date": "2024-02-15",
-      "url": "https://www.austlii.edu.au/...",
-      "source": "jade",
-      "snippet": "..."
+      "code": "austlii_cloudflare_blocked",
+      "source": "austlii",
+      "message": "AustLII search is blocked by a Cloudflare challenge. Direct document fetch still works when you already have a URL."
     }
-  ]
+  ],
+  "sources": {
+    "austlii": "blocked",
+    "jade": "not_configured"
+  },
+  "degraded": true
 }
 ```
+
+Do not treat a degraded empty result as proof that no matching authority exists.
+Check `warnings`, `sources`, and `degraded` before relying on search coverage.
+CLI callers should also treat exit code 4 as source unavailable.
 
 ---
 
@@ -524,5 +549,5 @@
 
 ---
 
-**License:** MIT  
+**License:** Apache-2.0
 **Contact:** contact@workingmem.ai

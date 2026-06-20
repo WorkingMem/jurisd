@@ -1,15 +1,6 @@
 {
-  "entryPoints": [
-    "src/index.ts",
-    "src/services/austlii.ts",
-    "src/services/fetcher.ts",
-    "src/services/jade.ts",
-    "src/utils/formatter.ts",
-    "src/utils/logger.ts",
-    "src/config.ts",
-    "src/constants.ts",
-    "src/errors.ts"
-  ],
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
   "out": "docs/api",
   "exclude": ["**/*.test.ts", "src/test/**", "node_modules"],
   "excludePrivate": true,

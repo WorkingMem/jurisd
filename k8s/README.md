@@ -101,7 +101,7 @@ All configuration is managed through the ConfigMap (`k8s/configmap.yaml`). To mo
 | `AUSTLII_USER_AGENT`    | Mozilla/5.0...                                    | User agent string            |
 | `AUSTLII_TIMEOUT`       | `60000`                                           | Request timeout (ms)         |
 | `JADE_BASE_URL`         | `https://jade.io`                                 | jade.io base URL             |
-| `JADE_USER_AGENT`       | `jurisd/0.1.0 (legal research tool)`              | jade.io user agent           |
+| `JADE_USER_AGENT`       | `jurisd/0.2.0 (legal research tool)`              | jade.io user agent           |
 | `JADE_TIMEOUT`          | `15000`                                           | jade.io request timeout (ms) |
 | `DEFAULT_SEARCH_LIMIT`  | `10`                                              | Default search results       |
 | `MAX_SEARCH_LIMIT`      | `50`                                              | Maximum search results       |

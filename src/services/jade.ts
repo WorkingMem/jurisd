@@ -54,6 +54,11 @@ export interface JadeArticle {
   accessible: boolean;
 }
 
+export interface JadeSearchOutcome {
+  results: SearchResult[];
+  status: "ok" | "not_configured" | "failed";
+}
+
 // ── Constants ──────────────────────────────────────────────────────────
 
 const JADE_SEARCH_URL = `${config.jade.baseUrl}/search`;
@@ -377,79 +382,88 @@ async function resolveBridgeCandidates(flatArray: unknown[]): Promise<Map<string
  * from HAR analysis (2026-03-03). It returns case names, neutral citations, reported
  * citations, and jade.io article IDs in a single response.
  *
- * Requires JADE_SESSION_COOKIE. Returns an empty array (graceful degradation) if the
- * cookie is not configured or if the request fails — jade search failure should not
- * prevent AustLII results from being returned.
+ * Requires JADE_SESSION_COOKIE.
  *
  * @param query - Search query string
  * @param options - Search options (type, jurisdiction, limit, etc.)
- * @returns Array of SearchResult objects, empty if search fails or cookie is missing
+ * @returns Array of SearchResult objects
  */
-export async function searchJade(query: string, options: SearchOptions): Promise<SearchResult[]> {
+async function searchJadeStrict(query: string, options: SearchOptions): Promise<SearchResult[]> {
+  await jadeRateLimiter.throttle();
+
+  const requestBody = buildProposeCitablesRequest(query);
+  const url = `${config.jade.baseUrl}/jadeService.do`;
+
+  const response = await axios.post(url, requestBody, {
+    headers: {
+      "Content-Type": "text/x-gwt-rpc; charset=UTF-8",
+      "X-GWT-Module-Base": JADE_MODULE_BASE,
+      "X-GWT-Permutation": JADE_PERMUTATION,
+      Origin: "https://jade.io",
+      Referer: "https://jade.io/",
+      "User-Agent": config.jade.userAgent,
+      Cookie: config.jade.sessionCookie,
+    },
+    timeout: config.jade.timeout,
+    responseType: "text",
+    maxContentLength: 5 * 1024 * 1024,
+    maxRedirects: MAX_REDIRECTS,
+    beforeRedirect: assertRedirectAllowed,
+  });
+
+  const { results: parsed, flatArray } = parseProposeCitablesResponse(response.data as string);
+
+  // Extract candidate article IDs from the bridge section and validate
+  // them by resolving each against jade.io (public GET, no session cookie needed)
+  const articleIdMap = await resolveBridgeCandidates(flatArray);
+
+  const results: SearchResult[] = parsed.map((item) => {
+    // Extract jurisdiction from neutral citation (reuse existing court -> jurisdiction map)
+    const courtMatch = item.neutralCitation.match(/\[\d{4}\]\s+([A-Z]+(?:\s+[A-Z]+)?)\s+\d+/);
+    const court = courtMatch?.[1]?.replace(/\s+/g, "");
+    const jurisdiction = court ? COURT_TO_JURISDICTION[court] : undefined;
+    const yearMatch = item.neutralCitation.match(/\[(\d{4})\]/);
+
+    // Use resolved article ID if available, otherwise fall back to citation search URL
+    const resolvedId = articleIdMap.get(normaliseCitation(item.neutralCitation));
+    const url = resolvedId ? `https://jade.io/article/${resolvedId}` : item.jadeUrl;
+
+    return {
+      title: item.caseName,
+      neutralCitation: item.neutralCitation,
+      reportedCitation: item.reportedCitation,
+      url,
+      source: "jade" as const,
+      type: options.type,
+      jurisdiction,
+      year: yearMatch?.[1],
+    };
+  });
+
+  // Apply jurisdiction filter
+  const filtered = options.jurisdiction
+    ? results.filter((r) => !r.jurisdiction || r.jurisdiction === options.jurisdiction)
+    : results;
+
+  // Apply limit
+  const limit = options.limit ?? filtered.length;
+  return filtered.slice(0, limit);
+}
+
+/**
+ * Searches jade.io and returns explicit source status for callers that must
+ * distinguish an empty result set from unavailable jade coverage.
+ */
+export async function searchJadeWithStatus(
+  query: string,
+  options: SearchOptions,
+): Promise<JadeSearchOutcome> {
   if (!config.jade.sessionCookie) {
-    return [];
+    return { results: [], status: "not_configured" };
   }
 
   try {
-    await jadeRateLimiter.throttle();
-
-    const requestBody = buildProposeCitablesRequest(query);
-    const url = `${config.jade.baseUrl}/jadeService.do`;
-
-    const response = await axios.post(url, requestBody, {
-      headers: {
-        "Content-Type": "text/x-gwt-rpc; charset=UTF-8",
-        "X-GWT-Module-Base": JADE_MODULE_BASE,
-        "X-GWT-Permutation": JADE_PERMUTATION,
-        Origin: "https://jade.io",
-        Referer: "https://jade.io/",
-        "User-Agent": config.jade.userAgent,
-        Cookie: config.jade.sessionCookie,
-      },
-      timeout: config.jade.timeout,
-      responseType: "text",
-      maxContentLength: 5 * 1024 * 1024,
-      maxRedirects: MAX_REDIRECTS,
-      beforeRedirect: assertRedirectAllowed,
-    });
-
-    const { results: parsed, flatArray } = parseProposeCitablesResponse(response.data as string);
-
-    // Extract candidate article IDs from the bridge section and validate
-    // them by resolving each against jade.io (public GET, no session cookie needed)
-    const articleIdMap = await resolveBridgeCandidates(flatArray);
-
-    const results: SearchResult[] = parsed.map((item) => {
-      // Extract jurisdiction from neutral citation (reuse existing court -> jurisdiction map)
-      const courtMatch = item.neutralCitation.match(/\[\d{4}\]\s+([A-Z]+(?:\s+[A-Z]+)?)\s+\d+/);
-      const court = courtMatch?.[1]?.replace(/\s+/g, "");
-      const jurisdiction = court ? COURT_TO_JURISDICTION[court] : undefined;
-      const yearMatch = item.neutralCitation.match(/\[(\d{4})\]/);
-
-      // Use resolved article ID if available, otherwise fall back to citation search URL
-      const resolvedId = articleIdMap.get(normaliseCitation(item.neutralCitation));
-      const url = resolvedId ? `https://jade.io/article/${resolvedId}` : item.jadeUrl;
-
-      return {
-        title: item.caseName,
-        neutralCitation: item.neutralCitation,
-        reportedCitation: item.reportedCitation,
-        url,
-        source: "jade" as const,
-        type: options.type,
-        jurisdiction,
-        year: yearMatch?.[1],
-      };
-    });
-
-    // Apply jurisdiction filter
-    const filtered = options.jurisdiction
-      ? results.filter((r) => !r.jurisdiction || r.jurisdiction === options.jurisdiction)
-      : results;
-
-    // Apply limit
-    const limit = options.limit ?? filtered.length;
-    return filtered.slice(0, limit);
+    return { results: await searchJadeStrict(query, options), status: "ok" };
   } catch (error) {
     // Sanitise AxiosError to prevent session cookie leaking into error messages
     if (axios.isAxiosError(error)) {
@@ -463,8 +477,16 @@ export async function searchJade(query: string, options: SearchOptions): Promise
         error instanceof Error ? error.message : String(error),
       );
     }
-    return [];
+    return { results: [], status: "failed" };
   }
+}
+
+/**
+ * Backwards-compatible jade search helper. Returns an empty array when jade is
+ * unavailable; use searchJadeWithStatus when source coverage must be explicit.
+ */
+export async function searchJade(query: string, options: SearchOptions): Promise<SearchResult[]> {
+  return (await searchJadeWithStatus(query, options)).results;
 }
 
 // ── GWT-RPC Content Fetching ───────────────────────────────────────────

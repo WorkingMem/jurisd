@@ -13,7 +13,7 @@ const compat = new FlatCompat({
     allConfig: js.configs.all
 });
 
-export default defineConfig([globalIgnores(["**/dist", "**/node_modules", "**/*.js", "vitest.config.ts", "eslint.config.mjs"]), {
+export default defineConfig([globalIgnores(["**/dist", "**/node_modules", "**/*.js", "**/*.mjs", "vitest.config.ts", "eslint.config.mjs"]), {
     extends: compat.extends("eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"),
 
     languageOptions: {
@@ -22,7 +22,7 @@ export default defineConfig([globalIgnores(["**/dist", "**/node_modules", "**/*.
         sourceType: "module",
 
         parserOptions: {
-            project: "./tsconfig.json",
+            project: "./tsconfig.eslint.json",
         },
     },
 

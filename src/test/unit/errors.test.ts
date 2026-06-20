@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { AustLiiError, CloudflareBlockedError, NetworkError, ParseError } from "../../errors.js";
+import {
+  AustLiiError,
+  CloudflareBlockedError,
+  HttpStatusError,
+  NetworkError,
+  ParseError,
+} from "../../errors.js";
 
 describe("Custom error classes", () => {
   describe("AustLiiError", () => {
@@ -71,6 +77,16 @@ describe("Custom error classes", () => {
       expect(err.name).toBe("NetworkError");
       expect(err.url).toBe("https://example.com");
       expect(err).toBeInstanceOf(Error);
+    });
+  });
+
+  describe("HttpStatusError", () => {
+    it("stores url and statusCode", () => {
+      const err = new HttpStatusError("https://example.com/missing", 404);
+      expect(err.name).toBe("HttpStatusError");
+      expect(err.url).toBe("https://example.com/missing");
+      expect(err.statusCode).toBe(404);
+      expect(err).toBeInstanceOf(NetworkError);
     });
   });
 

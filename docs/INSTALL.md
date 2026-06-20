@@ -5,10 +5,10 @@ with an MCP-compatible client (Claude Code, Claude Desktop, Cursor), and the
 client launches it over stdio on demand.
 
 **The offline floor:** with **no API key and no network**, the local-module
-recall layer still answers. Every environment variable below is optional, and
-every optional dependency degrades visibly when absent (the feature that needs it
-is disabled and reported, nothing throws). The live AustLII layer needs network
-but no key.
+recall layer still answers. Every environment variable below is optional. The
+live AustLII layer needs network but no key; its Cloudflare-aware transport is a
+normal production dependency so hosted installs do not silently lose direct
+document fetch capability.
 
 ## Day-0 install paths
 
@@ -18,12 +18,75 @@ but no key.
 npx -y github:russellbrenner/jurisd
 ```
 
-`npx` clones the repository, installs dependencies, builds, and launches the
-server over stdio. The first invocation does the clone+build; subsequent launches
+`npx` installs the package from the built distribution and launches the server
+over stdio. The first invocation does the clone and install; subsequent launches
 reuse the cached install. Pin a ref by appending `#<ref>` — e.g.
 `github:russellbrenner/jurisd#main`.
 
-### B. Local clone + npm
+The native local-data package (`@duckdb/node-api`) and local embedding stack
+(`@huggingface/transformers` and its native dependencies) are optional because
+they pull native packages. The server still starts without the local embedding
+stack: `semantic_search_local` reports that local embeddings are disabled. The
+`npx` path is best for the base server; use a persistent local or global install
+when you need optional local data or embedding features.
+
+Do not use `npm_config_omit=optional` for the default server install. `impit` is
+a normal production dependency, but its platform bindings are optional
+subdependencies; omitting optionals strips those bindings and disables the
+Cloudflare-aware AustLII transport.
+
+### B. npm global install
+
+Once the package is published to the npm registry, install the CLI globally with:
+
+```bash
+npm install -g jurisd
+jurisd --help
+```
+
+Before the registry publish, use the GitHub tarball archive for a persistent
+install:
+
+```bash
+npm install -g https://github.com/russellbrenner/jurisd/archive/refs/heads/main.tar.gz
+jurisd --help
+```
+
+The tarball archive materialises the package in the global prefix and creates a
+stable `jurisd` bin link. A bare git install such as `npm install -g
+github:russellbrenner/jurisd` depends on npm's `install-links` setting and can
+leave the global `jurisd` bin pointing at a temporary git clone that has already
+been removed on hosts where `install-links=false` is configured.
+
+If you intentionally want the bare git install form, force npm's linked install
+mode:
+
+```bash
+npm install -g --install-links=true github:russellbrenner/jurisd
+jurisd --help
+```
+
+## Optional native dependencies
+
+Optional native packages must be installed into the same persistent dependency
+tree that runs `jurisd`. A transient `npx github:...` cache is not a useful place
+to add them manually; use a local clone or global install instead.
+
+For a local clone:
+
+```bash
+npm install @duckdb/node-api@1.5.3-r.3
+npm install @huggingface/transformers@3.7.6
+```
+
+For a global install, install the optional packages into the same global prefix:
+
+```bash
+npm install -g @duckdb/node-api@1.5.3-r.3
+npm install -g @huggingface/transformers@3.7.6
+```
+
+### C. Local clone + npm
 
 ```bash
 git clone https://github.com/russellbrenner/jurisd.git
@@ -144,17 +207,34 @@ distinction is capability presence, framed as baseline vs domain-specialised.
 
 ### Live layer / search defaults
 
-| Variable                | Effect                                                 |
-| ----------------------- | ------------------------------------------------------ |
-| `LOG_LEVEL`             | `0`=DEBUG, `1`=INFO, `2`=WARN, `3`=ERROR.              |
-| `AUSTLII_SEARCH_BASE`   | AustLII search endpoint.                               |
-| `AUSTLII_REFERER`       | Referer header.                                        |
-| `AUSTLII_USER_AGENT`    | User-agent string.                                     |
-| `AUSTLII_TIMEOUT`       | Request timeout (ms).                                  |
-| `DEFAULT_SEARCH_LIMIT`  | Default search results (default 10).                   |
-| `MAX_SEARCH_LIMIT`      | Maximum search results (default 50).                   |
-| `DEFAULT_OUTPUT_FORMAT` | Default format: `json` / `text` / `markdown` / `html`. |
-| `DEFAULT_SORT_BY`       | Default sort: `auto` / `relevance` / `date`.           |
+| Variable                  | Effect                                                 |
+| ------------------------- | ------------------------------------------------------ |
+| `LOG_LEVEL`               | `0`=DEBUG, `1`=INFO, `2`=WARN, `3`=ERROR.              |
+| `AUSTLII_SEARCH_BASE`     | AustLII search endpoint.                               |
+| `AUSTLII_REFERER`         | Referer header.                                        |
+| `AUSTLII_USER_AGENT`      | User-agent string.                                     |
+| `AUSTLII_TIMEOUT`         | Request timeout (ms).                                  |
+| `AUSTLII_CF_CLEARANCE`    | Optional pre-solved Cloudflare `cf_clearance` cookie.  |
+| `AUSLAW_USE_IMPIT`        | Set `false` to disable the default impit transport.    |
+| `AUSTLII_TRANSPORT`       | `auto`, `impit`, or `axios` for AustLII fetches.       |
+| `AUSTLII_TAVILY_FALLBACK` | Set `true` to opt in to Tavily search fallback.        |
+| `TAVILY_API_KEY`          | Tavily API key for AustLII search fallback.            |
+| `TAVILY_SEARCH_DEPTH`     | Tavily search depth: `advanced` (default) or `basic`.  |
+| `TAVILY_TIMEOUT`          | Tavily request timeout (ms).                           |
+| `TAVILY_MAX_RESULTS`      | Tavily max results, clamped to 1-20.                   |
+| `DEFAULT_SEARCH_LIMIT`    | Default search results (default 10).                   |
+| `MAX_SEARCH_LIMIT`        | Maximum search results (default 50).                   |
+| `DEFAULT_OUTPUT_FORMAT`   | Default format: `json` / `text` / `markdown` / `html`. |
+| `DEFAULT_SORT_BY`         | Default sort: `auto` / `relevance` / `date`.           |
+
+When AustLII search endpoints are blocked by a Cloudflare challenge and both
+`TAVILY_API_KEY` and `AUSTLII_TAVILY_FALLBACK=true` are set, jurisd sends the
+search terms to Tavily, asks for AustLII-only primary-source candidates, validates
+them against the requested type and jurisdiction, then fetches the AustLII source
+document before returning result metadata. Tavily extraction is not used for
+AustLII text, because direct extraction still fails on challenged AustLII pages.
+Tavily calls are rate-limited, cached briefly, and circuit-broken after provider
+failures so an exposed command surface does not loop against the configured key.
 
 See [`.env.example`](../.env.example) for a copy-paste template and `src/config.ts`
 for every default.
@@ -163,27 +243,26 @@ for every default.
 
 Data modules are **operator-installed via the CLI** — deliberately off the MCP
 tool surface so an AI assistant never triggers a multi-hundred-MB download
-mid-conversation. Modules are published as GitHub release assets on the
-`jurisd-data` repository.
+mid-conversation. Modules are published as Hugging Face datasets under the
+`workingmem` organisation.
 
-> **Status: module publishing in progress — no modules available to fetch yet.**
-> The `jurisd-data` publishing repo and its first release are still being built,
-> so `jurisd fetch-module` currently resolves the release URL and fails fast with
-> a `404` (it never installs a partial or unverified module). This is expected
-> pre-publish. jurisd runs fully without any module: the live AustLII layer and
-> citation tools work standalone, and the five local-recall tools report "no
-> modules" (degrade visibly). The CLI flow below is implemented and ready for the
-> first publish.
+> **Status: first module published.** `legislation-cth` is available from
+> `workingmem/legislation-cth` on Hugging Face. It provides Commonwealth primary
+> and secondary legislation, 32,143 documents, 857,262 chunks, citation edges,
+> unmatched citations, and local bge-small embeddings. Running
+> `jurisd fetch-module legislation-cth` downloads the manifest and parquet files
+> from Hugging Face, verifies every file against the manifest sha256 values, and
+> installs the module atomically.
 
 ```bash
-jurisd fetch-module <name> [--version X.Y.Z] [--modules-dir DIR]
-jurisd verify-module <name>
-jurisd list-modules
+jurisd fetch-module <name> [--modules-dir DIR]
+jurisd verify-module <name> [--modules-dir DIR]
+jurisd list-modules [--modules-dir DIR]
 ```
 
 `fetch-module`:
 
-1. Resolves the release on `jurisd-data` (named module's latest, or `--version`).
+1. Resolves the module manifest from the default Hugging Face dataset URL.
 2. Downloads `manifest.json` first and validates it against the vendored schema —
    checks the schema version is implemented and the release is not yanked
    **before** downloading any parquet (fail fast, save bandwidth).
@@ -203,6 +282,20 @@ installed and why a module is or is not loading.
 The default install root is `~/.jurisd/modules/` (override with
 `JURISD_MODULES_DIR` or `--modules-dir`).
 
+### Advanced manifest override
+
+Use `--manifest-url URL` only when the manifest source is explicitly trusted, for
+example a Hugging Face dataset and revision you operate or have independently
+reviewed:
+
+```bash
+jurisd fetch-module <name> --manifest-url URL [--modules-dir DIR]
+```
+
+`verify-module` checks installed files against the manifest. It does not prove
+the manifest's provenance or protect against a malicious or compromised manifest
+source.
+
 ## Offline / baseline guarantee
 
 With **no key and no network**:
@@ -211,10 +304,10 @@ With **no key and no network**:
   lookup, the Act containment tree, and the offline citation graph need only the
   optional `@duckdb/node-api` dependency.
 - `semantic_search_local` embeds the query **locally** (bge-small-en-v1.5,
-  384-dim, no key) via the optional `@huggingface/transformers` dependency. The
+  384-dim, no key) when `@huggingface/transformers` is installed separately. The
   model is cached under `~/.jurisd/models/` after first use; set
-  `JURISD_EMBED_OFFLINE=true` to hard-fail rather than reach the network (pre-seed
-  the model dir for air-gapped installs).
+  `JURISD_EMBED_OFFLINE=true` to hard-fail rather than reach the network
+  (pre-seed the model dir for air-gapped installs).
 - The domain-adapter slot is **baseline** (pure local cosine order). No vendor, no
   account, no network.
 

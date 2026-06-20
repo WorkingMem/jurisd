@@ -1,6 +1,6 @@
 # Running jurisd in Docker
 
-jurisd ships as a multi-stage container image: a Debian-slim Node 20 runtime
+jurisd ships as a multi-stage container image: a Debian-slim Node 26 runtime
 with the compiled server and the two native dependencies that make the
 local-data and Cloudflare-aware fetch paths work (`@duckdb/node-api`, `impit`).
 
@@ -22,15 +22,17 @@ The build:
 1. **builder stage** runs a full `npm ci` then `npm run build` to emit `dist/`.
    The optionals are installed here on purpose: `tsc` compiles type-only
    references such as `import("@duckdb/node-api").DuckDBInstance` (modules.ts,
-   oalc.ts) and `import("impit").Browser` (transport.ts), which resolve against
-   `node_modules` at compile time even though the runtime loads those modules via
-   dynamic `import()` and degrades when they are absent. Omitting optionals here
-   fails the build with `TS2307`. The builder stage is discarded — only `dist/`
-   is copied forward — so the heavier install does not affect the final image.
-2. **runtime stage** installs production deps with `--omit=optional`, then
-   explicitly adds back `@duckdb/node-api` and `impit` (the two optionals the
-   running server uses), copies `dist/`, drops to a non-root user, and sets
-   `JURISD_MODULES_DIR=/data/modules`.
+   oalc.ts), which resolve against `node_modules` at compile time even though
+   the runtime loads DuckDB via dynamic `import()` and degrades when it is
+   absent. Omitting optionals here fails the build with `TS2307`. The builder
+   stage is discarded, only `dist/` is copied forward, so the heavier install
+   does not affect the final image.
+2. **runtime stage** installs production deps with `--omit=dev`, keeps optional
+   native subdependencies, copies `dist/`, drops to a non-root user, and sets
+   `JURISD_MODULES_DIR=/data/modules`. This keeps `impit`'s platform binding in
+   the image, while also installing `@duckdb/node-api` for local data modules.
+   `impit` is a normal production dependency because AustLII Cloudflare-aware
+   fetches are part of the default command surface.
 
 `@huggingface/transformers` (the local embedder behind `semantic_search_local`)
 is **not** bundled, to keep the image slim. That single tool degrades visibly
@@ -43,7 +45,7 @@ publish prebuilt binaries for `linux-x64-gnu` and `linux-arm64-gnu`. On Apple
 Silicon (podman/Docker Desktop default arm64 VM) you get the arm64 prebuild; on
 an x86 host, the x64 prebuild. Cross-building for a different arch requires
 `--platform` and an emulator (qemu/binfmt); the prebuilds still resolve because
-they are glibc-targeted (this is why the base is `node:20-bookworm-slim`, not
+they are glibc-targeted (this is why the base is `node:26-bookworm-slim`, not
 Alpine/musl).
 
 ## Use with Claude Code
@@ -141,10 +143,22 @@ for a containerised run:
 | `JADE_SESSION_COOKIE`          | _(unset)_               | jade.io session cookie for authenticated search/fetch.                  |
 | `AUSTLII_TIMEOUT`              | `60000`                 | AustLII request timeout (ms); AustLII is slow.                          |
 | `AUSTLII_CF_CLEARANCE`         | _(unset)_               | Reuse an already-solved Cloudflare `cf_clearance` cookie.               |
-| `AUSLAW_USE_IMPIT`             | `true`                  | Use the impit TLS-impersonating client for AustLII (needs impit).       |
-| `MCP_TRANSPORT`                | _(unset → stdio)_       | Set to `http` to serve streamable HTTP on `PORT` (default 3000).        |
+| `AUSLAW_USE_IMPIT`             | `true`                  | Use the impit TLS-impersonating client for AustLII.                     |
+| `AUSTLII_TRANSPORT`            | `auto`                  | Force `impit` or `axios` for AustLII fetches when debugging.            |
+| `TAVILY_API_KEY`               | _(unset)_               | Tavily API key for AustLII-only search fallback.                        |
+| `AUSTLII_TAVILY_FALLBACK`      | `false`                 | Set `true` to opt in after Cloudflare blocks AustLII search.            |
+| `TAVILY_SEARCH_DEPTH`          | `advanced`              | Tavily search depth, `advanced` or `basic`.                             |
+| `TAVILY_TIMEOUT`               | `20000`                 | Tavily request timeout (ms).                                            |
+| `TAVILY_MAX_RESULTS`           | `10`                    | Tavily max results, clamped to 1-20.                                    |
+| `MCP_TRANSPORT`                | _(unset -> stdio)_      | Set to `http` to serve streamable HTTP on `PORT` (default 3000).        |
 
 Pass with `-e KEY=value` or `--env-file .env` (see `.env.example`).
+
+When Tavily fallback is enabled, Tavily is used only to discover candidate
+AustLII URLs after native AustLII search is Cloudflare-blocked. jurisd still
+fetches the AustLII source document before returning metadata, and Tavily
+provider calls are rate-limited, cached briefly, and circuit-broken after
+provider failures.
 
 ```bash
 docker run -i --rm \
@@ -209,7 +223,3 @@ most users want the default stdio mode above.
 - **`semantic_search_local disabled`** — expected: the embedder
   (`@huggingface/transformers`) is not bundled. Build a fat image by adding it
   to the runtime install if you need offline semantic search.
-
-```
-
-```

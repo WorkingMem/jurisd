@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { formatSearchResults, formatFetchResponse } from "../../utils/formatter.js";
+import {
+  formatSearchResults,
+  formatFetchResponse,
+  type SearchSourceStatuses,
+} from "../../utils/formatter.js";
 import type { SearchResult } from "../../services/austlii.js";
 import type { FetchResponse } from "../../services/fetcher.js";
 
@@ -37,6 +41,13 @@ const sampleFetch: FetchResponse = {
   metadata: { contentLength: "123" },
 };
 
+const sampleWarning = {
+  code: "austlii_cloudflare_blocked",
+  source: "austlii",
+  message: "AustLII search is blocked by a Cloudflare challenge.",
+};
+const sampleSources: SearchSourceStatuses = { austlii: "blocked", jade: "ok" };
+
 describe("formatSearchResults", () => {
   it("should format results as JSON", () => {
     const result = formatSearchResults(sampleResults, "json");
@@ -48,12 +59,72 @@ describe("formatSearchResults", () => {
     expect(() => JSON.parse(text)).not.toThrow();
   });
 
+  it("keeps no-warning JSON output as an array in text and structured data", () => {
+    const result = formatSearchResults(sampleResults, "json");
+    const parsed = JSON.parse(getText(result.content));
+    expect(Array.isArray(parsed)).toBe(true);
+    expect((result.structuredContent as { data: unknown }).data).toEqual(parsed);
+  });
+
+  it("formats warning JSON as a degraded result object in text and structured data", () => {
+    const result = formatSearchResults(sampleResults, "json", {
+      warnings: [sampleWarning],
+      sources: sampleSources,
+    });
+    const parsed = JSON.parse(getText(result.content)) as {
+      results: Array<SearchResult & { aglc4: string }>;
+      warnings: (typeof sampleWarning)[];
+      sources: SearchSourceStatuses;
+      degraded: boolean;
+    };
+    expect(parsed.degraded).toBe(true);
+    expect(parsed.results).toHaveLength(sampleResults.length);
+    expect(parsed.warnings).toEqual([sampleWarning]);
+    expect(parsed.sources).toEqual(sampleSources);
+    expect((result.structuredContent as { data: unknown }).data).toEqual(parsed);
+  });
+
+  it("formats source-only degradation as a degraded result object", () => {
+    const result = formatSearchResults([], "json", {
+      sources: { austlii: "blocked", jade: "not_configured" },
+    });
+    const parsed = JSON.parse(getText(result.content)) as {
+      results: SearchResult[];
+      warnings: unknown[];
+      sources: SearchSourceStatuses;
+      degraded: boolean;
+    };
+    expect(parsed).toEqual({
+      results: [],
+      warnings: [],
+      sources: { austlii: "blocked", jade: "not_configured" },
+      degraded: true,
+    });
+    expect((result.structuredContent as { data: unknown }).data).toEqual(parsed);
+  });
+
   it("should format results as text", () => {
     const result = formatSearchResults(sampleResults, "text");
     const text = getText(result.content);
     expect(text).toContain("1. Donoghue");
     expect(text).toContain("2. Mabo");
     expect(text).toContain("https://");
+  });
+
+  it("renders warnings in text output", () => {
+    const result = formatSearchResults(sampleResults, "text", { warnings: [sampleWarning] });
+    const text = getText(result.content);
+    expect(text).toContain("Warning: AustLII search is blocked");
+    expect(text).toContain("1. Donoghue");
+  });
+
+  it("renders source-only degradation in text output", () => {
+    const result = formatSearchResults([], "text", {
+      sources: { austlii: "blocked", jade: "not_configured" },
+    });
+    const text = getText(result.content);
+    expect(text).toContain("Source status: austlii=blocked, jade=not_configured");
+    expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
   });
 
   it("should format results as markdown", () => {
@@ -63,6 +134,45 @@ describe("formatSearchResults", () => {
     expect(text).toContain("](https://");
   });
 
+  it("renders warnings in markdown output", () => {
+    const result = formatSearchResults(sampleResults, "markdown", { warnings: [sampleWarning] });
+    const text = getText(result.content);
+    expect(text).toContain("> AustLII search is blocked");
+    expect(text).toContain("- [Donoghue");
+  });
+
+  it("renders source-only degradation in markdown output", () => {
+    const result = formatSearchResults([], "markdown", {
+      sources: { austlii: "blocked", jade: "not_configured" },
+    });
+    const text = getText(result.content);
+    expect(text).toContain("> Source status: austlii=blocked, jade=not\\_configured");
+    expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
+  });
+
+  it("escapes markdown control characters in search output", () => {
+    const result = formatSearchResults(
+      [
+        {
+          title: "Bad [label](https://evil.test)",
+          url: "javascript:alert(1)",
+          source: "austlii",
+          type: "case",
+          summary: "summary ![x](https://evil.test/img)",
+        },
+      ],
+      "markdown",
+      {
+        warnings: [{ ...sampleWarning, message: "> forged block\n- fake item" }],
+      },
+    );
+    const text = getText(result.content);
+    expect(text).toContain("\\> forged block");
+    expect(text).toContain("Bad \\[label\\]\\(https://evil\\.test\\)");
+    expect(text).not.toContain("javascript:alert");
+    expect(text).toContain("summary \\!\\[x\\]\\(https://evil\\.test/img\\)");
+  });
+
   it("should format results as HTML", () => {
     const result = formatSearchResults(sampleResults, "html");
     const text = getText(result.content);
@@ -70,6 +180,26 @@ describe("formatSearchResults", () => {
     expect(text).toContain("<li>");
     expect(text).toContain("</ul>");
     expect(text).toContain("<a href=");
+  });
+
+  it("renders escaped warnings in HTML output", () => {
+    const result = formatSearchResults(sampleResults, "html", {
+      warnings: [{ ...sampleWarning, message: "Blocked <script>alert(1)</script>" }],
+    });
+    const text = getText(result.content);
+    expect(text).toContain('class="warning"');
+    expect(text).toContain("&lt;script&gt;");
+    expect(text).not.toContain("<script>");
+  });
+
+  it("renders source-only degradation in HTML output", () => {
+    const result = formatSearchResults([], "html", {
+      sources: { austlii: "blocked", jade: "not_configured" },
+    });
+    const text = getText(result.content);
+    expect(text).toContain('class="source-status"');
+    expect(text).toContain("austlii=blocked, jade=not_configured");
+    expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
   });
 
   it("should handle empty results", () => {
@@ -92,6 +222,21 @@ describe("formatSearchResults", () => {
     const text = getText(result.content);
     expect(text).not.toContain("<script>");
     expect(text).toContain("&lt;script&gt;");
+  });
+
+  it("removes unsafe HTML search result href values", () => {
+    const results: SearchResult[] = [
+      {
+        title: "Unsafe URL",
+        url: "javascript:alert(1)",
+        source: "austlii",
+        type: "case",
+      },
+    ];
+    const result = formatSearchResults(results, "html");
+    const text = getText(result.content);
+    expect(text).toContain("<a>Unsafe URL</a>");
+    expect(text).not.toContain("javascript:");
   });
 
   it("html format omits aglc4 span when formatted AGLC4 string is empty (line 62 false branch)", () => {
@@ -217,7 +362,7 @@ describe("formatFetchResponse", () => {
     const result = formatFetchResponse(sampleFetch, "markdown");
     const text = getText(result.content);
     expect(text).toContain("> Source:");
-    expect(text).toContain(sampleFetch.sourceUrl);
+    expect(text).toContain("https://www\\.austlii\\.edu\\.au/au/cases/cth/HCA/1992/23\\.html");
     expect(text).toContain(sampleFetch.text);
   });
 
@@ -238,6 +383,53 @@ describe("formatFetchResponse", () => {
     expect(text).toContain("<h1>Smith v Jones</h1>");
     expect(text).toContain("<p>[1] Appeal allowed.</p>");
     expect(text).not.toContain("<pre>");
+  });
+
+  it("sanitises preserved HTML before wrapping the fetched response", () => {
+    const fetchWithHtml: FetchResponse = {
+      ...sampleFetch,
+      html: [
+        '<article onclick="evil()">',
+        "<h1>Smith v Jones</h1>",
+        '<p><a href="javascript:alert(1)" onclick="bad()">bad</a>',
+        '<a href="https://example.test/doc" data-extra="drop">safe</a></p>',
+        '<span style="color:red" title="kept">Styled text</span>',
+        "<script>alert(1)</script>",
+        '<iframe src="https://evil.test"></iframe>',
+        "<svg><script>alert(2)</script></svg>",
+        "</article>",
+      ].join(""),
+    };
+    const result = formatFetchResponse(fetchWithHtml, "html");
+    const text = getText(result.content);
+    expect(text).toContain("<h1>Smith v Jones</h1>");
+    expect(text).toContain("<a>bad</a>");
+    expect(text).toContain('<a href="https://example.test/doc">safe</a>');
+    expect(text).toContain('<span title="kept">Styled text</span>');
+    expect(text).not.toContain("onclick");
+    expect(text).not.toContain("javascript:");
+    expect(text).not.toContain("<script");
+    expect(text).not.toContain("<iframe");
+    expect(text).not.toContain("<svg");
+    expect(text).not.toContain("style=");
+    expect(text).not.toContain("data-extra");
+  });
+
+  it("fences fetched markdown text and escapes the source line", () => {
+    const fetchWithMarkdownSyntax: FetchResponse = {
+      ...sampleFetch,
+      sourceUrl: "https://example.test/[doc](spoof)?q=1",
+      text: ["[spoof](https://evil.test)", "```html", "<script>alert(1)</script>", "```"].join(
+        "\n",
+      ),
+    };
+    const result = formatFetchResponse(fetchWithMarkdownSyntax, "markdown");
+    const text = getText(result.content);
+    expect(text).toContain("> Source: https://example\\.test/\\[doc\\]\\(spoof\\)?q=1");
+    expect(text).toContain("```text\n");
+    expect(text).toContain("`\\`\\`html");
+    expect(text).not.toContain("```html");
+    expect(text.endsWith("\n```")).toBe(true);
   });
 
   it("html format includes print-friendly stylesheet when html field present", () => {

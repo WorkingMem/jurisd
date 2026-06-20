@@ -148,14 +148,18 @@ MCP_TRANSPORT=http npm start
 
 ## Configuration
 
-| Variable            | Default           | Description                                   |
-| ------------------- | ----------------- | --------------------------------------------- |
-| AUSTLII_SEARCH_BASE | AustLII URL       | Search endpoint                               |
-| AUSTLII_TIMEOUT     | 60000             | Request timeout (ms)                          |
-| JADE_SESSION_COOKIE | —                 | jade.io auth cookie                           |
-| MCP_TRANSPORT       | stdio             | stdio or http                                 |
-| ISAACUS_API_KEY     | —                 | BYOK key for the optional domain-adapter slot |
-| JURISD_MODULES_DIR  | ~/.jurisd/modules | Installed local data-module root              |
+| Variable                  | Default           | Description                                      |
+| ------------------------- | ----------------- | ------------------------------------------------ |
+| AUSTLII_SEARCH_BASE       | AustLII URL       | Search endpoint                                  |
+| AUSTLII_TIMEOUT           | 60000             | Request timeout (ms)                             |
+| AUSTLII_TRANSPORT         | auto              | `auto`, `impit`, or `axios` for AustLII fetches  |
+| AUSTLII_CF_CLEARANCE      | unset             | Optional pre-solved Cloudflare cookie            |
+| TAVILY_API_KEY            | unset             | Tavily API key for AustLII-only search fallback  |
+| AUSTLII_TAVILY_FALLBACK   | false             | Enable with `true` after privacy review          |
+| JADE_SESSION_COOKIE       | unset             | jade.io auth cookie                              |
+| MCP_TRANSPORT             | stdio             | stdio or http                                    |
+| ISAACUS_API_KEY           | unset             | BYOK key for the optional domain-adapter slot    |
+| JURISD_MODULES_DIR        | ~/.jurisd/modules | Installed local data-module root                 |
 
 ---
 
@@ -185,4 +189,4 @@ npx vitest run src/test/unit/   # Unit only (fast, no network)
 
 ---
 
-**License:** MIT
+**License:** Apache-2.0

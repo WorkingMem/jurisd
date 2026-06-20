@@ -79,6 +79,10 @@ describe("isCloudflareChallengeHeader", () => {
   it("returns false for undefined headers", () => {
     expect(isCloudflareChallengeHeader(undefined)).toBe(false);
   });
+
+  it("does not flag unrelated cf-mitigated values", () => {
+    expect(isCloudflareChallengeHeader({ "cf-mitigated": "none" })).toBe(false);
+  });
 });
 
 describe("isCloudflareChallenge", () => {

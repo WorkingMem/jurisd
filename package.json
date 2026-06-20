@@ -1,6 +1,6 @@
 {
   "name": "jurisd",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Model Context Protocol server for Australian legislation and case law search.",
   "main": "dist/index.js",
   "bin": {
@@ -12,7 +12,10 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node -e \"const fs=require('fs'),p=require('path');fs.mkdirSync('dist/data',{recursive:true});fs.copyFileSync('src/data/manifest.schema.json','dist/data/manifest.schema.json')\"",
+    "build": "tsc -p tsconfig.build.json && node -e \"const fs=require('fs');fs.mkdirSync('dist/data',{recursive:true});fs.copyFileSync('src/data/manifest.schema.json','dist/data/manifest.schema.json');fs.chmodSync('dist/index.js',0o755)\"",
+    "generate:commands": "tsx scripts/generate-command-artifacts.ts",
+    "check:generated": "tsx scripts/generate-command-artifacts.ts --check",
+    "check:dist": "npm run clean && npm run build && git diff --exit-code -- dist && test -z \"$(git status --porcelain -- dist)\"",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
     "dev": "tsx watch src/index.ts",
@@ -21,13 +24,12 @@
     "test:coverage": "vitest run --coverage",
     "test:smoke": "vitest run src/test/smoke/",
     "test:watch": "vitest watch",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\"",
+    "lint": "eslint src scripts",
+    "lint:fix": "eslint src scripts --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"scripts/**/*.ts\"",
     "docs": "typedoc",
-    "docs:serve": "npx serve docs/api",
-    "prepare": "node -e \"if(require('fs').existsSync('.git'))require('child_process').execSync('husky',{stdio:'inherit'})\""
+    "docs:serve": "npx serve docs/api"
   },
   "keywords": [
     "model-context-protocol",
@@ -49,13 +51,12 @@
     "node": ">=20.18.1"
   },
   "dependencies": {
-    "@duckdb/node-api": "^1.5.3-r.3",
-    "@huggingface/transformers": "^3.7.6",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "axios": "^1.17.0",
+    "axios": "^1.18.0",
     "cheerio": "^1.1.2",
     "dotenv": "^17.4.2",
     "file-type": "^21.3.0",
+    "impit": "0.14.1",
     "pdf-parse": "^2.4.5",
     "zod": "^3.25.76"
   },
@@ -64,9 +65,9 @@
     "@eslint/js": "^9.39.4",
     "@types/cheerio": "^1.0.0",
     "@types/node": "^24.13.2",
-    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.55.0",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
@@ -88,6 +89,6 @@
     ]
   },
   "optionalDependencies": {
-    "impit": "0.14.1"
+    "@duckdb/node-api": "^1.5.3-r.3"
   }
 }

@@ -1,5 +1,5 @@
 /**
- * HTTP transport seam with optional impit TLS-impersonation support.
+ * HTTP transport seam with impit TLS-impersonation support.
  *
  * AustLII (classic and www) sits behind Cloudflare Bot Management. Plain
  * axios/curl GET requests receive a CF managed-challenge page (HTTP 403 or
@@ -12,44 +12,79 @@
  *   2. Falls back to axios when impit is absent or disabled.
  *   3. Detects CF challenge responses and rethrows as a descriptive error.
  *
- * The lazy dynamic import means the optional dep is never required at
- * module load time — the server starts cleanly without it.
+ * The lazy dynamic import means the dependency is never required at module load
+ * time, so the server can still start and report clear transport errors if a
+ * damaged install is missing it.
  */
 
 import { config } from "../config.js";
-import { isCloudflareChallengeHtml, isCloudflareBotBlock, cfBlockMessage } from "./cloudflare.js";
+import { HttpStatusError } from "../errors.js";
+import { isCloudflareChallenge, cfBlockMessage } from "./cloudflare.js";
 import { isAustliiUrl } from "./austlii-url.js";
 import { assertFetchableUrl, assertRedirectAllowed, MAX_REDIRECTS } from "../utils/url-guard.js";
 
-/**
- * impit follows redirects internally (bounded by {@link MAX_REDIRECTS}), so we
- * cannot re-check each hop the way axios' `beforeRedirect` does. Instead, after
- * the fetch, reject when the chain changed host to one that is not itself
- * allowlisted — this blocks an allowlisted origin from bouncing us to an
- * internal/metadata address (SSRF) while still permitting same-host redirects
- * and AustLII's www<->classic hops. A same-host (or no) redirect is always fine.
- */
-function assertNoUnsafeImpitRedirect(initialUrl: string, finalUrl: string | undefined): void {
-  if (!finalUrl) return;
-  let init: URL;
-  let fin: URL;
-  try {
-    init = new URL(initialUrl);
-    fin = new URL(finalUrl);
-  } catch {
-    return;
-  }
-  if (fin.hostname === init.hostname) return;
-  assertFetchableUrl(finalUrl);
+function isSuccessfulStatus(status: number): boolean {
+  return status >= 200 && status < 300;
 }
 
-/**
- * impit 0.14.1's native binding rejects object-form headers at runtime
- * ("napi value is not an array"); it accepts [key, value][] tuples instead.
- * Convert here so callers can keep passing a plain Record.
- */
-function toImpitHeaders(headers: Record<string, string> | undefined): [string, string][] {
-  return Object.entries(headers ?? {});
+function isRedirectStatus(status: number): boolean {
+  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
+}
+
+function shouldRewriteRedirectToGet(status: number, method: string): boolean {
+  if (status === 303) {
+    return method !== "HEAD";
+  }
+  return (status === 301 || status === 302) && method === "POST";
+}
+
+const SENSITIVE_REDIRECT_HEADERS = new Set(["authorization", "cookie", "proxy-authorization"]);
+
+function sameOrigin(a: string, b: string): boolean {
+  const first = new URL(a);
+  const second = new URL(b);
+  return (
+    first.protocol === second.protocol &&
+    first.hostname === second.hostname &&
+    first.port === second.port
+  );
+}
+
+function headersToRecord(
+  headers: import("impit").RequestInit["headers"],
+): Record<string, string> | undefined {
+  if (!headers) {
+    return undefined;
+  }
+  if (headers instanceof Headers) {
+    const record: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      record[key] = value;
+    });
+    return record;
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers.map(([key, value]) => [key, value]));
+  }
+  return { ...headers };
+}
+
+function headersForImpitRedirect(
+  headers: Record<string, string> | undefined,
+  currentUrl: string,
+  nextUrl: string,
+): Record<string, string> | undefined {
+  if (!headers || sameOrigin(currentUrl, nextUrl)) {
+    return headers;
+  }
+
+  const nextHeaders: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (!SENSITIVE_REDIRECT_HEADERS.has(key.toLowerCase())) {
+      nextHeaders[key] = value;
+    }
+  }
+  return nextHeaders;
 }
 
 export interface TransportResponse {
@@ -71,21 +106,73 @@ export interface TransportOptions {
 }
 
 /**
- * Lazily attempt to import impit. Returns the module or null when not
- * installed. Errors other than MODULE_NOT_FOUND are re-thrown.
+ * Lazily attempt to import impit. Returns the module or null when a damaged or
+ * stripped install is missing it. Errors other than MODULE_NOT_FOUND are
+ * re-thrown.
  */
+function isMissingImpitError(err: unknown): boolean {
+  if (!(err instanceof Error)) {
+    return false;
+  }
+  const code = "code" in err ? (err as NodeJS.ErrnoException).code : undefined;
+  return (
+    code === "ERR_MODULE_NOT_FOUND" ||
+    code === "MODULE_NOT_FOUND" ||
+    err.message.includes("impit couldn't load native bindings") ||
+    err.message.includes("skipped installation of optional dependencies")
+  );
+}
+
 async function tryLoadImpit(): Promise<typeof import("impit") | null> {
   try {
     return await import("impit");
   } catch (err: unknown) {
-    if (
-      err instanceof Error &&
-      "code" in err &&
-      (err as NodeJS.ErrnoException).code === "ERR_MODULE_NOT_FOUND"
-    ) {
+    if (isMissingImpitError(err)) {
       return null;
     }
     throw err;
+  }
+}
+
+async function fetchWithGuardedImpitRedirects(
+  client: import("impit").Impit,
+  url: string,
+  init: import("impit").RequestInit,
+): Promise<{ response: import("impit").ImpitResponse; finalUrl: string }> {
+  let currentUrl = url;
+  let method = (init.method ?? "GET").toUpperCase() as import("impit").HttpMethod;
+  let body = init.body;
+  let headers = headersToRecord(init.headers);
+
+  for (let redirectCount = 0; ; redirectCount++) {
+    const response = await client.fetch(currentUrl, {
+      ...init,
+      headers,
+      method,
+      body: method === "GET" ? undefined : body,
+      redirect: "manual",
+    });
+
+    if (!isRedirectStatus(response.status)) {
+      return { response, finalUrl: response.url || currentUrl };
+    }
+
+    const location = response.headers.get("location");
+    if (!location) {
+      return { response, finalUrl: response.url || currentUrl };
+    }
+    if (redirectCount >= MAX_REDIRECTS) {
+      throw new Error(`Maximum redirect limit (${MAX_REDIRECTS}) exceeded`);
+    }
+
+    const nextUrl = new URL(location, currentUrl).toString();
+    assertFetchableUrl(nextUrl);
+    headers = headersForImpitRedirect(headers, currentUrl, nextUrl);
+    currentUrl = nextUrl;
+    if (shouldRewriteRedirectToGet(response.status, method)) {
+      method = "GET";
+      body = undefined;
+    }
   }
 }
 
@@ -107,8 +194,11 @@ async function fetchWithImpit(url: string, options: TransportOptions): Promise<T
 
   const method = (options.method ?? "GET").toUpperCase() as import("impit").HttpMethod;
 
-  const response = await client.fetch(url, { method, headers: toImpitHeaders(options.headers) });
-  assertNoUnsafeImpitRedirect(url, response.url);
+  const { response } = await fetchWithGuardedImpitRedirects(client, url, {
+    method,
+    headers: options.headers,
+    timeout: options.timeout,
+  });
 
   const body = await response.text();
   const status = response.status;
@@ -118,8 +208,11 @@ async function fetchWithImpit(url: string, options: TransportOptions): Promise<T
     respHeaders[key] = value;
   });
 
-  if (isCloudflareBotBlock(status) || isCloudflareChallengeHtml(body)) {
+  if (isCloudflareChallenge(status, body, respHeaders)) {
     throw new Error(`[impit] ${cfBlockMessage(url)}`);
+  }
+  if (!isSuccessfulStatus(status)) {
+    throw new HttpStatusError(url, status);
   }
 
   return { body, status, headers: respHeaders, via: "impit" };
@@ -139,6 +232,7 @@ async function fetchWithAxios(url: string, options: TransportOptions): Promise<T
     headers: options.headers ?? {},
     timeout,
     responseType: "text",
+    validateStatus: () => true,
     maxRedirects: MAX_REDIRECTS,
     beforeRedirect: assertRedirectAllowed,
   });
@@ -153,8 +247,11 @@ async function fetchWithAxios(url: string, options: TransportOptions): Promise<T
     }
   }
 
-  if (isCloudflareBotBlock(status) || isCloudflareChallengeHtml(body)) {
+  if (isCloudflareChallenge(status, body, respHeaders)) {
     throw new Error(`[axios] ${cfBlockMessage(url)}`);
+  }
+  if (!isSuccessfulStatus(status)) {
+    throw new HttpStatusError(url, status);
   }
 
   return { body, status, headers: respHeaders, via: "axios" };
@@ -219,9 +316,18 @@ export interface HttpFetcher {
 }
 
 class ImpitFetcher implements HttpFetcher {
+  constructor(private readonly fallbackToAxios: boolean) {}
+
   async get(url: string, opts: FetcherOptions): Promise<FetcherResult> {
     const mod = await tryLoadImpit();
     if (!mod) {
+      if (this.fallbackToAxios) {
+        console.warn(
+          "[transport] impit not installed or native bindings unavailable; falling back to axios for " +
+            url,
+        );
+        return new AxiosFetcher().get(url, opts);
+      }
       throw new Error(
         "impit is not installed. Run: npm install impit\n" +
           "impit is required to bypass Cloudflare TLS fingerprinting on AustLII.",
@@ -229,14 +335,11 @@ class ImpitFetcher implements HttpFetcher {
     }
     const browser = (config.transport.imitBrowser as import("impit").Browser) ?? "chrome";
     const client = new mod.Impit({ browser, maxRedirects: MAX_REDIRECTS });
-    const response = await client.fetch(url, {
+    const { response, finalUrl } = await fetchWithGuardedImpitRedirects(client, url, {
       method: "GET",
-      headers: toImpitHeaders(opts.headers),
+      headers: opts.headers,
+      timeout: opts.timeoutMs,
     });
-    // impit follows redirects internally; reject before consuming the body if
-    // the chain bounced cross-host to a disallowed address (SSRF hardening).
-    const finalUrl = response.url || url;
-    assertNoUnsafeImpitRedirect(url, response.url);
     const headers: Record<string, string> = {};
     response.headers.forEach((value: string, key: string) => {
       headers[key] = value;
@@ -253,6 +356,7 @@ class AxiosFetcher implements HttpFetcher {
       responseType: "arraybuffer",
       headers: opts.headers,
       timeout: opts.timeoutMs,
+      validateStatus: () => true,
       maxRedirects: MAX_REDIRECTS,
       beforeRedirect: assertRedirectAllowed,
     });
@@ -270,9 +374,10 @@ class AxiosFetcher implements HttpFetcher {
 /**
  * Selects the byte-level fetcher for a URL.
  *
- * AustLII URLs use {@link ImpitFetcher} (TLS impersonation) unless the caller
- * forces `"axios"`; non-AustLII URLs always use {@link AxiosFetcher}. When the
- * transport mode is `"impit"`, impit is forced even for non-AustLII URLs.
+ * In auto mode, AustLII URLs use {@link ImpitFetcher} only when
+ * `AUSLAW_USE_IMPIT` has not disabled it; non-AustLII URLs use
+ * {@link AxiosFetcher}. When the transport mode is `"impit"`, impit is forced
+ * even for non-AustLII URLs.
  *
  * @param url - The target URL.
  * @param transport - The configured AustLII transport mode ("auto"|"impit"|"axios").
@@ -285,8 +390,10 @@ export function fetcherForUrl(
     return new AxiosFetcher();
   }
   if (transport === "impit") {
-    return new ImpitFetcher();
+    return new ImpitFetcher(false);
   }
-  // auto: impit for AustLII, axios otherwise.
-  return isAustliiUrl(url) ? new ImpitFetcher() : new AxiosFetcher();
+  // auto: impit for AustLII unless globally disabled, axios otherwise.
+  return isAustliiUrl(url) && config.transport.useImpit
+    ? new ImpitFetcher(true)
+    : new AxiosFetcher();
 }

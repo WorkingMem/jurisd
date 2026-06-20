@@ -72,6 +72,20 @@ export class NetworkError extends Error {
 }
 
 /**
+ * Error thrown when an HTTP response is reachable but not successful after any
+ * domain-specific challenge handling has run.
+ */
+export class HttpStatusError extends NetworkError {
+  constructor(
+    public readonly url: string,
+    public readonly statusCode: number,
+  ) {
+    super(`HTTP ${statusCode} fetching ${url}`, url);
+    this.name = "HttpStatusError";
+  }
+}
+
+/**
  * Error thrown when parsing HTML or other response content fails.
  */
 export class ParseError extends Error {

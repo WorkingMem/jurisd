@@ -2,11 +2,11 @@
 #
 # Multi-stage build for the jurisd MCP server.
 #
-# Base is Debian slim (glibc), not Alpine. The optional native deps that make
-# the local-data layer and Cloudflare-aware fetch work — @duckdb/node-api and
-# impit — ship prebuilt binaries that target glibc; musl/Alpine usually has no
-# prebuild and would force a slow from-source build (or fail). glibc gets the
-# prebuilt artefact for the build arch directly.
+# Base is Debian slim (glibc), not Alpine. The native deps that make the
+# local-data layer and Cloudflare-aware fetch work ship prebuilt binaries that
+# target glibc; musl/Alpine usually has no prebuild and would force a slow
+# from-source build (or fail). glibc gets the prebuilt artefact for the build
+# arch directly.
 
 # ── Stage 1: build the TypeScript ──────────────────────────────────────────
 # Base image pinned by multi-arch manifest digest (supply-chain: an immutable
@@ -17,13 +17,13 @@ WORKDIR /app
 
 # Install ALL deps for the build, including optionals. tsc needs the type
 # declarations of the optional natives it compiles against: src/services/
-# {modules,oalc}.ts reference `import("@duckdb/node-api").DuckDB*` types and
-# transport.ts references `import("impit").Browser` / `HttpMethod`. Those are
-# type-only references (the runtime loads the modules via dynamic import() and
-# degrades when absent), but `tsc` still resolves them against node_modules at
-# compile time, so omitting optionals here fails with TS2307. The builder stage
-# is discarded — only dist/ is copied forward — so the heavier install costs
-# nothing in the final image. devDeps (typescript) are required, so no --omit.
+# {modules,oalc}.ts reference `import("@duckdb/node-api").DuckDB*` types.
+# Those are type-only references (the runtime loads DuckDB via dynamic import()
+# and degrades when absent), but `tsc` still resolves them against node_modules
+# at compile time, so omitting optionals here fails with TS2307. The builder
+# stage is discarded — only dist/ is copied forward — so the heavier install
+# costs nothing in the final image. devDeps (typescript) are required, so no
+# --omit.
 COPY package*.json ./
 RUN npm ci
 
@@ -40,23 +40,14 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Production deps only (no dev, no optional), then add back the two optional
-# natives the runtime actually needs:
-#   - @duckdb/node-api : lazy DuckDB attach over the parquet data modules
-#   - impit            : TLS-impersonating HTTP client for AustLII / Cloudflare
-# --omit=optional matters here: all three optionalDependencies (the two above
-# plus @huggingface/transformers) would otherwise install. transformers is the
-# local embedder behind semantic_search_local; it is hundreds of MB and is
-# intentionally NOT bundled to keep the image slim — that one tool degrades
-# visibly (typed note) when absent, every other tool works. We then install the
-# two wanted natives explicitly, pinned to the package-lock.json versions; their
-# platform prebuilds (linux-{arm64,x64}-gnu) resolve directly on glibc, so no
-# node-gyp / python3 / g++ build toolchain is required in this stage.
+# Production deps only, including optional native packages declared by
+# production dependencies. This is required because impit's platform bindings
+# are optional subdependencies even though impit itself is a normal production
+# dependency. @duckdb/node-api is also included for local data modules. The
+# local embedding stack is intentionally not a package dependency;
+# semantic_search_local degrades visibly when that stack is absent.
 COPY package*.json ./
-RUN npm ci --omit=dev --omit=optional \
- && npm install --no-save \
-      @duckdb/node-api@1.5.3-r.3 \
-      impit@0.14.1 \
+RUN npm ci --omit=dev \
  && npm cache clean --force
 
 # Compiled app from the builder stage.
