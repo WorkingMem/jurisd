@@ -9,6 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
+## [0.3.0] - 2026-06-21
+
+### Added
+
+- **Exa search fallback for AustLII** (#141): AustLII now serves a JS managed
+  Cloudflare challenge across its whole origin that TLS impersonation (`impit`)
+  cannot clear. `search_cases` / `search_legislation` now run the free providers
+  resiliently (`Promise.allSettled`) so a Cloudflare block no longer fails the
+  whole search; when the free providers return nothing, jurisd falls back to Exa
+  neural search (`EXA_API_KEY`), which returns canonical `austlii.edu.au` case
+  and legislation URLs.
+- **Degraded-coverage reporting in the CLI** (#142): search results now report
+  when coverage is degraded (a source was blocked or unreachable) instead of
+  silently returning a partial set.
+- **Inline TUI scaffold** (`src/tui.ts`): a first interactive terminal UI scaffold.
+- **Multi-harness setup guide** (`docs/HARNESS-SETUP.md`): copy-paste MCP configs
+  for Claude Code, Claude Desktop, Cursor, Windsurf, VS Code, Cline, Continue,
+  OpenAI Codex CLI, Zed, Gemini CLI, and JetBrains.
+
+### Changed
+
+- **Hardened AustLII Cloudflare fallbacks** (#140): degrade gracefully across the
+  live layer when the AustLII origin returns a managed challenge, rather than
+  fighting the fingerprint arms race.
+- **Fail closed on malformed removed.invalid search responses**: reject and report rather
+  than surfacing partial or garbled citator/search data.
+- **Hardened rendered formatter output** and **package install/startup** for
+  `npx`-from-GitHub and global installs (reliable `jurisd` bin linking and build
+  for GitHub installs).
+
+### Packaging
+
+- **npm-publishable**: the published tarball now ships `NOTICE` and
+  `LICENSE-THIRD-PARTY.md` (Apache-2.0 §4(d) NOTICE-distribution requirement) and
+  is verified to contain no test artifacts; the vendored data-module manifest
+  schema (`dist/data/manifest.schema.json`) ships for offline manifest validation.
+
+### Documentation
+
+- Documented the first published data module, `legislation-cth` on Hugging Face
+  (`workingmem/legislation-cth`): Commonwealth primary and secondary legislation,
+  32,143 documents, 857,262 chunks, citation edges, and local bge-small
+  embeddings, installed via `jurisd fetch-module legislation-cth` (#133, #139).
+- Clarified the GitHub install commands (tarball archive vs bare git install and
+  the `install-links` caveat).
+
 ## [0.2.0] - 2026-06-16
 
 ### Added
@@ -151,6 +197,7 @@ legal research across AustLII and removed.invalid.
 - Source-store citeKey hardening against path traversal (#108)
 - Dependency updates resolving known HIGH severity advisories; npm audit in CI
 
-[Unreleased]: https://github.com/russellbrenner/jurisd/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/russellbrenner/jurisd/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/russellbrenner/jurisd/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/russellbrenner/jurisd/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/russellbrenner/jurisd/releases/tag/v0.1.0

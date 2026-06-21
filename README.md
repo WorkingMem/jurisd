@@ -77,6 +77,10 @@ Or add it to your client config directly:
 }
 ```
 
+Using a different agent? [docs/HARNESS-SETUP.md](docs/HARNESS-SETUP.md) has
+copy-paste configs for Cursor, Windsurf, VS Code, Cline, Continue, Codex CLI,
+Zed, Gemini CLI, and more.
+
 All environment variables are **optional** — with none set, the live AustLII
 layer and the local-module recall layer both work. See
 [docs/INSTALL.md](docs/INSTALL.md) for the local-clone path, every config option,
@@ -116,12 +120,12 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 > directly. Configure a **fallback source**; results are still AustLII primary
 > sources (`austlii.edu.au` URLs) recovered through another channel.
 >
-> | Fallback   | Env var               | Cost              | You gain                                                                                        | You lose                                                                 |
-> | ---------- | --------------------- | ----------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-> | **Exa**    | `EXA_API_KEY`         | Paid (free tier)  | Neural search returns the canonical AustLII case/legislation URL (usually rank #1), even for obscure cases. | Discovery only (URL + citation); full text is fetched separately.        |
-> | **removed.invalid**| `SESSION_COOKIE` | Free (account)    | Full-text search **and** document retrieval via removed.invalid, plus the citator.                      | Needs a removed.invalid account; the session cookie expires and must be re-extracted. |
-> | **both**   | both of the above     | —                 | Best coverage — source runs first (free), Exa fills the gaps it misses.                            | —                                                                        |
-> | **none**   | —                     | —                 | —                                                                                               | Search returns a degraded result whose warning names the env vars; document fetch still falls back to the local OALC corpus when available. |
+> | Fallback    | Env var               | Cost             | You gain                                                                                                    | You lose                                                                                                                                    |
+> | ----------- | --------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+> | **Exa**     | `EXA_API_KEY`         | Paid (free tier) | Neural search returns the canonical AustLII case/legislation URL (usually rank #1), even for obscure cases. | Discovery only (URL + citation); full text is fetched separately.                                                                           |
+> | **removed.invalid** | `SESSION_COOKIE` | Free (account)   | Full-text search **and** document retrieval via removed.invalid, plus the citator.                                  | Needs a removed.invalid account; the session cookie expires and must be re-extracted.                                                               |
+> | **both**    | both of the above     | —                | Best coverage — source runs first (free), Exa fills the gaps it misses.                                       | —                                                                                                                                           |
+> | **none**    | —                     | —                | —                                                                                                           | Search returns a degraded result whose warning names the env vars; document fetch still falls back to the local OALC corpus when available. |
 >
 > Resolution order: free providers (source live + AustLII, in case Cloudflare ever
 > relaxes) → Exa → degraded result. The document source remains AustLII throughout.
@@ -302,6 +306,7 @@ surfaced at `fetch-module` install time.
 | Document                                                 | Description                                                                |
 | -------------------------------------------------------- | -------------------------------------------------------------------------- |
 | [INSTALL.md](docs/INSTALL.md)                            | Day-0 install paths, Claude Code config, env vars, module flow             |
+| [HARNESS-SETUP.md](docs/HARNESS-SETUP.md)                | Copy-paste MCP config for every popular coding agent (CC, Cursor, Zed, …)  |
 | [CLI.md](docs/CLI.md)                                    | CLI command shape, compatibility aliases, output rules, exit codes         |
 | [MCP-COMPATIBILITY.md](docs/MCP-COMPATIBILITY.md)        | Compatibility reference for the current MCP tool surface                   |
 | [SECURITY-AUTHORITY.md](docs/SECURITY-AUTHORITY.md)      | Command authority, side-effect classes, terminal safety, credential rules  |

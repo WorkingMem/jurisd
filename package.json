@@ -1,6 +1,6 @@
 {
   "name": "jurisd",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Model Context Protocol server for Australian legislation and case law search.",
   "main": "dist/index.js",
   "bin": {
@@ -9,7 +9,9 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE",
+    "LICENSE-THIRD-PARTY.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node -e \"const fs=require('fs');fs.mkdirSync('dist/data',{recursive:true});fs.copyFileSync('src/data/manifest.schema.json','dist/data/manifest.schema.json');fs.chmodSync('dist/index.js',0o755)\"",
