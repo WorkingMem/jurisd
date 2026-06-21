@@ -46,14 +46,15 @@ export function isCloudflareChallengeHtml(html) {
     return false;
 }
 /**
- * Returns true when Cloudflare marks a response as a Challenge Page via the
- * documented `cf-mitigated: challenge` response header.
+ * Returns true when Cloudflare marks a response as a challenge via the
+ * documented `cf-mitigated: challenge` response header. This is CF's own
+ * stable signal and is more reliable than HTML-body fingerprinting.
  */
 export function isCloudflareChallengeHeader(headers) {
     if (!headers)
         return false;
     for (const [key, value] of Object.entries(headers)) {
-        if (key.toLowerCase() === "cf-mitigated" && value.toLowerCase() === "challenge") {
+        if (key.toLowerCase() === "cf-mitigated" && value.toLowerCase().includes("challenge")) {
             return true;
         }
     }
@@ -71,7 +72,7 @@ export function isCloudflareBotBlock(statusCode) {
  * Returns true when an HTTP response (status + body) is a Cloudflare challenge
  * rather than a real document.
  *
- * A response is treated as a challenge when any of these are true:
+ * A response is treated as a challenge when any of these hold:
  *   - Cloudflare sets the documented `cf-mitigated: challenge` response header;
  *   - the body matches the challenge-page fingerprint (≥2 markers), regardless
  *     of status (CF sometimes serves the JS challenge with HTTP 200); or
@@ -95,9 +96,13 @@ export function isCloudflareChallenge(status, body, headers) {
 /**
  * Returns a user-facing message describing a Cloudflare block, suitable
  * for inclusion in a typed error.
+ *
+ * AustLII now serves a JS managed-challenge that TLS impersonation cannot
+ * clear, so the remedy is a configured fallback source, not a transport tweak.
  */
 export function cfBlockMessage(url) {
-    return (`AustLII returned a Cloudflare challenge for ${url}. ` +
-        "Verify the bundled 'impit' dependency is installed and enabled to bypass TLS fingerprinting.");
+    return (`AustLII is behind a Cloudflare challenge and cannot be fetched directly (${url}). ` +
+        "Configure a fallback source: set EXA_API_KEY (search discovery) " +
+        "or SESSION_COOKIE (removed.invalid).");
 }
 //# sourceMappingURL=cloudflare.js.map

@@ -20,8 +20,9 @@
  */
 export declare function isCloudflareChallengeHtml(html: string): boolean;
 /**
- * Returns true when Cloudflare marks a response as a Challenge Page via the
- * documented `cf-mitigated: challenge` response header.
+ * Returns true when Cloudflare marks a response as a challenge via the
+ * documented `cf-mitigated: challenge` response header. This is CF's own
+ * stable signal and is more reliable than HTML-body fingerprinting.
  */
 export declare function isCloudflareChallengeHeader(headers: Record<string, string> | undefined): boolean;
 /**
@@ -34,7 +35,7 @@ export declare function isCloudflareBotBlock(statusCode: number): boolean;
  * Returns true when an HTTP response (status + body) is a Cloudflare challenge
  * rather than a real document.
  *
- * A response is treated as a challenge when any of these are true:
+ * A response is treated as a challenge when any of these hold:
  *   - Cloudflare sets the documented `cf-mitigated: challenge` response header;
  *   - the body matches the challenge-page fingerprint (≥2 markers), regardless
  *     of status (CF sometimes serves the JS challenge with HTTP 200); or
@@ -50,6 +51,9 @@ export declare function isCloudflareChallenge(status: number, body: string, head
 /**
  * Returns a user-facing message describing a Cloudflare block, suitable
  * for inclusion in a typed error.
+ *
+ * AustLII now serves a JS managed-challenge that TLS impersonation cannot
+ * clear, so the remedy is a configured fallback source, not a transport tweak.
  */
 export declare function cfBlockMessage(url: string): string;
 //# sourceMappingURL=cloudflare.d.ts.map
