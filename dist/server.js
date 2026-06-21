@@ -4,6 +4,7 @@ import path from "node:path";
 import { formatFetchResponse, formatSearchResults, } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii } from "./services/austlii.js";
+import { searchAustliiViaExa } from "./services/exa.js";
 import { mergeCaseSearchResults } from "./services/search-merge.js";
 import { resolveArticle, buildCitationLookupUrl, searchJadeWithStatus, searchCitingCases, } from "./services/jade.js";
 import { formatAGLC4, formatShortForm, validateCitation, parseCitation, generatePinpoint, normaliseCitation, } from "./services/citation.js";
@@ -70,7 +71,9 @@ function austliiSearchWarning(error) {
     return {
         code: "austlii_cloudflare_blocked",
         source: "austlii",
-        message: "AustLII search is blocked by a Cloudflare challenge. Direct document fetch still works when you already have a URL.",
+        message: "AustLII search is blocked by a Cloudflare challenge. Configure EXA_API_KEY " +
+            "(Exa neural search) or JADE_SESSION_COOKIE (jade.io) to recover results; " +
+            "direct document fetch still works when you already have a URL.",
     };
 }
 /**
@@ -108,21 +111,28 @@ export function createMcpServer() {
         inputSchema: searchLegislationShape,
     }, async (rawInput) => {
         const { query, jurisdiction, limit, format, sortBy, method, offset } = searchLegislationParser.parse(rawInput);
+        const options = {
+            type: "legislation",
+            jurisdiction,
+            limit,
+            sortBy,
+            method,
+            offset,
+        };
         try {
-            const results = await searchAustLii(query, {
-                type: "legislation",
-                jurisdiction,
-                limit,
-                sortBy,
-                method,
-                offset,
-            });
+            const results = await searchAustLii(query, options);
             return formatSearchResults(results, format ?? "json");
         }
         catch (error) {
             const warning = austliiSearchWarning(error);
             if (!warning)
                 throw error;
+            const exaResults = await searchAustliiViaExa(query, options, limit ?? config.defaults.searchLimit);
+            if (exaResults.length > 0) {
+                return formatSearchResults(exaResults, format ?? "json", {
+                    sources: { austlii: "blocked", exa: "ok" },
+                });
+            }
             return formatSearchResults([], format ?? "json", {
                 warnings: [warning],
                 sources: { austlii: "blocked" },
@@ -146,12 +156,20 @@ export function createMcpServer() {
         inputSchema: searchCasesShape,
     }, async (rawInput) => {
         const { query, jurisdiction, limit, format, sortBy, method, offset } = searchCasesParser.parse(rawInput);
+        const caseOptions = {
+            type: "case",
+            jurisdiction,
+            limit,
+            sortBy,
+            method,
+            offset,
+        };
         const warnings = [];
         const sources = {};
         // Run AustLII and jade.io searches independently so a blocked AustLII
         // search cannot discard useful jade.io case results.
         const [austliiOutcome, jadeOutcome] = await Promise.allSettled([
-            searchAustLii(query, { type: "case", jurisdiction, limit, sortBy, method, offset }),
+            searchAustLii(query, caseOptions),
             searchJadeWithStatus(query, { type: "case", jurisdiction, limit }),
         ]);
         let austliiResults = [];
@@ -170,7 +188,16 @@ export function createMcpServer() {
             throw jadeOutcome.reason;
         const jadeResults = jadeOutcome.value.results;
         sources.jade = jadeOutcome.value.status;
-        const merged = mergeCaseSearchResults(austliiResults, jadeResults, limit);
+        let merged = mergeCaseSearchResults(austliiResults, jadeResults, limit);
+        // Exa neural-search fallback: when the free providers return nothing and
+        // AustLII was Cloudflare-blocked, recover canonical austlii.edu.au URLs.
+        if (merged.length === 0 && sources.austlii === "blocked") {
+            const exaResults = await searchAustliiViaExa(query, caseOptions, limit ?? config.defaults.searchLimit);
+            if (exaResults.length > 0) {
+                merged = exaResults.slice(0, limit ?? config.defaults.searchLimit);
+                sources.exa = "ok";
+            }
+        }
         const includeSourceStatus = warnings.length > 0 || Object.values(sources).some((status) => status !== "ok");
         return formatSearchResults(merged, format ?? "json", includeSourceStatus ? { warnings, sources } : undefined);
     });

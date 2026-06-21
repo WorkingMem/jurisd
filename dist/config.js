@@ -36,6 +36,12 @@ export function loadConfig() {
             timeout: parseInt(process.env.JADE_TIMEOUT || "15000", 10),
             sessionCookie: process.env.JADE_SESSION_COOKIE || undefined,
         },
+        exa: {
+            apiKey: process.env.EXA_API_KEY || undefined,
+            searchType: process.env.EXA_SEARCH_TYPE || "auto",
+            maxResults: parseInt(process.env.EXA_MAX_RESULTS || "10", 10) || 10,
+            timeout: parseInt(process.env.EXA_TIMEOUT || "10000", 10) || 10000,
+        },
         defaults: {
             searchLimit: parseInt(process.env.DEFAULT_SEARCH_LIMIT || "10", 10),
             maxSearchLimit: parseInt(process.env.MAX_SEARCH_LIMIT || "50", 10),

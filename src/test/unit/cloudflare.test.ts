@@ -64,12 +64,20 @@ describe("isCloudflareBotBlock", () => {
 });
 
 describe("isCloudflareChallengeHeader", () => {
-  it("detects Cloudflare's documented cf-mitigated challenge header", () => {
+  it("detects cf-mitigated: challenge", () => {
     expect(isCloudflareChallengeHeader({ "cf-mitigated": "challenge" })).toBe(true);
   });
 
-  it("matches the cf-mitigated header case-insensitively", () => {
-    expect(isCloudflareChallengeHeader({ "Cf-Mitigated": "Challenge" })).toBe(true);
+  it("is case-insensitive on header name and value", () => {
+    expect(isCloudflareChallengeHeader({ "CF-Mitigated": "Challenge" })).toBe(true);
+  });
+
+  it("returns false when the header is absent", () => {
+    expect(isCloudflareChallengeHeader({ "content-type": "text/html" })).toBe(false);
+  });
+
+  it("returns false for undefined headers", () => {
+    expect(isCloudflareChallengeHeader(undefined)).toBe(false);
   });
 
   it("does not flag unrelated cf-mitigated values", () => {
@@ -80,8 +88,10 @@ describe("isCloudflareChallengeHeader", () => {
 describe("isCloudflareChallenge", () => {
   const challengeBody = "<title>Just a moment...</title><script>window._cf_chl_opt = {};</script>";
 
-  it("returns true when cf-mitigated marks the response as a challenge", () => {
-    expect(isCloudflareChallenge(200, "<html></html>", { "cf-mitigated": "challenge" })).toBe(true);
+  it("returns true on cf-mitigated header even with a clean body and 200 status", () => {
+    expect(isCloudflareChallenge(200, "<html>ok</html>", { "cf-mitigated": "challenge" })).toBe(
+      true,
+    );
   });
 
   it("returns true when the body is a challenge page, regardless of a 200 status", () => {
@@ -112,8 +122,9 @@ describe("cfBlockMessage", () => {
     expect(msg).toContain(url);
   });
 
-  it("mentions impit", () => {
+  it("names the configurable fallbacks (EXA_API_KEY / JADE_SESSION_COOKIE)", () => {
     const msg = cfBlockMessage("https://example.com");
-    expect(msg.toLowerCase()).toContain("impit");
+    expect(msg).toContain("EXA_API_KEY");
+    expect(msg).toContain("JADE_SESSION_COOKIE");
   });
 });

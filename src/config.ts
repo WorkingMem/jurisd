@@ -39,6 +39,21 @@ export interface Config {
     timeout: number;
     sessionCookie?: string;
   };
+  exa: {
+    /**
+     * Exa API key (https://exa.ai). When set, Exa is used as a search-discovery
+     * fallback for AustLII when the live site is Cloudflare-blocked. Exa's
+     * neural search returns canonical austlii.edu.au case/legislation URLs.
+     * Never logged or echoed in error messages.
+     */
+    apiKey?: string;
+    /** Exa search type: "auto" (default), "neural", or "keyword". */
+    searchType: string;
+    /** Max results requested from Exa per query. */
+    maxResults: number;
+    /** Request timeout in milliseconds. */
+    timeout: number;
+  };
   defaults: {
     searchLimit: number;
     maxSearchLimit: number;
@@ -154,6 +169,12 @@ export function loadConfig(): Config {
       userAgent: process.env.JADE_USER_AGENT || "jurisd/0.1.0 (legal research tool)",
       timeout: parseInt(process.env.JADE_TIMEOUT || "15000", 10),
       sessionCookie: process.env.JADE_SESSION_COOKIE || undefined,
+    },
+    exa: {
+      apiKey: process.env.EXA_API_KEY || undefined,
+      searchType: process.env.EXA_SEARCH_TYPE || "auto",
+      maxResults: parseInt(process.env.EXA_MAX_RESULTS || "10", 10) || 10,
+      timeout: parseInt(process.env.EXA_TIMEOUT || "10000", 10) || 10000,
     },
     defaults: {
       searchLimit: parseInt(process.env.DEFAULT_SEARCH_LIMIT || "10", 10),

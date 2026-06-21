@@ -193,11 +193,10 @@ async function fetchWithImpit(url: string, options: TransportOptions): Promise<T
   const client = new mod.Impit({ browser, maxRedirects: MAX_REDIRECTS });
 
   const method = (options.method ?? "GET").toUpperCase() as import("impit").HttpMethod;
-  const headers = options.headers ?? {};
 
   const { response } = await fetchWithGuardedImpitRedirects(client, url, {
     method,
-    headers,
+    headers: options.headers,
     timeout: options.timeout,
   });
 
