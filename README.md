@@ -110,13 +110,29 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 | `search_legislation`  | Search AU/NZ legislation with the same method/jurisdiction/sort controls.                                                     |
 | `fetch_document_text` | Fetch full text from an AustLII or removed.invalid URL (HTML, PDF, removed.invalid via RPC).                                              |
 
-AustLII search may be blocked by Cloudflare even when direct document fetch
-still works. In that case `search_cases` returns any removed.invalid results it can
-find plus a warning, `sources`, and `degraded: true`. `search_cases` also
-reports incomplete configured coverage, for example `source: "not_configured"`,
-instead of hiding that source status. `search_legislation` returns an empty
-degraded result with the same machine-readable status instead of failing the
-tool call. CLI search commands exit 4 for degraded source coverage.
+> **AustLII sits behind Cloudflare.** AustLII now serves a JavaScript
+> managed-challenge that automated clients — including TLS-impersonating ones —
+> cannot clear, so `search_cases` / `search_legislation` cannot query AustLII
+> directly. Configure a **fallback source**; results are still AustLII primary
+> sources (`austlii.edu.au` URLs) recovered through another channel.
+>
+> | Fallback   | Env var               | Cost              | You gain                                                                                        | You lose                                                                 |
+> | ---------- | --------------------- | ----------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+> | **Exa**    | `EXA_API_KEY`         | Paid (free tier)  | Neural search returns the canonical AustLII case/legislation URL (usually rank #1), even for obscure cases. | Discovery only (URL + citation); full text is fetched separately.        |
+> | **removed.invalid**| `SESSION_COOKIE` | Free (account)    | Full-text search **and** document retrieval via removed.invalid, plus the citator.                      | Needs a removed.invalid account; the session cookie expires and must be re-extracted. |
+> | **both**   | both of the above     | —                 | Best coverage — source runs first (free), Exa fills the gaps it misses.                            | —                                                                        |
+> | **none**   | —                     | —                 | —                                                                                               | Search returns a degraded result whose warning names the env vars; document fetch still falls back to the local OALC corpus when available. |
+>
+> Resolution order: free providers (source live + AustLII, in case Cloudflare ever
+> relaxes) → Exa → degraded result. The document source remains AustLII throughout.
+
+When AustLII search is Cloudflare-blocked, the tools degrade gracefully rather
+than failing: `search_cases` returns any removed.invalid (or Exa) results it can find
+plus a `warning`, `sources`, and `degraded: true`, and reports incomplete
+configured coverage (for example `source: "not_configured"`) instead of hiding
+that source status. `search_legislation` returns an empty degraded result with
+the same machine-readable status instead of failing the tool call. CLI search
+commands exit 4 for degraded source coverage.
 
 ### Citation + bibliography (AGLC4)
 

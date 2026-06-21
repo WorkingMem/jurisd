@@ -141,10 +141,9 @@ async function fetchWithImpit(url, options) {
     const browser = config.transport.imitBrowser ?? "chrome";
     const client = new mod.Impit({ browser, maxRedirects: MAX_REDIRECTS });
     const method = (options.method ?? "GET").toUpperCase();
-    const headers = options.headers ?? {};
     const { response } = await fetchWithGuardedImpitRedirects(client, url, {
         method,
-        headers,
+        headers: options.headers,
         timeout: options.timeout,
     });
     const body = await response.text();
