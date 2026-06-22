@@ -152,8 +152,23 @@ describe("runCli routing", () => {
     expect(await runCli([])).toBe(false);
   });
 
-  it("returns false for an unknown command", async () => {
-    expect(await runCli(["definitely-not-a-command"])).toBe(false);
+  it("rejects an unknown command instead of starting the server", async () => {
+    const errors: string[] = [];
+    const stderr = vi.spyOn(console, "error").mockImplementation((...chunks: unknown[]) => {
+      errors.push(chunks.map(String).join(" "));
+    });
+
+    const handled = await runCli(["definitely-not-a-command"]);
+    stderr.mockRestore();
+
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(2);
+    expect(errors.join("\n")).toContain("unknown command: definitely-not-a-command");
+    expect(errors.join("\n")).toContain("jurisd mcp serve");
+  });
+
+  it("returns false for mcp serve so the server can start explicitly", async () => {
+    expect(await runCli(["mcp", "serve"])).toBe(false);
   });
 
   it("returns false when the first arg is a flag", async () => {
@@ -214,6 +229,26 @@ describe("runCli tool loopback (offline tools)", () => {
     const parsed = JSON.parse(written) as { count: number; modules: unknown[] };
     expect(parsed.count).toBe(0);
     expect(parsed.modules).toEqual([]);
+  });
+
+  it("explains the search command group instead of starting the server", async () => {
+    const handled = await runCli(["search", "mabo"]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(2);
+    expect(written).toBe("");
+    const diagnostic = errors.join("\n");
+    expect(diagnostic).toContain("jurisd search is a command group");
+    expect(diagnostic).toContain('jurisd search-cases "mabo" --format text');
+    expect(diagnostic).toContain("jurisd semantic-search-local");
+  });
+
+  it("sanitises search command-group input before echoing it", async () => {
+    const handled = await runCli(["search", "\u001b]0;title\u0007mabo"]);
+    expect(handled).toBe(true);
+    expect(process.exitCode).toBe(2);
+    const diagnostic = errors.join("\n");
+    expect(diagnostic).toContain('jurisd search-cases "mabo" --format text');
+    expect(diagnostic).not.toContain("title");
   });
 
   it("format-citation full mode formats a citation to stdout with exit 0", async () => {

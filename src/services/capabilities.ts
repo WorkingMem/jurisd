@@ -78,6 +78,38 @@ export async function probeCapabilities(
   };
 }
 
+export function formatCapabilityProbeSummary(caps: CapabilityProbe): string {
+  const lines = ["jurisd startup check:"];
+  lines.push(
+    caps.duckdb
+      ? "  Local data store: available for installed data modules."
+      : "  Local data store: unavailable, so installed-module lookup is disabled.",
+  );
+  lines.push(
+    caps.modules.ready > 0
+      ? `  Installed data modules: ${caps.modules.ready} ready, ${caps.modules.refused} refused.`
+      : "  Installed data modules: none ready, so offline corpus search has no local material yet.",
+  );
+  lines.push(
+    caps.local_embeddings
+      ? caps.modules.ready > 0
+        ? "  Local semantic search: embedding model available for installed modules."
+        : "  Local semantic search: embedding model available, but no embedded modules are installed."
+      : "  Local semantic search: embedding model unavailable, so semantic-search-local is disabled.",
+  );
+  lines.push(
+    caps.domain_adapter.configured && caps.domain_adapter.reachable
+      ? `  Legal-domain refinement: ${caps.domain_adapter.label} reachable for reranking and extractive QA.`
+      : caps.domain_adapter.configured
+        ? "  Legal-domain refinement: configured but currently unreachable, using baseline ranking."
+        : "  Legal-domain refinement: not configured, using baseline ranking.",
+  );
+  lines.push(
+    "  Live AustLII, Jade, Exa, and citation search are checked when their search commands run.",
+  );
+  return lines.join("\n");
+}
+
 let _cachedAdapterProbe: AdapterProbe | null = null;
 
 /**

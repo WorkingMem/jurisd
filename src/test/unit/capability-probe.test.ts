@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { probeCapabilities } from "../../services/capabilities.js";
+import { formatCapabilityProbeSummary, probeCapabilities } from "../../services/capabilities.js";
 import { probeDomainAdapter, resetAdapterState } from "../../services/adapter.js";
 import { setModulesRootForTest, discoverModules } from "../../services/modules.js";
 
@@ -60,6 +60,27 @@ describe("Capability probe — baseline vs domain adapter", () => {
     expect(typeof caps.duckdb).toBe("boolean");
     expect(typeof caps.local_embeddings).toBe("boolean");
     expect(caps.modules).toMatchObject({ ready: expect.any(Number), refused: expect.any(Number) });
+  });
+
+  it("renders a lay capability summary without raw JSON", () => {
+    const summary = formatCapabilityProbeSummary({
+      duckdb: true,
+      local_embeddings: true,
+      modules: { ready: 0, refused: 0 },
+      domain_adapter: {
+        label: "baseline",
+        canRerank: false,
+        canExtractiveQA: false,
+        configured: false,
+        reachable: false,
+      },
+    });
+
+    expect(summary).toContain("Local data store: available");
+    expect(summary).toContain("Installed data modules: none ready");
+    expect(summary).toContain("Local semantic search: embedding model available");
+    expect(summary).toContain("Live AustLII");
+    expect(summary).not.toContain('"duckdb"');
   });
 
   it("fake key + REAL network to a black-hole host degrades to baseline within budget (no hang)", async () => {

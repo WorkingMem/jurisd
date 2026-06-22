@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -43,6 +43,14 @@ const embedderPresent = await isEmbedderAvailable();
 describe.skipIf(embedderPresent)("optional-dependency absence degrades with typed signals", () => {
   it("the local embedder dependency is genuinely absent in this environment", async () => {
     expect(await isEmbedderAvailable()).toBe(false);
+  });
+
+  it("checks embedder availability quietly for capability probes", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    resetEmbedder();
+    expect(await isEmbedderAvailable()).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("semantic_search_local degrades to a typed note when the embedder is absent (no throw)", async () => {

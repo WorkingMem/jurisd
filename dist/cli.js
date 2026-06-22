@@ -30,7 +30,7 @@ import { contractToToolCommand } from "./commands/legacy-cli.js";
 import { executeToolCommand } from "./commands/tool-loopback.js";
 import { fetchModule, verifyModule } from "./services/fetch-module.js";
 import { listDataModules, setModulesRootForTest } from "./services/modules.js";
-import { runTui } from "./tui.js";
+import { runTui, sanitizeTerminalText } from "./tui.js";
 export { mapArgvToToolInput } from "./commands/argv.js";
 const EXIT_SOURCE_UNAVAILABLE = 4;
 function isRecord(value) {
@@ -44,6 +44,33 @@ function toolResultIsDegraded(result) {
         return false;
     const structured = result.structuredContent;
     return isRecord(structured) && isDegradedPayload(structured.data);
+}
+function safeDiagnosticText(value) {
+    return sanitizeTerminalText(value).trim().slice(0, 80);
+}
+function quoteCommandArg(value, fallback) {
+    const clean = value ? safeDiagnosticText(value) : fallback;
+    return JSON.stringify(clean.length > 0 ? clean : fallback);
+}
+function renderSearchGroupGuidance(query) {
+    const example = quoteCommandArg(query, "mabo");
+    return [
+        "jurisd search is a command group, not a single search command.",
+        "Choose the source you want:",
+        `  Live case law search: jurisd search-cases ${example} --format text`,
+        `  Live legislation search: jurisd search-legislation ${example} --format text`,
+        `  Installed offline modules: jurisd semantic-search-local ${example} --format text`,
+        "",
+        "For Mabo, start with live case law search. Local semantic search only works after an embedded data module is installed.",
+    ].join("\n");
+}
+function renderUnknownCommand(command) {
+    const clean = safeDiagnosticText(command) || "unknown";
+    return [
+        `unknown command: ${clean}`,
+        "Run `jurisd --help` for the top-level commands or `jurisd help commands` for the full list.",
+        "To run the MCP server explicitly, use `jurisd mcp serve` or run `jurisd` with no command.",
+    ].join("\n");
 }
 /** Run a tool through the in-process loopback and stream its result to stdout. */
 async function runToolCommand(command, positional, flags) {
@@ -119,6 +146,18 @@ export async function runCli(argv) {
         process.exitCode = 0;
         return true;
     }
+    if (command === "mcp") {
+        if (rest[0] === "serve")
+            return false;
+        console.error("usage: jurisd mcp serve");
+        process.exitCode = 2;
+        return true;
+    }
+    if (command === "search") {
+        console.error(renderSearchGroupGuidance(rest[0]));
+        process.exitCode = 2;
+        return true;
+    }
     const toolCommand = contract?.adapters.mcp.enabled ? contractToToolCommand(contract) : undefined;
     if (toolCommand) {
         const { positional, flags } = parseFlags(rest, toolCommand.boolean);
@@ -133,8 +172,11 @@ export async function runCli(argv) {
         await runToolCommand(toolCommand, positional, flags);
         return true;
     }
-    if (!["fetch-module", "verify-module", "list-modules"].includes(command))
-        return false;
+    if (!["fetch-module", "verify-module", "list-modules"].includes(command)) {
+        console.error(renderUnknownCommand(command));
+        process.exitCode = 2;
+        return true;
+    }
     const { positional, flags } = parseFlags(rest);
     const modulesDir = flags["modules-dir"];
     // Point the loader at an explicit modules dir when given (CLI override).

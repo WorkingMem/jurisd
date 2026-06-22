@@ -4,7 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "node:http";
 import { createMcpServer } from "./server.js";
-import { probeCapabilities } from "./services/capabilities.js";
+import { formatCapabilityProbeSummary, probeCapabilities } from "./services/capabilities.js";
 import { runCli } from "./cli.js";
 async function main() {
     // CLI subcommands (fetch-module / verify-module / list-modules) run before
@@ -15,7 +15,9 @@ async function main() {
     // capabilities without changing routing precedence; logged for the operator.
     try {
         const caps = await probeCapabilities();
-        console.error(`jurisd capabilities: ${JSON.stringify(caps)}`);
+        console.error(process.env.JURISD_CAPABILITY_LOG === "json"
+            ? `jurisd capabilities: ${JSON.stringify(caps)}`
+            : formatCapabilityProbeSummary(caps));
     }
     catch (err) {
         console.error("jurisd capability probe failed (non-fatal):", err);

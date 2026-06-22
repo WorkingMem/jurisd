@@ -80,7 +80,9 @@ interface TransformersModule {
  * Lazily load `@huggingface/transformers`. Returns null when not installed,
  * matching the optional-dependency posture of the rest of the data layer.
  */
-async function tryLoadTransformers(): Promise<TransformersModule | null> {
+async function tryLoadTransformers(
+  options: { warnWhenMissing?: boolean } = {},
+): Promise<TransformersModule | null> {
   if (_embedderUnavailable) return null;
   try {
     // The package name is held in a variable so the bundler/tsc does not try to
@@ -94,11 +96,13 @@ async function tryLoadTransformers(): Promise<TransformersModule | null> {
       (err as NodeJS.ErrnoException).code === "ERR_MODULE_NOT_FOUND"
     ) {
       _embedderUnavailable = true;
-      console.warn(
-        "[embedder] @huggingface/transformers is not installed. semantic_search_local is disabled. " +
-          "Use a persistent local/global install for optional native dependencies; see " +
-          "https://github.com/russellbrenner/jurisd/blob/main/docs/INSTALL.md#optional-native-dependencies",
-      );
+      if (options.warnWhenMissing !== false) {
+        console.warn(
+          "[embedder] @huggingface/transformers is not installed. semantic_search_local is disabled. " +
+            "Use a persistent local/global install for optional native dependencies; see " +
+            "https://github.com/russellbrenner/jurisd/blob/main/docs/INSTALL.md#optional-native-dependencies",
+        );
+      }
       return null;
     }
     throw err;
@@ -107,7 +111,7 @@ async function tryLoadTransformers(): Promise<TransformersModule | null> {
 
 /** Whether the local embedder dependency is importable (capability probe). */
 export async function isEmbedderAvailable(): Promise<boolean> {
-  return (await tryLoadTransformers()) !== null;
+  return (await tryLoadTransformers({ warnWhenMissing: false })) !== null;
 }
 
 /**

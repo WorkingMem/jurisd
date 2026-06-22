@@ -42,6 +42,7 @@ export interface CapabilityProbe {
 export declare function probeCapabilities(reachabilityOverride?: (cfg: {
     baseUrl: string;
 }) => Promise<boolean>): Promise<CapabilityProbe>;
+export declare function formatCapabilityProbeSummary(caps: CapabilityProbe): string;
 /**
  * Return the domain adapter for query-time refinement, probing once and caching
  * the result for the process lifetime. Falls back to the baseline adapter when
