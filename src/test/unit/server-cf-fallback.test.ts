@@ -20,7 +20,7 @@ const { searchAustLiiMock, searchUpstreamWithStatusMock, searchExaMock } = vi.ho
 }));
 
 vi.mock("../../services/austlii.js", () => ({ searchAustLii: searchAustLiiMock }));
-vi.mock("../../services/exa.js", () => ({ searchAustliiViaExa: searchExaMock }));
+vi.mock("../../services/exa.js", () => ({ searchAustliiViaExaWithStatus: searchExaMock }));
 vi.mock("../../services/source.js", () => ({
   searchUpstreamWithStatus: searchUpstreamWithStatusMock,
   searchUpstream: vi.fn(),
@@ -43,16 +43,21 @@ function caseResult(title: string, url: string, neutral: string): SearchResult {
   };
 }
 
-async function callSearchCases(): Promise<{ isError: boolean; text: string }> {
+async function callSearchCases(
+  query = "Pike v Tighe",
+): Promise<{ isError: boolean; text: string }> {
   const server = createMcpServer();
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   const result = await client.callTool({
     name: "search_cases",
-    arguments: { query: "Pike v Tighe", limit: 5 },
+    arguments: { query, limit: 5 },
   });
-  return { isError: result.isError === true, text: JSON.stringify(result.content) };
+  const resultContent = (result.content ?? []) as Array<{ type?: string; text?: string }>;
+  const [content] = resultContent;
+  const text = content?.type === "text" ? (content.text ?? "") : JSON.stringify(result.content);
+  return { isError: result.isError === true, text };
 }
 
 describe("search_cases cost-ordered fallback matrix", () => {
@@ -61,7 +66,7 @@ describe("search_cases cost-ordered fallback matrix", () => {
     searchUpstreamWithStatusMock.mockReset();
     searchExaMock.mockReset();
     // Default: no Exa results (acts as "Exa not configured").
-    searchExaMock.mockResolvedValue([]);
+    searchExaMock.mockResolvedValue({ results: [], status: "not_configured" });
   });
 
   it("AustLII works → returns AustLII results (no Exa call)", async () => {
@@ -94,28 +99,44 @@ describe("search_cases cost-ordered fallback matrix", () => {
   it("free providers empty + Exa configured → Exa results", async () => {
     searchAustLiiMock.mockRejectedValue(new CloudflareBlockedError("https://austlii", false));
     searchUpstreamWithStatusMock.mockResolvedValue({ results: [], status: "not_configured" });
-    searchExaMock.mockResolvedValue([
-      caseResult(
-        "Pike v Tighe [2018] HCA 9",
-        "https://www.austlii.edu.au/au/cases/cth/HCA/2018/9.html",
-        "[2018] HCA 9",
-      ),
-    ]);
+    searchExaMock.mockResolvedValue({
+      results: [
+        caseResult(
+          "Pike v Tighe [2018] HCA 9",
+          "https://www.austlii.edu.au/au/cases/cth/HCA/2018/9.html",
+          "[2018] HCA 9",
+        ),
+      ],
+      status: "ok",
+    });
     const { isError, text } = await callSearchCases();
     expect(isError).toBe(false);
     expect(text).toContain("HCA/2018/9");
     expect(searchExaMock).toHaveBeenCalledOnce();
   });
 
+  it("AustLII Cloudflare-blocked + neutral citation query -> direct AustLII URL without paid search", async () => {
+    searchAustLiiMock.mockRejectedValue(new CloudflareBlockedError("https://austlii", false));
+    searchUpstreamWithStatusMock.mockResolvedValue({ results: [], status: "not_configured" });
+    const { isError, text } = await callSearchCases("[2018] HCA 9");
+    const payload = JSON.parse(text) as { results?: Array<{ aglc4?: string }> };
+    expect(isError).toBe(false);
+    expect(text).toContain("HCA/2018/9.html");
+    expect(text).toContain("citation-url");
+    expect(payload.results?.[0]?.aglc4).toBe("[2018] HCA 9");
+    expect(searchExaMock).not.toHaveBeenCalled();
+  });
+
   it("nothing configured + AustLII blocked → degraded result naming the fallbacks", async () => {
     searchAustLiiMock.mockRejectedValue(new CloudflareBlockedError("https://austlii", false));
     searchUpstreamWithStatusMock.mockResolvedValue({ results: [], status: "not_configured" });
-    // searchExaMock default resolves [] (no key configured)
+    // searchExaMock default resolves not_configured (no key configured)
     const { isError, text } = await callSearchCases();
     expect(isError).toBe(false);
     expect(text).toContain("degraded");
     expect(text).toContain("EXA_API_KEY");
     expect(text).toContain("SESSION_COOKIE");
+    expect(text).toContain('"exa": "not_configured"');
     expect(searchExaMock).toHaveBeenCalledOnce();
   });
 

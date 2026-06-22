@@ -82,6 +82,15 @@ describe("formatAGLC4", () => {
     });
     expect(result).toBe("Mabo v Queensland (No 2) (1992) 175 CLR 1");
   });
+
+  it("does not duplicate citations already present in the title", () => {
+    const result = formatAGLC4({
+      title: "Pike v Tighe [2018] HCA 9",
+      neutralCitation: "[2018] HCA 9",
+      reportedCitation: "[2018] HCA 9",
+    });
+    expect(result).toBe("Pike v Tighe [2018] HCA 9");
+  });
 });
 
 describe("isValidNeutralCitation", () => {

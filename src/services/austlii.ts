@@ -15,7 +15,7 @@ export interface SearchResult {
   reportedCitation?: string; // e.g., "(2024) 350 ALR 123"
   url: string;
   source: "austlii" | "source";
-  discoverySource?: "austlii-search" | "tavily-fallback";
+  discoverySource?: "austlii-search" | "tavily-fallback" | "exa-fallback" | "citation-url";
   summary?: string;
   jurisdiction?: string;
   year?: string;

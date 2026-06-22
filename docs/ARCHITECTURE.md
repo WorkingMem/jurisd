@@ -154,6 +154,8 @@ MCP_TRANSPORT=http npm start
 | AUSTLII_TIMEOUT           | 60000             | Request timeout (ms)                             |
 | AUSTLII_TRANSPORT         | auto              | `auto`, `impit`, or `axios` for AustLII fetches  |
 | AUSTLII_CF_CLEARANCE      | unset             | Optional pre-solved Cloudflare cookie            |
+| EXA_API_KEY               | unset             | Exa key for AustLII URL discovery fallback       |
+| EXA_SEARCH_TYPE           | auto              | Exa search type                                  |
 | TAVILY_API_KEY            | unset             | Tavily API key for AustLII-only search fallback  |
 | AUSTLII_TAVILY_FALLBACK   | false             | Enable with `true` after privacy review          |
 | SESSION_COOKIE       | unset             | removed.invalid auth cookie                              |

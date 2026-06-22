@@ -161,7 +161,7 @@ describe("AustLII search degradation", () => {
         degraded: boolean;
       };
       expect(parsed.degraded).toBe(true);
-      expect(parsed.sources).toEqual({ austlii: "blocked" });
+      expect(parsed.sources).toEqual({ austlii: "blocked", exa: "not_configured" });
       expect(parsed.results).toEqual([]);
       expect(parsed.warnings[0]).toMatchObject({
         code: "austlii_cloudflare_blocked",
