@@ -54,8 +54,9 @@ async function callSearchCases(
     name: "search_cases",
     arguments: { query, limit: 5 },
   });
-  const [content] = result.content ?? [];
-  const text = content?.type === "text" ? content.text : JSON.stringify(result.content);
+  const resultContent = (result.content ?? []) as Array<{ type?: string; text?: string }>;
+  const [content] = resultContent;
+  const text = content?.type === "text" ? (content.text ?? "") : JSON.stringify(result.content);
   return { isError: result.isError === true, text };
 }
 
