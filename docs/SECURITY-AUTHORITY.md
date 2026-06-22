@@ -35,6 +35,22 @@ MCP exposure is curated. Do not expose operator, install, update, destructive, f
 
 Untrusted text must not produce terminal control effects. Renderers must strip or neutralise unsafe ANSI, OSC, BEL, carriage returns, title changes, bidi controls, and other unsafe control characters before rendering source/provider text.
 
+The TUI slash-command dispatcher uses an explicit command-id allowlist. It does
+not broaden authority from side-effect classes alone. WB3 permits local
+read/recall commands plus the accepted read-only web defaults
+`search-cases` and `search-legislation`; other network reads, credentialed
+commands, filesystem writes, network writes, destructive/admin actions, and
+operator commands remain blocked until they have explicit confirmation gates.
+
+`format-citation` is mode-sensitive in the TUI. Non-pinpoint formatting is local
+read-only, but `mode=pinpoint` fetches the supplied URL and must include the
+TUI-only `--confirm-network-read` flag before dispatch. The confirmation flag is
+stripped before MCP tool execution.
+
+Search results rendered in the TUI must show degraded provider state loudly,
+including warnings and source statuses, so AustLII Cloudflare blocks or
+Source/Exa unavailability cannot fail silently.
+
 ## Shell completions
 
 Completion scripts are generated from command contracts and trusted static values only.

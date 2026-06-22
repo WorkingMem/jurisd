@@ -46,7 +46,7 @@ try:
             sys.stdout.buffer.write(data)
             sys.stdout.buffer.flush()
             if (not sent) and b"jurisd>" in output:
-                os.write(fd, b"/commands\r/corpus.listDataModules\r/quit\r")
+                os.write(fd, b"/help\r/commands\r/corpus.listDataModules\r/get-provision \"Competition and Consumer Act 2010 (Cth)\" \"s 18\"\r/quit\r")
                 sent = True
 
         done, raw_status = os.waitpid(pid, os.WNOHANG)
@@ -119,11 +119,14 @@ describe("jurisd tui pseudo-terminal smoke", () => {
 
       expect(output).toContain("jurisd>");
       expect(code).toBe(0);
-      expect(output).toContain("jurisd TUI scaffold");
+      expect(output).toContain("jurisd TUI shell");
       expect(output).toContain("width 40");
+      expect(output).toContain("Use /commands");
       expect(output).toContain("Command palette");
       expect(output).toContain("dispatch: corpus.listDataModules");
-      expect(output).toContain('"count"');
+      expect(output).toContain("Local data modules");
+      expect(output).toContain("dispatch: corpus.getProvision");
+      expect(output).toContain("Local provision lookup: not found");
       expect(output).toContain("goodbye");
     },
   );

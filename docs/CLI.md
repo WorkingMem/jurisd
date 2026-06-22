@@ -70,36 +70,58 @@ The long-term CLI is grouped by task:
 | `export` | Future source-backed exports and Evidence Packs            | Not implemented                         |
 | `mcp`    | MCP server and compatibility inspection                    | Partially implemented by server startup |
 | `doctor` | Future capability and degradation diagnostics              | Not implemented                         |
-| `tui`    | Inline terminal workbench scaffold                         | WB3 scaffold implemented                |
+| `tui`    | Inline terminal search and recall shell                    | WB3 shell implemented                   |
 
-## TUI scaffold
+## TUI shell
 
 ```bash
 jurisd tui
 ```
 
-The WB3 scaffold is an inline transcript/composer surface over the command
-contract registry. It accepts slash commands such as:
+The WB3 TUI is an inline transcript/composer shell over the command contract
+registry. It accepts slash commands such as:
 
 ```text
 /commands
+/help search-cases
+/search-cases "Mabo" --limit 3
+/search-legislation "privacy" --jurisdiction cth --limit 3
+/format-citation "Mabo v Queensland (No 2)" --neutral-citation "[1992] HCA 23"
+/format-citation --mode pinpoint --url https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html --paragraph-number 1 --confirm-network-read
 /corpus.listDataModules
 /list-data-modules
+/get-provision "Competition and Consumer Act 2010 (Cth)" "s 18"
 /quit
 ```
 
-Slash commands resolve through governed command ids or CLI aliases. The WB3
-scaffold only dispatches contracts that are explicitly TUI-enabled and limited
-to local/read-only side effects; those commands run through the same in-process
-loopback used by the CLI.
+Slash commands resolve through governed command ids or CLI aliases. TUI dispatch
+uses an explicit command-id allowlist and still runs through the same
+`contractToToolCommand` and in-process loopback path used by the CLI.
+
+Enabled TUI commands are:
+
+- local read or recall commands: non-pinpoint `format-citation`, `get-provision`,
+  `get-act-structure`, `find-citing`, `semantic-search-local`, and
+  `list-data-modules`
+- accepted web read defaults: `search-cases` and `search-legislation`
+
+`format-citation --mode pinpoint` is not treated as local/read-only because it
+fetches the supplied `--url` to locate the paragraph. The TUI refuses that mode
+unless the slash command includes `--confirm-network-read`; the confirmation flag
+is a TUI control and is not passed to the MCP tool.
+
+The web search commands are read-only in the TUI. They do not fetch source text
+with `citeKey`, store source files, export caches, or expose credentials. The
+TUI transcript renders provider status loudly, including `DEGRADED`, `warnings`,
+and `sources` when AustLII, Source, or Exa coverage is blocked or unavailable.
 
 Terminal framework decision: WB3 deliberately uses Node readline rather than a
-fullscreen TUI framework. The scaffold must run under `TERM=dumb`, narrow
+fullscreen TUI framework. The shell must run under `TERM=dumb`, narrow
 terminal widths, and CI pseudo-terminal smoke tests before later PRs introduce
 stateful panes or richer rendering.
 
 The source, corpus, graph, review, enrichment, and export panes remain inert
-placeholders until their workbench items land. The scaffold does not claim
+placeholders until their workbench items land. The TUI does not claim
 agentic drafting, corpus import, graph traversal, or Evidence Pack export.
 
 ## Compatibility aliases

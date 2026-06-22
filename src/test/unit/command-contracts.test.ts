@@ -56,6 +56,38 @@ describe("command contracts", () => {
     expect(getCommandContractByCliName("semantic-search-local")?.id).toBe("search.semanticLocal");
   });
 
+  it("keeps TUI enablement explicit with conditional network reads gated", () => {
+    const enabled = COMMAND_CONTRACTS.filter((contract) => contract.adapters.tui.enabled).map(
+      (contract) => contract.id,
+    );
+
+    expect(enabled.sort()).toEqual(
+      [
+        "cite.format",
+        "corpus.getActStructure",
+        "corpus.getProvision",
+        "corpus.listDataModules",
+        "graph.findCiting",
+        "search.cases",
+        "search.legislation",
+        "search.semanticLocal",
+      ].sort(),
+    );
+    expect(getCommandContractByCliName("search-cases")?.adapters.tui.networkPolicy).toBe(
+      "accepted_safe_default",
+    );
+    expect(getCommandContractByCliName("search-legislation")?.adapters.tui.networkPolicy).toBe(
+      "accepted_safe_default",
+    );
+    expect(getCommandContractByCliName("format-citation")?.adapters.tui.authorityNote).toContain(
+      "mode=pinpoint",
+    );
+    expect(getCommandContractByCliName("fetch-document-text")?.adapters.tui.enabled).toBe(false);
+    expect(getCommandContractByCliName("cite")?.adapters.tui.enabled).toBe(false);
+    expect(getCommandContractByCliName("bibliography")?.adapters.tui.enabled).toBe(false);
+    expect(getCommandContractByCliName("fetch-module")?.adapters.tui.enabled).toBe(false);
+  });
+
   it("keeps documented CLI invocations aligned with declared commands and flags", () => {
     for (const contract of COMMAND_CONTRACTS.filter((item) => item.adapters.cli.enabled)) {
       const commandName = cliName(contract);

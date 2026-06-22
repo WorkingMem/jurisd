@@ -46,6 +46,18 @@ function mcpToolReference(contract: CommandContract): string {
   return inlineCode(contract.adapters.mcp.toolName);
 }
 
+function tuiReference(contract: CommandContract): string {
+  if (!contract.adapters.tui.enabled) return "not enabled";
+  const policy =
+    contract.adapters.tui.networkPolicy === "accepted_safe_default"
+      ? "accepted web-read default"
+      : "local/read-only";
+  const note = contract.adapters.tui.authorityNote
+    ? `; ${contract.adapters.tui.authorityNote}`
+    : "";
+  return `${inlineCode(contract.adapters.tui.label ?? cliName(contract))} (${policy}${note})`;
+}
+
 function renderCommandSection(contract: CommandContract): string[] {
   const flags = contract.flags.length
     ? contract.flags.map(
@@ -70,6 +82,7 @@ function renderCommandSection(contract: CommandContract): string[] {
     metadataLine("Side effect", inlineCode(contract.sideEffectClass)),
     metadataLine("Stability", inlineCode(contract.stability)),
     metadataLine("MCP tool", mcpStatus),
+    metadataLine("TUI", tuiReference(contract)),
     metadataLine("Result contract", inlineCode(contract.resultContract)),
     "",
     "Usage:",
@@ -96,12 +109,13 @@ function renderCommandSection(contract: CommandContract): string[] {
 export function renderCommandReference(contracts: CommandContract[] = COMMAND_CONTRACTS): string {
   const commands = cliContracts(contracts);
   const table = renderMarkdownTable([
-    ["Command", "Group", "Side effect", "MCP", "Summary"],
+    ["Command", "Group", "Side effect", "MCP", "TUI", "Summary"],
     ...commands.map((contract) => [
       inlineCode(cliName(contract)),
       inlineCode(contract.adapters.cli.group),
       inlineCode(contract.sideEffectClass),
       contract.adapters.mcp.enabled ? mcpToolReference(contract) : "CLI only",
+      contract.adapters.tui.enabled ? "enabled" : "disabled",
       markdownText(contract.summary),
     ]),
   ]);

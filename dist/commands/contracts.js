@@ -101,17 +101,36 @@ function makeCliOnlyContract(id, cliName, group, sideEffectClass, positional, nu
         },
     };
 }
-function enableTui(contract, label) {
+function enableTui(contract, label, authorityNote) {
     return {
         ...contract,
         adapters: {
             ...contract.adapters,
-            tui: { enabled: true, label: label ?? contract.adapters.tui.label },
+            tui: {
+                enabled: true,
+                label: label ?? contract.adapters.tui.label,
+                networkPolicy: contract.adapters.tui.networkPolicy ?? "none",
+                authorityNote: authorityNote ?? contract.adapters.tui.authorityNote,
+            },
+        },
+    };
+}
+function enableTuiNetworkReadDefault(contract, label) {
+    return {
+        ...contract,
+        adapters: {
+            ...contract.adapters,
+            tui: {
+                enabled: true,
+                label: label ?? contract.adapters.tui.label,
+                networkPolicy: "accepted_safe_default",
+                authorityNote: contract.adapters.tui.authorityNote,
+            },
         },
     };
 }
 export const COMMAND_CONTRACTS = [
-    {
+    enableTuiNetworkReadDefault({
         id: "search.legislation",
         synopsis: "jurisd search-legislation <query> [--jurisdiction cth] [--limit 10]",
         summary: "Search Australian and New Zealand legislation.",
@@ -149,8 +168,8 @@ export const COMMAND_CONTRACTS = [
             mcp: { enabled: true, toolName: "search_legislation" },
             tui: { enabled: false, label: "Search legislation" },
         },
-    },
-    {
+    }, "Search legislation"),
+    enableTuiNetworkReadDefault({
         id: "search.cases",
         synopsis: "jurisd search-cases <query> [--jurisdiction cth] [--limit 10]",
         summary: "Search Australian and New Zealand case law.",
@@ -188,7 +207,7 @@ export const COMMAND_CONTRACTS = [
             mcp: { enabled: true, toolName: "search_cases" },
             tui: { enabled: false, label: "Search cases" },
         },
-    },
+    }, "Search cases"),
     makeContract("source.fetchDocument", "fetch-document-text", "fetch_document_text", "source", "network_read", ["url"], [], [], [], "Fetch full text for a source document.", "jurisd fetch-document-text <url>", [
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
         stringFlag("citeKey", "Existing citation cache key to associate with fetched source metadata."),
@@ -197,7 +216,7 @@ export const COMMAND_CONTRACTS = [
         stringFlag("by", "Lookup mode.", ["article_id", "citation"]),
         stringFlag("citation", "Neutral citation for by=citation lookups."),
     ]),
-    makeContract("cite.format", "format-citation", "format_citation", "cite", "read_only_query", ["title"], ["footnoteRef", "pinpointPara", "pinpointPage", "paragraphNumber"], [], [], "Format an AGLC4 citation.", "jurisd format-citation 'Mabo v Queensland (No 2)' --neutral-citation '[1992] HCA 23'", [
+    enableTui(makeContract("cite.format", "format-citation", "format_citation", "cite", "read_only_query", ["title"], ["footnoteRef", "pinpointPara", "pinpointPage", "paragraphNumber"], [], [], "Format an AGLC4 citation.", "jurisd format-citation 'Mabo v Queensland (No 2)' --neutral-citation '[1992] HCA 23'", [
         stringFlag("mode", "Citation mode.", ["full", "short", "ibid", "subsequent", "pinpoint"]),
         stringFlag("neutralCitation", "Neutral citation."),
         stringFlag("reportedCitation", "Reported citation."),
@@ -206,7 +225,7 @@ export const COMMAND_CONTRACTS = [
         stringFlag("url", "AustLII document URL for pinpoint mode."),
         stringFlag("phrase", "Phrase to locate for pinpoint mode."),
         stringFlag("caseCitation", "Case citation prefix for pinpoint mode."),
-    ]),
+    ]), undefined, "TUI mode=pinpoint fetches the supplied URL and requires --confirm-network-read."),
     makeContract("cite.resolve", "resolve-citation", "resolve_citation", "cite", "network_read", ["citation"], [], [], [], "Resolve a citation to an authoritative source.", "jurisd resolve-citation '[1992] HCA 23'", [
         stringFlag("mode", "Resolution mode.", ["auto", "validate", "search"]),
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
@@ -235,19 +254,19 @@ export const COMMAND_CONTRACTS = [
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
         stringFlag("outputPath", "BibLaTeX output path."),
     ]),
-    makeContract("corpus.getProvision", "get-provision", "get_provision", "corpus", "local_metadata_read", ["act", "provision"], [], [], [], "Get a provision from an installed local data module.", "jurisd get-provision 'Family Law Act 1975 (Cth)' 's 60CC'", [
+    enableTui(makeContract("corpus.getProvision", "get-provision", "get_provision", "corpus", "local_metadata_read", ["act", "provision"], [], [], [], "Get a provision from an installed local data module.", "jurisd get-provision 'Family Law Act 1975 (Cth)' 's 60CC'", [
         stringFlag("module", "Pinned data module name."),
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
-    ]),
-    makeContract("corpus.getActStructure", "get-act-structure", "get_act_structure", "corpus", "local_metadata_read", ["act"], ["depth"], [], [], "Get act structure from an installed local data module.", "jurisd get-act-structure 'Family Law Act 1975 (Cth)'", [
+    ])),
+    enableTui(makeContract("corpus.getActStructure", "get-act-structure", "get_act_structure", "corpus", "local_metadata_read", ["act"], ["depth"], [], [], "Get act structure from an installed local data module.", "jurisd get-act-structure 'Family Law Act 1975 (Cth)'", [
         stringFlag("module", "Pinned data module name."),
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
-    ]),
-    makeContract("graph.findCiting", "find-citing", "find_citing", "graph", "local_metadata_read", ["target"], ["limit"], [], ["kinds"], "Find locally indexed items citing or considering a target.", "jurisd find-citing '[1992] HCA 23' --kinds cites,considers", [
+    ])),
+    enableTui(makeContract("graph.findCiting", "find-citing", "find_citing", "graph", "local_metadata_read", ["target"], ["limit"], [], ["kinds"], "Find locally indexed items citing or considering a target.", "jurisd find-citing '[1992] HCA 23' --kinds cites,considers", [
         stringFlag("module", "Pinned data module name."),
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
-    ]),
-    makeContract("search.semanticLocal", "semantic-search-local", "semantic_search_local", "search", "local_metadata_read", ["query"], ["k"], [], [], "Run local semantic search over installed data modules.", "jurisd semantic-search-local 'restraint of trade' --k 5", [
+    ])),
+    enableTui(makeContract("search.semanticLocal", "semantic-search-local", "semantic_search_local", "search", "local_metadata_read", ["query"], ["k"], [], [], "Run local semantic search over installed data modules.", "jurisd semantic-search-local 'restraint of trade' --k 5", [
         stringFlag("module", "Pinned data module name."),
         stringFlag("filterJurisdiction", "Jurisdiction facet filter."),
         stringFlag("filterType", "Document type facet filter.", [
@@ -258,10 +277,10 @@ export const COMMAND_CONTRACTS = [
         ]),
         stringFlag("filterSegmentType", "Segment type facet filter."),
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
-    ]),
+    ])),
     enableTui(makeContract("corpus.listDataModules", "list-data-modules", "list_data_modules", "corpus", "local_metadata_read", [], [], ["refresh", "includeInvalid"], [], "List installed local data modules.", "jurisd list-data-modules --include-invalid true", [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])]), "List installed data modules"),
     makeCliOnlyContract("shell.completion", "completion", "doctor", "read_only_query", ["shell"], [], [], [], "Print a shell completion script.", "jurisd completion <bash|zsh|fish>"),
-    makeCliOnlyContract("tui.open", "tui", "tui", "local_metadata_read", [], [], [], [], "Open the inline TUI scaffold.", "jurisd tui"),
+    makeCliOnlyContract("tui.open", "tui", "tui", "local_metadata_read", [], [], [], [], "Open the inline TUI shell.", "jurisd tui"),
     makeCliOnlyContract("modules.fetch", "fetch-module", "modules", "filesystem_write", ["name"], [], [], [], "Fetch and install a data module.", "jurisd fetch-module <name> [--manifest-url URL] [--modules-dir DIR]", [
         stringFlag("manifestUrl", "Override manifest URL."),
         stringFlag("modulesDir", "Override modules directory."),

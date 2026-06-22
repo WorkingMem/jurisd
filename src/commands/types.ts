@@ -47,6 +47,8 @@ export interface McpAdapterContract {
 export interface TuiAdapterContract {
   enabled: boolean;
   label?: string;
+  networkPolicy?: "none" | "accepted_safe_default";
+  authorityNote?: string;
 }
 
 export interface CommandContract {

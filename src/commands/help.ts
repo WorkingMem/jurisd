@@ -9,7 +9,7 @@ const GROUPS = [
   ["source", "Fetch or inspect source documents"],
   ["mcp", "Run and inspect MCP integration"],
   ["doctor", "Diagnose configuration and capabilities"],
-  ["tui", "Open the inline terminal workbench scaffold"],
+  ["tui", "Open the inline terminal workbench shell"],
 ] as const;
 
 export function renderTopLevelHelp(): string {

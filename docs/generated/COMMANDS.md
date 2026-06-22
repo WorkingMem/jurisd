@@ -8,28 +8,28 @@ Supported completion shells: `bash`, `zsh`, `fish`.
 
 ## Command summary
 
-| Command                 | Group     | Side effect           | MCP                     | Summary                                                    |
-| ----------------------- | --------- | --------------------- | ----------------------- | ---------------------------------------------------------- |
-| `bibliography`          | `cite`    | `local_metadata_read` | `bibliography`          | Render a bibliography from cached citations.               |
-| `cache-cited-by`        | `cite`    | `network_read`        | `cache_cited_by`        | Cache cited-by information for a citation key.             |
-| `cite`                  | `cite`    | `local_metadata_read` | `cite`                  | Create or record a citation cache entry.                   |
-| `completion`            | `doctor`  | `read_only_query`     | CLI only                | Print a shell completion script.                           |
-| `fetch-document-text`   | `source`  | `network_read`        | `fetch_document_text`   | Fetch full text for a source document.                     |
-| `fetch-module`          | `modules` | `filesystem_write`    | CLI only                | Fetch and install a data module.                           |
-| `find-citing`           | `graph`   | `local_metadata_read` | `find_citing`           | Find locally indexed items citing or considering a target. |
-| `format-citation`       | `cite`    | `read_only_query`     | `format_citation`       | Format an AGLC4 citation.                                  |
-| `get-act-structure`     | `corpus`  | `local_metadata_read` | `get_act_structure`     | Get act structure from an installed local data module.     |
-| `get-provision`         | `corpus`  | `local_metadata_read` | `get_provision`         | Get a provision from an installed local data module.       |
-| `source-lookup`           | `source`  | `network_read`        | `source_lookup`           | Look up removed.invalid article metadata or citation URL.          |
-| `list-data-modules`     | `corpus`  | `local_metadata_read` | `list_data_modules`     | List installed local data modules.                         |
-| `list-modules`          | `modules` | `local_metadata_read` | CLI only                | List installed data modules via the operator CLI.          |
-| `resolve-citation`      | `cite`    | `network_read`        | `resolve_citation`      | Resolve a citation to an authoritative source.             |
-| `search-cases`          | `search`  | `network_read`        | `search_cases`          | Search Australian and New Zealand case law.                |
-| `search-citing-cases`   | `cite`    | `network_read`        | `search_citing_cases`   | Search for cases citing a named case.                      |
-| `search-legislation`    | `search`  | `network_read`        | `search_legislation`    | Search Australian and New Zealand legislation.             |
-| `semantic-search-local` | `search`  | `local_metadata_read` | `semantic_search_local` | Run local semantic search over installed data modules.     |
-| `tui`                   | `tui`     | `local_metadata_read` | CLI only                | Open the inline TUI scaffold.                              |
-| `verify-module`         | `modules` | `local_metadata_read` | CLI only                | Verify an installed data module.                           |
+| Command                 | Group     | Side effect           | MCP                     | TUI      | Summary                                                    |
+| ----------------------- | --------- | --------------------- | ----------------------- | -------- | ---------------------------------------------------------- |
+| `bibliography`          | `cite`    | `local_metadata_read` | `bibliography`          | disabled | Render a bibliography from cached citations.               |
+| `cache-cited-by`        | `cite`    | `network_read`        | `cache_cited_by`        | disabled | Cache cited-by information for a citation key.             |
+| `cite`                  | `cite`    | `local_metadata_read` | `cite`                  | disabled | Create or record a citation cache entry.                   |
+| `completion`            | `doctor`  | `read_only_query`     | CLI only                | disabled | Print a shell completion script.                           |
+| `fetch-document-text`   | `source`  | `network_read`        | `fetch_document_text`   | disabled | Fetch full text for a source document.                     |
+| `fetch-module`          | `modules` | `filesystem_write`    | CLI only                | disabled | Fetch and install a data module.                           |
+| `find-citing`           | `graph`   | `local_metadata_read` | `find_citing`           | enabled  | Find locally indexed items citing or considering a target. |
+| `format-citation`       | `cite`    | `read_only_query`     | `format_citation`       | enabled  | Format an AGLC4 citation.                                  |
+| `get-act-structure`     | `corpus`  | `local_metadata_read` | `get_act_structure`     | enabled  | Get act structure from an installed local data module.     |
+| `get-provision`         | `corpus`  | `local_metadata_read` | `get_provision`         | enabled  | Get a provision from an installed local data module.       |
+| `source-lookup`           | `source`  | `network_read`        | `source_lookup`           | disabled | Look up removed.invalid article metadata or citation URL.          |
+| `list-data-modules`     | `corpus`  | `local_metadata_read` | `list_data_modules`     | enabled  | List installed local data modules.                         |
+| `list-modules`          | `modules` | `local_metadata_read` | CLI only                | disabled | List installed data modules via the operator CLI.          |
+| `resolve-citation`      | `cite`    | `network_read`        | `resolve_citation`      | disabled | Resolve a citation to an authoritative source.             |
+| `search-cases`          | `search`  | `network_read`        | `search_cases`          | enabled  | Search Australian and New Zealand case law.                |
+| `search-citing-cases`   | `cite`    | `network_read`        | `search_citing_cases`   | disabled | Search for cases citing a named case.                      |
+| `search-legislation`    | `search`  | `network_read`        | `search_legislation`    | enabled  | Search Australian and New Zealand legislation.             |
+| `semantic-search-local` | `search`  | `local_metadata_read` | `semantic_search_local` | enabled  | Run local semantic search over installed data modules.     |
+| `tui`                   | `tui`     | `local_metadata_read` | CLI only                | disabled | Open the inline TUI shell.                                 |
+| `verify-module`         | `modules` | `local_metadata_read` | CLI only                | disabled | Verify an installed data module.                           |
 
 ## `bibliography`
 
@@ -40,6 +40,7 @@ Render a bibliography from cached citations.
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: `bibliography`
+- TUI: not enabled
 - Result contract: `cite.bibliography.v1`
 
 Usage:
@@ -74,6 +75,7 @@ Cache cited-by information for a citation key.
 - Side effect: `network_read`
 - Stability: `stable`
 - MCP tool: `cache_cited_by`
+- TUI: not enabled
 - Result contract: `cite.cacheCitedBy.v1`
 
 Usage:
@@ -103,6 +105,7 @@ Create or record a citation cache entry.
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: `cite`
+- TUI: not enabled
 - Result contract: `cite.create.v1`
 
 Usage:
@@ -146,6 +149,7 @@ Print a shell completion script.
 - Side effect: `read_only_query`
 - Stability: `stable`
 - MCP tool: not exposed
+- TUI: not enabled
 - Result contract: `shell.completion.v1`
 
 Usage:
@@ -175,6 +179,7 @@ Fetch full text for a source document.
 - Side effect: `network_read`
 - Stability: `stable`
 - MCP tool: `fetch_document_text`
+- TUI: not enabled
 - Result contract: `source.fetchDocument.v1`
 
 Usage:
@@ -205,6 +210,7 @@ Fetch and install a data module.
 - Side effect: `filesystem_write`
 - Stability: `stable`
 - MCP tool: not exposed
+- TUI: not enabled
 - Result contract: `modules.fetch.v1`
 
 Usage:
@@ -235,6 +241,7 @@ Find locally indexed items citing or considering a target.
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: `find_citing`
+- TUI: `Find locally indexed items citing or considering a target` (local/read-only)
 - Result contract: `graph.findCiting.v1`
 
 Usage:
@@ -267,6 +274,7 @@ Format an AGLC4 citation.
 - Side effect: `read_only_query`
 - Stability: `stable`
 - MCP tool: `format_citation`
+- TUI: `Format an AGLC4 citation` (local/read-only; TUI mode=pinpoint fetches the supplied URL and requires --confirm-network-read.)
 - Result contract: `cite.format.v1`
 
 Usage:
@@ -307,6 +315,7 @@ Get act structure from an installed local data module.
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: `get_act_structure`
+- TUI: `Get act structure from an installed local data module` (local/read-only)
 - Result contract: `corpus.getActStructure.v1`
 
 Usage:
@@ -338,6 +347,7 @@ Get a provision from an installed local data module.
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: `get_provision`
+- TUI: `Get a provision from an installed local data module` (local/read-only)
 - Result contract: `corpus.getProvision.v1`
 
 Usage:
@@ -369,6 +379,7 @@ Look up removed.invalid article metadata or citation URL.
 - Side effect: `network_read`
 - Stability: `stable`
 - MCP tool: `source_lookup`
+- TUI: not enabled
 - Result contract: `source.sourceLookup.v1`
 
 Usage:
@@ -400,6 +411,7 @@ List installed local data modules.
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: `list_data_modules`
+- TUI: `List installed data modules` (local/read-only)
 - Result contract: `corpus.listDataModules.v1`
 
 Usage:
@@ -431,6 +443,7 @@ List installed data modules via the operator CLI.
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: not exposed
+- TUI: not enabled
 - Result contract: `modules.list.v1`
 
 Usage:
@@ -460,6 +473,7 @@ Resolve a citation to an authoritative source.
 - Side effect: `network_read`
 - Stability: `stable`
 - MCP tool: `resolve_citation`
+- TUI: not enabled
 - Result contract: `cite.resolve.v1`
 
 Usage:
@@ -490,6 +504,7 @@ Search Australian and New Zealand case law.
 - Side effect: `network_read`
 - Stability: `stable`
 - MCP tool: `search_cases`
+- TUI: `Search cases` (accepted web-read default)
 - Result contract: `legal_search_results.v1`
 
 Usage:
@@ -524,6 +539,7 @@ Search for cases citing a named case.
 - Side effect: `network_read`
 - Stability: `stable`
 - MCP tool: `search_citing_cases`
+- TUI: not enabled
 - Result contract: `cite.searchCitingCases.v1`
 
 Usage:
@@ -553,6 +569,7 @@ Search Australian and New Zealand legislation.
 - Side effect: `network_read`
 - Stability: `stable`
 - MCP tool: `search_legislation`
+- TUI: `Search legislation` (accepted web-read default)
 - Result contract: `legal_search_results.v1`
 
 Usage:
@@ -587,6 +604,7 @@ Run local semantic search over installed data modules.
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: `semantic_search_local`
+- TUI: `Run local semantic search over installed data modules` (local/read-only)
 - Result contract: `search.semanticLocal.v1`
 
 Usage:
@@ -614,13 +632,14 @@ Examples:
 
 ## `tui`
 
-Open the inline TUI scaffold.
+Open the inline TUI shell.
 
 - Command id: `tui.open`
 - Group: `tui`
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: not exposed
+- TUI: not enabled
 - Result contract: `tui.open.v1`
 
 Usage:
@@ -650,6 +669,7 @@ Verify an installed data module.
 - Side effect: `local_metadata_read`
 - Stability: `stable`
 - MCP tool: not exposed
+- TUI: not enabled
 - Result contract: `modules.verify.v1`
 
 Usage:
