@@ -25,6 +25,9 @@ const TUI_ALLOWED_COMMAND_IDS = new Set([
   ...TUI_ACCEPTED_WEB_READ_COMMAND_IDS,
 ]);
 
+const TUI_CONFIRM_NETWORK_READ_FIELD = "confirmNetworkRead";
+const TUI_CONFIRM_NETWORK_READ_FLAG = "confirm-network-read";
+
 export interface TuiIO {
   input: Readable;
   output: Writable;
@@ -170,6 +173,7 @@ function contractLabel(contract: CommandContract): string {
 
 function tuiPolicyLabel(contract: CommandContract): string {
   if (TUI_ACCEPTED_WEB_READ_COMMAND_IDS.has(contract.id)) return "web read";
+  if (contract.id === "cite.format") return "local read; pinpoint confirm";
   return "local read";
 }
 
@@ -452,6 +456,7 @@ export function renderTuiHeader(width: number): string {
     "framework: Node readline, no fullscreen terminal control in WB3",
     "commands: /commands, /help [command], /<command-id|cli-name> [args], /quit",
     "web search: search-cases and search-legislation use accepted read-only web defaults",
+    "pinpoint citation formatting fetches --url only with --confirm-network-read",
   ]
     .map((line) => fit(line, width))
     .join("\n");
@@ -524,6 +529,7 @@ export function renderTuiHelp(token?: string): string {
       "Use /commands to inspect available governed commands.",
       "Use /help <command-id|cli-name> for command-specific help.",
       "Read-only web defaults are limited to /search-cases and /search-legislation.",
+      "/format-citation --mode pinpoint fetches --url only with --confirm-network-read.",
     ].join("\n");
   }
 
@@ -533,7 +539,44 @@ export function renderTuiHelp(token?: string): string {
   const status = isTuiExecutableContract(contract)
     ? `TUI: enabled (${tuiPolicyLabel(contract)})`
     : "TUI: not enabled for dispatch";
-  return `${renderCommandHelp(contract)}\n\n${status}`;
+  const authority = contract.adapters.tui.authorityNote
+    ? `\nTUI authority: ${contract.adapters.tui.authorityNote}`
+    : "";
+  return `${renderCommandHelp(contract)}\n\n${status}${authority}`;
+}
+
+function isPinpointFormatCitation(
+  contract: CommandContract,
+  flags: Record<string, string>,
+): boolean {
+  return contract.id === "cite.format" && flags.mode === "pinpoint";
+}
+
+function isConfirmedNetworkRead(flags: Record<string, string>): boolean {
+  const raw = flags[TUI_CONFIRM_NETWORK_READ_FLAG];
+  return raw === "" || raw?.toLowerCase() === "true";
+}
+
+function removeTuiControlFlags(flags: Record<string, string>): Record<string, string> {
+  const toolFlags = { ...flags };
+  delete toolFlags[TUI_CONFIRM_NETWORK_READ_FLAG];
+  return toolFlags;
+}
+
+function requiredTuiPositionals(
+  contract: CommandContract,
+  toolCommand: ToolCommand,
+  flags: Record<string, string>,
+): string[] {
+  if (isPinpointFormatCitation(contract, flags)) return [];
+  return toolCommand.positional;
+}
+
+function renderNetworkConfirmationPrompt(contract: CommandContract): string {
+  return [
+    `confirmation required: ${contract.id} mode=pinpoint fetches the supplied --url over the network`,
+    `re-run the command with --${TUI_CONFIRM_NETWORK_READ_FLAG} to dispatch this network read`,
+  ].join("\n");
 }
 
 async function dispatchSlashCommand(
@@ -580,15 +623,28 @@ async function dispatchSlashCommand(
   }
 
   const toolCommand = contractToToolCommand(contract);
-  const { positional, flags } = parseFlags(parts.slice(1), toolCommand.boolean);
-  if (positional.length < toolCommand.positional.length) {
-    const fields = toolCommand.positional.map((field) => `<${field}>`).join(" ");
+  const { positional, flags } = parseFlags(parts.slice(1), [
+    ...toolCommand.boolean,
+    TUI_CONFIRM_NETWORK_READ_FIELD,
+  ]);
+  const requiredPositionals = requiredTuiPositionals(contract, toolCommand, flags);
+  if (positional.length < requiredPositionals.length) {
+    const fields = requiredPositionals.map((field) => `<${field}>`).join(" ");
     writeLine(output, width, `usage: /${contract.id} ${fields} [--flag value ...]`);
     return true;
   }
 
+  if (isPinpointFormatCitation(contract, flags) && !isConfirmedNetworkRead(flags)) {
+    writeLine(output, width, renderNetworkConfirmationPrompt(contract));
+    return true;
+  }
+
+  if (isPinpointFormatCitation(contract, flags)) {
+    writeLine(output, width, `confirmed network read: ${contract.id} mode=pinpoint`);
+  }
+
   writeLine(output, width, `dispatch: ${contract.id}`);
-  const args = mapArgvToToolInput(toolCommand, positional, flags);
+  const args = mapArgvToToolInput(toolCommand, positional, removeTuiControlFlags(flags));
   const result = await executor(toolCommand, args);
   writeCommandOutput(output, renderTuiToolResult(contract, result));
   if (result.isError) writeLine(output, width, `result: error from ${contract.id}`);

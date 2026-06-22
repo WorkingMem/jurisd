@@ -86,6 +86,8 @@ registry. It accepts slash commands such as:
 /help search-cases
 /search-cases "Mabo" --limit 3
 /search-legislation "privacy" --jurisdiction cth --limit 3
+/format-citation "Mabo v Queensland (No 2)" --neutral-citation "[1992] HCA 23"
+/format-citation --mode pinpoint --url https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html --paragraph-number 1 --confirm-network-read
 /corpus.listDataModules
 /list-data-modules
 /get-provision "Competition and Consumer Act 2010 (Cth)" "s 18"
@@ -98,10 +100,15 @@ uses an explicit command-id allowlist and still runs through the same
 
 Enabled TUI commands are:
 
-- local read or recall commands: `format-citation`, `get-provision`,
+- local read or recall commands: non-pinpoint `format-citation`, `get-provision`,
   `get-act-structure`, `find-citing`, `semantic-search-local`, and
   `list-data-modules`
 - accepted web read defaults: `search-cases` and `search-legislation`
+
+`format-citation --mode pinpoint` is not treated as local/read-only because it
+fetches the supplied `--url` to locate the paragraph. The TUI refuses that mode
+unless the slash command includes `--confirm-network-read`; the confirmation flag
+is a TUI control and is not passed to the MCP tool.
 
 The web search commands are read-only in the TUI. They do not fetch source text
 with `citeKey`, store source files, export caches, or expose credentials. The

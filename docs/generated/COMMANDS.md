@@ -274,7 +274,7 @@ Format an AGLC4 citation.
 - Side effect: `read_only_query`
 - Stability: `stable`
 - MCP tool: `format_citation`
-- TUI: `Format an AGLC4 citation` (local/read-only)
+- TUI: `Format an AGLC4 citation` (local/read-only; TUI mode=pinpoint fetches the supplied URL and requires --confirm-network-read.)
 - Result contract: `cite.format.v1`
 
 Usage:

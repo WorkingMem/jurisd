@@ -131,7 +131,11 @@ function makeCliOnlyContract(
   };
 }
 
-function enableTui(contract: CommandContract, label?: string): CommandContract {
+function enableTui(
+  contract: CommandContract,
+  label?: string,
+  authorityNote?: string,
+): CommandContract {
   return {
     ...contract,
     adapters: {
@@ -140,6 +144,7 @@ function enableTui(contract: CommandContract, label?: string): CommandContract {
         enabled: true,
         label: label ?? contract.adapters.tui.label,
         networkPolicy: contract.adapters.tui.networkPolicy ?? "none",
+        authorityNote: authorityNote ?? contract.adapters.tui.authorityNote,
       },
     },
   };
@@ -154,6 +159,7 @@ function enableTuiNetworkReadDefault(contract: CommandContract, label?: string):
         enabled: true,
         label: label ?? contract.adapters.tui.label,
         networkPolicy: "accepted_safe_default",
+        authorityNote: contract.adapters.tui.authorityNote,
       },
     },
   };
@@ -305,6 +311,8 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
         stringFlag("caseCitation", "Case citation prefix for pinpoint mode."),
       ],
     ),
+    undefined,
+    "TUI mode=pinpoint fetches the supplied URL and requires --confirm-network-read.",
   ),
   makeContract(
     "cite.resolve",

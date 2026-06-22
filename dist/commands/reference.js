@@ -43,7 +43,10 @@ function tuiReference(contract) {
     const policy = contract.adapters.tui.networkPolicy === "accepted_safe_default"
         ? "accepted web-read default"
         : "local/read-only";
-    return `${inlineCode(contract.adapters.tui.label ?? cliName(contract))} (${policy})`;
+    const note = contract.adapters.tui.authorityNote
+        ? `; ${contract.adapters.tui.authorityNote}`
+        : "";
+    return `${inlineCode(contract.adapters.tui.label ?? cliName(contract))} (${policy}${note})`;
 }
 function renderCommandSection(contract) {
     const flags = contract.flags.length

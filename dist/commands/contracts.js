@@ -101,7 +101,7 @@ function makeCliOnlyContract(id, cliName, group, sideEffectClass, positional, nu
         },
     };
 }
-function enableTui(contract, label) {
+function enableTui(contract, label, authorityNote) {
     return {
         ...contract,
         adapters: {
@@ -110,6 +110,7 @@ function enableTui(contract, label) {
                 enabled: true,
                 label: label ?? contract.adapters.tui.label,
                 networkPolicy: contract.adapters.tui.networkPolicy ?? "none",
+                authorityNote: authorityNote ?? contract.adapters.tui.authorityNote,
             },
         },
     };
@@ -123,6 +124,7 @@ function enableTuiNetworkReadDefault(contract, label) {
                 enabled: true,
                 label: label ?? contract.adapters.tui.label,
                 networkPolicy: "accepted_safe_default",
+                authorityNote: contract.adapters.tui.authorityNote,
             },
         },
     };
@@ -223,7 +225,7 @@ export const COMMAND_CONTRACTS = [
         stringFlag("url", "AustLII document URL for pinpoint mode."),
         stringFlag("phrase", "Phrase to locate for pinpoint mode."),
         stringFlag("caseCitation", "Case citation prefix for pinpoint mode."),
-    ])),
+    ]), undefined, "TUI mode=pinpoint fetches the supplied URL and requires --confirm-network-read."),
     makeContract("cite.resolve", "resolve-citation", "resolve_citation", "cite", "network_read", ["citation"], [], [], [], "Resolve a citation to an authoritative source.", "jurisd resolve-citation '[1992] HCA 23'", [
         stringFlag("mode", "Resolution mode.", ["auto", "validate", "search"]),
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),

@@ -43,6 +43,7 @@ describe("TUI shell", () => {
     const palette = renderCommandPalette(120);
     expect(palette).toContain("corpus:");
     expect(palette).toContain("/list-data-modules (corpus.listDataModules, local read)");
+    expect(palette).toContain("/format-citation (cite.format, local read; pinpoint confirm)");
     expect(palette).toContain("search:");
     expect(palette).toContain("/search-cases (search.cases, web read)");
     expect(palette).not.toContain("tui.open /tui");
@@ -74,6 +75,9 @@ describe("TUI shell", () => {
     const help = renderTuiHelp("search-cases");
     expect(help).toContain("Search Australian and New Zealand case law.");
     expect(help).toContain("TUI: enabled (web read)");
+    const formatHelp = renderTuiHelp("format-citation");
+    expect(formatHelp).toContain("TUI: enabled (local read; pinpoint confirm)");
+    expect(formatHelp).toContain("mode=pinpoint fetches the supplied URL");
     expect(renderTuiHelp("fetch-document-text")).toContain("TUI: not enabled");
   });
 
@@ -172,6 +176,95 @@ describe("TUI shell", () => {
     expect(output.value).toContain("dispatch: search.legislation");
     expect(output.value).toContain("Search legislation results: 1");
     expect(output.value).toContain("Privacy Act 1988 (Cth)");
+  });
+
+  it("keeps non-pinpoint format-citation available as a local read", async () => {
+    const input = Readable.from([
+      '/format-citation "Mabo v Queensland (No 2)" --neutral-citation "[1992] HCA 23"\n',
+      "/quit\n",
+    ]);
+    const output = new StringWritable();
+    const calls: Array<{ tool: string; args: Record<string, unknown> }> = [];
+    const executor: TuiCommandExecutor = async (command, args) => {
+      calls.push({ tool: command.tool, args });
+      return {
+        text: "Mabo v Queensland (No 2) [1992] HCA 23\n",
+        isError: false,
+        rawResult: {},
+      };
+    };
+
+    await runTui({ input, output, columns: 100, executor });
+
+    expect(calls).toEqual([
+      {
+        tool: "format_citation",
+        args: {
+          title: "Mabo v Queensland (No 2)",
+          neutralCitation: "[1992] HCA 23",
+        },
+      },
+    ]);
+    expect(output.value).toContain("dispatch: cite.format");
+    expect(output.value).toContain("Mabo v Queensland (No 2) [1992] HCA 23");
+    expect(output.value).not.toContain("confirmation required");
+  });
+
+  it("does not dispatch pinpoint format-citation without network-read confirmation", async () => {
+    const input = Readable.from([
+      "/format-citation --mode pinpoint --url https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html --paragraph-number 1\n",
+      "/quit\n",
+    ]);
+    const output = new StringWritable();
+    let executed = false;
+
+    await runTui({
+      input,
+      output,
+      columns: 120,
+      executor: async () => {
+        executed = true;
+        throw new Error("unconfirmed pinpoint should not execute");
+      },
+    });
+
+    expect(executed).toBe(false);
+    expect(output.value).toContain("confirmation required: cite.format mode=pinpoint");
+    expect(output.value).toContain("re-run the command with --confirm-network-read");
+    expect(output.value).not.toContain("dispatch: cite.format");
+  });
+
+  it("dispatches confirmed pinpoint format-citation through the network-read path", async () => {
+    const input = Readable.from([
+      "/format-citation --mode pinpoint --url https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html --paragraph-number 1 --confirm-network-read\n",
+      "/quit\n",
+    ]);
+    const output = new StringWritable();
+    const calls: Array<{ tool: string; args: Record<string, unknown> }> = [];
+    const executor: TuiCommandExecutor = async (command, args) => {
+      calls.push({ tool: command.tool, args });
+      return {
+        text: JSON.stringify({ fullCitation: "[1]" }),
+        isError: false,
+        rawResult: {},
+      };
+    };
+
+    await runTui({ input, output, columns: 120, executor });
+
+    expect(calls).toEqual([
+      {
+        tool: "format_citation",
+        args: {
+          mode: "pinpoint",
+          url: "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+          paragraphNumber: 1,
+        },
+      },
+    ]);
+    expect(output.value).toContain("confirmed network read: cite.format mode=pinpoint");
+    expect(output.value).toContain("dispatch: cite.format");
+    expect(output.value).toContain('"fullCitation":"[1]"');
   });
 
   it("reaches local recall commands with graceful missing-corpus output", async () => {

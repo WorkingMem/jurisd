@@ -42,6 +42,11 @@ read/recall commands plus the accepted read-only web defaults
 commands, filesystem writes, network writes, destructive/admin actions, and
 operator commands remain blocked until they have explicit confirmation gates.
 
+`format-citation` is mode-sensitive in the TUI. Non-pinpoint formatting is local
+read-only, but `mode=pinpoint` fetches the supplied URL and must include the
+TUI-only `--confirm-network-read` flag before dispatch. The confirmation flag is
+stripped before MCP tool execution.
+
 Search results rendered in the TUI must show degraded provider state loudly,
 including warnings and source statuses, so AustLII Cloudflare blocks or
 Jade/Exa unavailability cannot fail silently.

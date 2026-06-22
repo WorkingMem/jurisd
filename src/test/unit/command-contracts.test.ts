@@ -56,7 +56,7 @@ describe("command contracts", () => {
     expect(getCommandContractByCliName("semantic-search-local")?.id).toBe("search.semanticLocal");
   });
 
-  it("keeps TUI enablement explicit and read-only", () => {
+  it("keeps TUI enablement explicit with conditional network reads gated", () => {
     const enabled = COMMAND_CONTRACTS.filter((contract) => contract.adapters.tui.enabled).map(
       (contract) => contract.id,
     );
@@ -78,6 +78,9 @@ describe("command contracts", () => {
     );
     expect(getCommandContractByCliName("search-legislation")?.adapters.tui.networkPolicy).toBe(
       "accepted_safe_default",
+    );
+    expect(getCommandContractByCliName("format-citation")?.adapters.tui.authorityNote).toContain(
+      "mode=pinpoint",
     );
     expect(getCommandContractByCliName("fetch-document-text")?.adapters.tui.enabled).toBe(false);
     expect(getCommandContractByCliName("cite")?.adapters.tui.enabled).toBe(false);
