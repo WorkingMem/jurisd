@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -19,8 +20,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: "22.x"
-          cache: "npm"
+          node-version: "24.x"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci
@@ -34,6 +36,22 @@ jobs:
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate package version
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          node <<'NODE'
+          const pkg = require("./package.json");
+          const expected = process.env.VERSION;
+          if (pkg.version !== expected) {
+            console.error(`package.json version ${pkg.version} does not match tag v${expected}`);
+            process.exit(1);
+          }
+          NODE
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
 
       - name: Extract release notes from CHANGELOG
         id: changelog

@@ -46,6 +46,10 @@
   "bugs": {
     "url": "https://github.com/russellbrenner/jurisd/issues"
   },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "author": "Russell Brenner",
   "license": "Apache-2.0",
   "type": "module",

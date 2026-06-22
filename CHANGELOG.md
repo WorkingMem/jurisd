@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No changes yet.
+### Changed
+
+- Added npm publication to the tag release workflow and made npm registry
+  installs the primary documented install path, with GitHub installs retained for
+  unreleased branch builds.
 
 ## [0.3.0] - 2026-06-21
 

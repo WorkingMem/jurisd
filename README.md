@@ -40,28 +40,26 @@ live results — when you supply your own session cookie.
 ### Run with npx (no clone)
 
 ```bash
-npx -y github:russellbrenner/jurisd
+npx -y jurisd
 ```
 
-`npx` installs the package from its built distribution and launches the server
-over stdio in one step.
+`npx` installs the published package and launches the server over stdio in one
+step.
 
-### Install the CLI persistently from GitHub
+### Install the CLI persistently
 
 ```bash
-npm install -g https://github.com/russellbrenner/jurisd/archive/refs/heads/main.tar.gz
+npm install -g jurisd
 jurisd --help
 ```
 
-Use the GitHub tarball form for persistent installs before the npm registry
-package is published. Bare git installs such as `npm install -g
-github:russellbrenner/jurisd` depend on npm's `install-links` setting and can
-leave a broken global bin on hosts where `install-links=false`.
+Need an unreleased branch build? Use `npx -y github:russellbrenner/jurisd#main`
+or the GitHub tarball form documented in [docs/INSTALL.md](docs/INSTALL.md).
 
 ### Register with Claude Code
 
 ```bash
-claude mcp add jurisd -- npx -y github:russellbrenner/jurisd
+claude mcp add jurisd -- npx -y jurisd
 ```
 
 Or add it to your client config directly:
@@ -71,7 +69,7 @@ Or add it to your client config directly:
   "mcpServers": {
     "jurisd": {
       "command": "npx",
-      "args": ["-y", "github:russellbrenner/jurisd"]
+      "args": ["-y", "jurisd"]
     }
   }
 }

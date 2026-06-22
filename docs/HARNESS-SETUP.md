@@ -11,14 +11,14 @@ Whatever the harness, the server is launched by one of these:
 
 | Form                                  | When to use                                    |
 | ------------------------------------- | ---------------------------------------------- |
-| `npx -y jurisd`                       | Once jurisd is published to the npm registry.  |
-| `npx -y github:russellbrenner/jurisd` | Before the npm publish (installs from GitHub). |
+| `npx -y jurisd`                       | Default npm registry install.                  |
+| `npx -y github:russellbrenner/jurisd` | Unreleased branch or main build validation.    |
 | `node /path/to/jurisd/dist/index.js`  | A local clone you build yourself.              |
 
-Every snippet below uses `npx -y jurisd`. **Pre-publish, substitute
-`github:russellbrenner/jurisd` for `jurisd`** in the `args` — nothing else
-changes. For a local clone, set `command` to `node` and `args` to the absolute
-path of `dist/index.js`.
+Every snippet below uses `npx -y jurisd`. For an unreleased branch build,
+substitute `github:russellbrenner/jurisd#main` (or another ref) for `jurisd` in
+the `args`. For a local clone, set `command` to `node` and `args` to the
+absolute path of `dist/index.js`.
 
 All env vars are optional (jurisd answers offline with no key). To pass one
 — e.g. your jade.io subscription cookie — add an `env` block to the server

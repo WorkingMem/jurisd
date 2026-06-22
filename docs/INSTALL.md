@@ -10,18 +10,17 @@ live AustLII layer needs network but no key; its Cloudflare-aware transport is a
 normal production dependency so hosted installs do not silently lose direct
 document fetch capability.
 
-## Day-0 install paths
+## Install paths
 
-### A. npx from GitHub (no clone)
+### A. npx from npm (no clone)
 
 ```bash
-npx -y github:russellbrenner/jurisd
+npx -y jurisd
 ```
 
-`npx` installs the package from the built distribution and launches the server
-over stdio. The first invocation does the clone and install; subsequent launches
-reuse the cached install. Pin a ref by appending `#<ref>` — e.g.
-`github:russellbrenner/jurisd#main`.
+`npx` installs the published package and launches the server over stdio. The
+first invocation downloads and installs the package; subsequent launches reuse
+the cached install.
 
 The native local-data package (`@duckdb/node-api`) and local embedding stack
 (`@huggingface/transformers` and its native dependencies) are optional because
@@ -37,34 +36,24 @@ Cloudflare-aware AustLII transport.
 
 ### B. npm global install
 
-Once the package is published to the npm registry, install the CLI globally with:
-
 ```bash
 npm install -g jurisd
 jurisd --help
 ```
 
-Before the registry publish, use the GitHub tarball archive for a persistent
-install:
+### C. GitHub branch or tarball fallback
+
+Use GitHub installs only when validating an unreleased branch or when the npm
+registry package is temporarily unavailable.
 
 ```bash
+npx -y github:russellbrenner/jurisd#main
 npm install -g https://github.com/russellbrenner/jurisd/archive/refs/heads/main.tar.gz
 jurisd --help
 ```
 
-The tarball archive materialises the package in the global prefix and creates a
-stable `jurisd` bin link. A bare git install such as `npm install -g
-github:russellbrenner/jurisd` depends on npm's `install-links` setting and can
-leave the global `jurisd` bin pointing at a temporary git clone that has already
-been removed on hosts where `install-links=false` is configured.
-
-If you intentionally want the bare git install form, force npm's linked install
-mode:
-
-```bash
-npm install -g --install-links=true github:russellbrenner/jurisd
-jurisd --help
-```
+Prefer the tarball form for persistent GitHub installs. Bare git global installs
+depend on npm's link mode and are not the supported persistent fallback.
 
 ## Optional native dependencies
 
@@ -86,7 +75,7 @@ npm install -g @duckdb/node-api@1.5.3-r.3
 npm install -g @huggingface/transformers@3.7.6
 ```
 
-### C. Local clone + npm
+### D. Local clone + npm
 
 ```bash
 git clone https://github.com/russellbrenner/jurisd.git
@@ -103,7 +92,7 @@ For local development use `npm run dev` (hot reload) instead of `build` + `start
 The fastest path:
 
 ```bash
-claude mcp add jurisd -- npx -y github:russellbrenner/jurisd
+claude mcp add jurisd -- npx -y jurisd
 ```
 
 Or, for a local clone:
@@ -124,7 +113,7 @@ If your client edits a JSON config directly (Claude Desktop's
   "mcpServers": {
     "jurisd": {
       "command": "npx",
-      "args": ["-y", "github:russellbrenner/jurisd"]
+      "args": ["-y", "jurisd"]
     }
   }
 }
