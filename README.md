@@ -40,11 +40,12 @@ live results — when you supply your own session cookie.
 ### Run with npx (no clone)
 
 ```bash
-npx -y github:russellbrenner/jurisd
+npx -y jurisd
 ```
 
 `npx` installs the package from its built distribution and launches the server
-over stdio in one step.
+over stdio in one step. Before the npm registry package is published, use
+`npx -y github:russellbrenner/jurisd`.
 
 ### Install the CLI persistently from GitHub
 
@@ -53,10 +54,17 @@ npm install -g https://github.com/russellbrenner/jurisd/archive/refs/heads/main.
 jurisd --help
 ```
 
-Use the GitHub tarball form for persistent installs before the npm registry
-package is published. Bare git installs such as `npm install -g
-github:russellbrenner/jurisd` depend on npm's `install-links` setting and can
-leave a broken global bin on hosts where `install-links=false`.
+Use the GitHub tarball form only for persistent installs before the npm registry
+package is published. After 0.4.0 is available on npm, prefer:
+
+```bash
+npm install -g jurisd
+jurisd --help
+```
+
+Bare git installs such as `npm install -g github:russellbrenner/jurisd` depend
+on npm's `install-links` setting and can leave a broken global bin on hosts where
+`install-links=false`.
 
 ### Register with Claude Code
 
@@ -120,15 +128,16 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 > directly. Configure a **fallback source**; results are still AustLII primary
 > sources (`austlii.edu.au` URLs) recovered through another channel.
 >
-> | Fallback    | Env var               | Cost             | You gain                                                                                                    | You lose                                                                                                                                    |
-> | ----------- | --------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-> | **Exa**     | `EXA_API_KEY`         | Paid (free tier) | Neural search returns the canonical AustLII case/legislation URL (usually rank #1), even for obscure cases. | Discovery only (URL + citation); full text is fetched separately.                                                                           |
-> | **jade.io** | `JADE_SESSION_COOKIE` | Free (account)   | Full-text search **and** document retrieval via jade.io, plus the citator.                                  | Needs a jade.io account; the session cookie expires and must be re-extracted.                                                               |
-> | **both**    | both of the above     | —                | Best coverage — jade runs first (free), Exa fills the gaps it misses.                                       | —                                                                                                                                           |
-> | **none**    | —                     | —                | —                                                                                                           | Search returns a degraded result whose warning names the env vars; document fetch still falls back to the local OALC corpus when available. |
+> | Fallback            | Env var               | Cost           | You gain                                                                                                        | You lose                                                                                                                                    |
+> | ------------------- | --------------------- | -------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+> | **Direct citation** | none                  | Free           | Queries containing a neutral citation such as `[2018] HCA 9` resolve directly to the canonical AustLII case URL. | Citation-only. It is not general natural-language search.                                                                                   |
+> | **Exa**             | `EXA_API_KEY`         | Paid/free tier | Search discovery returns canonical AustLII case/legislation URLs, even for obscure cases.                        | Discovery only (URL + citation); full text is fetched separately.                                                                           |
+> | **jade.io**         | `JADE_SESSION_COOKIE` | Free account   | Full-text search **and** document retrieval via jade.io, plus the citator.                                      | Needs a jade.io account; the session cookie expires and must be re-extracted.                                                               |
+> | **both**            | both of the above     | -              | Best coverage: jade runs first, Exa fills the gaps it misses.                                                   | -                                                                                                                                           |
+> | **none**            | -                     | -              | -                                                                                                               | Search returns a degraded result whose warning names the env vars; document fetch still falls back to the local OALC corpus when available. |
 >
-> Resolution order: free providers (jade live + AustLII, in case Cloudflare ever
-> relaxes) → Exa → degraded result. The document source remains AustLII throughout.
+> Resolution order: AustLII and jade.io, direct citation URL when present, Exa,
+> degraded result. The document source remains AustLII throughout.
 
 When AustLII search is Cloudflare-blocked, the tools degrade gracefully rather
 than failing: `search_cases` returns any jade.io (or Exa) results it can find

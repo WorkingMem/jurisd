@@ -36,6 +36,10 @@ const mainWorkflow = fs.readFileSync(
   new URL("../../../.github/workflows/main.yml", import.meta.url),
   "utf8",
 );
+const releaseWorkflow = fs.readFileSync(
+  new URL("../../../.github/workflows/release.yml", import.meta.url),
+  "utf8",
+);
 
 describe("package installability metadata", () => {
   it("points the CLI bin at the tracked built entrypoint", () => {
@@ -76,5 +80,14 @@ describe("package installability metadata", () => {
       'npm run clean && npm run build && git diff --exit-code -- dist && test -z "$(git status --porcelain -- dist)"',
     );
     expect(mainWorkflow).toContain("npm run check:dist");
+  });
+
+  it("publishes release tags through npm trusted publishing", () => {
+    expect(releaseWorkflow).toContain("id-token: write");
+    expect(releaseWorkflow).toContain('node-version: "24.x"');
+    expect(releaseWorkflow).toContain('registry-url: "https://registry.npmjs.org"');
+    expect(releaseWorkflow).toContain("package-manager-cache: false");
+    expect(releaseWorkflow).toContain("npm pack --dry-run");
+    expect(releaseWorkflow).toContain("npm publish --access public");
   });
 });

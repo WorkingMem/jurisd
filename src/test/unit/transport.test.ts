@@ -367,4 +367,30 @@ describe("fetcherForUrl (byte seam)", () => {
     expect(call?.[1]?.responseType).toBe("arraybuffer");
     expect(call?.[1]?.validateStatus?.(403)).toBe(true);
   });
+
+  it("reports the final axios response URL when redirects were followed", async () => {
+    const { default: axios } = await import("axios");
+    vi.mocked(axios.get).mockResolvedValueOnce({
+      data: new TextEncoder().encode("<html><body>redirected</body></html>").buffer,
+      status: 200,
+      headers: { "content-type": "text/html" },
+      request: {
+        res: { responseUrl: "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html" },
+      },
+    });
+
+    const fetcher = fetcherForUrl(
+      "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html",
+      "axios",
+    );
+    const r = await fetcher.get(
+      "https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html",
+      {
+        headers: { "User-Agent": "ua-test" },
+        timeoutMs: 4242,
+      },
+    );
+
+    expect(r.finalUrl).toBe("https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html");
+  });
 });

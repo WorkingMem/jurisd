@@ -42,12 +42,12 @@ export interface Config {
   exa: {
     /**
      * Exa API key (https://exa.ai). When set, Exa is used as a search-discovery
-     * fallback for AustLII when the live site is Cloudflare-blocked. Exa's
-     * neural search returns canonical austlii.edu.au case/legislation URLs.
+     * fallback for AustLII when the live site is Cloudflare-blocked. Exa returns
+     * canonical austlii.edu.au case/legislation URLs.
      * Never logged or echoed in error messages.
      */
     apiKey?: string;
-    /** Exa search type: "auto" (default), "neural", or "keyword". */
+    /** Exa search type, for example "auto" (default), "fast", or "deep". */
     searchType: string;
     /** Max results requested from Exa per query. */
     maxResults: number;

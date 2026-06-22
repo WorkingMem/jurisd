@@ -1,5 +1,4 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import * as cheerio from "cheerio";
 
 import type { FetchResponse } from "../services/fetcher.js";
 import type { SearchResult } from "../services/austlii.js";
@@ -16,72 +15,6 @@ export interface SearchWarning {
 export type SearchSourceStatus = "ok" | "blocked" | "not_configured" | "failed";
 export type SearchSourceStatuses = Record<string, SearchSourceStatus>;
 
-const ALLOWED_HTML_TAGS = new Set([
-  "a",
-  "article",
-  "blockquote",
-  "br",
-  "caption",
-  "code",
-  "dd",
-  "div",
-  "dl",
-  "dt",
-  "em",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "hr",
-  "li",
-  "ol",
-  "p",
-  "pre",
-  "section",
-  "span",
-  "strong",
-  "sub",
-  "sup",
-  "table",
-  "tbody",
-  "td",
-  "tfoot",
-  "th",
-  "thead",
-  "tr",
-  "u",
-  "ul",
-]);
-
-const REMOVED_HTML_TAGS = new Set([
-  "audio",
-  "button",
-  "canvas",
-  "embed",
-  "form",
-  "iframe",
-  "input",
-  "link",
-  "math",
-  "meta",
-  "object",
-  "script",
-  "select",
-  "source",
-  "style",
-  "svg",
-  "textarea",
-  "video",
-]);
-
-const GLOBAL_HTML_ATTRS = new Set(["class", "title"]);
-const TAG_HTML_ATTRS: Record<string, Set<string>> = {
-  a: new Set(["href", "name"]),
-  td: new Set(["colspan", "rowspan"]),
-  th: new Set(["colspan", "rowspan", "scope"]),
-};
 const MARKDOWN_INLINE_CHARS = new Set([
   "<",
   ">",
@@ -171,45 +104,6 @@ function markdownLink(label: string, url: string): string {
   const safeUrl = safeLinkUrl(url);
   const safeLabel = markdownInline(label);
   return safeUrl ? `[${safeLabel}](${safeUrl})` : safeLabel;
-}
-
-function isAllowedHtmlAttr(tagName: string, attrName: string): boolean {
-  return GLOBAL_HTML_ATTRS.has(attrName) || (TAG_HTML_ATTRS[tagName]?.has(attrName) ?? false);
-}
-
-function sanitiseHtmlFragment(input: string): string {
-  const $ = cheerio.load(input, null, false);
-  $("*").each((_, element) => {
-    const node = $(element);
-    const tagName = String(node.prop("tagName") ?? "").toLowerCase();
-
-    if (REMOVED_HTML_TAGS.has(tagName)) {
-      node.remove();
-      return;
-    }
-
-    if (!ALLOWED_HTML_TAGS.has(tagName)) {
-      node.replaceWith(node.contents());
-      return;
-    }
-
-    for (const [attrName, attrValue] of Object.entries(node.attr() ?? {})) {
-      const name = attrName.toLowerCase();
-      if (!isAllowedHtmlAttr(tagName, name)) {
-        node.removeAttr(attrName);
-        continue;
-      }
-      if (name === "href") {
-        const safeUrl = safeLinkUrl(attrValue);
-        if (safeUrl) {
-          node.attr(attrName, safeUrl);
-        } else {
-          node.removeAttr(attrName);
-        }
-      }
-    }
-  });
-  return $.root().html() ?? "";
 }
 
 export function formatSearchResults(
@@ -324,16 +218,14 @@ export function formatFetchResponse(
       };
     }
     case "html":
-      if (response.html) {
-        return {
-          content: ensureContent(
-            wrapInStyledDocument(sanitiseHtmlFragment(response.html), response.sourceUrl),
-          ),
-        };
-      }
       return {
         content: ensureContent(
-          `<article data-source="${escapeHtml(response.sourceUrl)}"><pre>${escapeHtml(response.text)}</pre></article>`,
+          wrapInStyledDocument(
+            `<article data-source="${escapeHtml(response.sourceUrl)}"><pre>${escapeHtml(
+              response.text,
+            )}</pre></article>`,
+            response.sourceUrl,
+          ),
         ),
       };
     case "markdown":

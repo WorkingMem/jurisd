@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { config } from "../../config.js";
-import { canonicaliseAustliiUrl, searchAustliiViaExa } from "../../services/exa.js";
+import {
+  canonicaliseAustliiUrl,
+  searchAustliiViaExa,
+  searchAustliiViaExaWithStatus,
+} from "../../services/exa.js";
 import type { SearchOptions } from "../../services/austlii.js";
 
 const caseOpts: SearchOptions = { type: "case" };
@@ -47,10 +51,12 @@ describe("canonicaliseAustliiUrl", () => {
 describe("searchAustliiViaExa", () => {
   const realFetch = globalThis.fetch;
   const realKey = config.exa.apiKey;
+  const realSearchType = config.exa.searchType;
 
   afterEach(() => {
     globalThis.fetch = realFetch;
     config.exa.apiKey = realKey;
+    config.exa.searchType = realSearchType;
     vi.restoreAllMocks();
   });
 
@@ -75,6 +81,7 @@ describe("searchAustliiViaExa", () => {
     expect(out).toHaveLength(1);
     expect(out[0]!.url).toBe("https://www.austlii.edu.au/au/cases/cth/HCA/2018/9.html");
     expect(out[0]!.source).toBe("austlii");
+    expect(out[0]!.discoverySource).toBe("exa-fallback");
     expect(out[0]!.neutralCitation).toBe("[2018] HCA 9");
     expect(out[0]!.type).toBe("case");
   });
@@ -106,6 +113,28 @@ describe("searchAustliiViaExa", () => {
     ]);
   });
 
+  it("filters Exa results to the requested jurisdiction", async () => {
+    config.exa.apiKey = "test-key";
+    globalThis.fetch = mockExa([
+      {
+        url: "https://www.austlii.edu.au/au/cases/nsw/NSWCA/2018/9.html",
+        title: "State result [2018] NSWCA 9",
+      },
+      {
+        url: "https://www.austlii.edu.au/au/cases/cth/HCA/2018/9.html",
+        title: "Federal result [2018] HCA 9",
+      },
+    ]);
+    const out = await searchAustliiViaExa(
+      "federal result",
+      { type: "case", jurisdiction: "cth" },
+      5,
+    );
+    expect(out.map((r) => r.url)).toEqual([
+      "https://www.austlii.edu.au/au/cases/cth/HCA/2018/9.html",
+    ]);
+  });
+
   it("dedupes mirror hosts that canonicalise to the same URL", async () => {
     config.exa.apiKey = "test-key";
     globalThis.fetch = mockExa([
@@ -129,11 +158,38 @@ describe("searchAustliiViaExa", () => {
     expect(out).toEqual([]);
   });
 
+  it("reports failed Exa status on a non-200 response", async () => {
+    config.exa.apiKey = "test-key";
+    globalThis.fetch = mockExa([], false, 401);
+    const out = await searchAustliiViaExaWithStatus("x", caseOpts, 5);
+    expect(out).toEqual({ results: [], status: "failed" });
+  });
+
   it("returns [] when fetch throws", async () => {
     config.exa.apiKey = "test-key";
     globalThis.fetch = vi.fn().mockRejectedValue(new Error("network")) as unknown as typeof fetch;
     const out = await searchAustliiViaExa("x", caseOpts, 5);
     expect(out).toEqual([]);
+  });
+
+  it("reports not_configured Exa status without an API key", async () => {
+    config.exa.apiKey = undefined;
+    const f = vi.fn();
+    globalThis.fetch = f as unknown as typeof fetch;
+    const out = await searchAustliiViaExaWithStatus("x", caseOpts, 5);
+    expect(out).toEqual({ results: [], status: "not_configured" });
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it("normalises legacy Exa search type values to a supported API value", async () => {
+    config.exa.apiKey = "test-key";
+    config.exa.searchType = "neural";
+    globalThis.fetch = mockExa([]);
+
+    await searchAustliiViaExaWithStatus("x", caseOpts, 5);
+
+    const body = JSON.parse(String(vi.mocked(globalThis.fetch).mock.calls[0]?.[1]?.body));
+    expect(body.type).toBe("auto");
   });
 
   it("respects the result limit", async () => {

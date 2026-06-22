@@ -373,21 +373,21 @@ describe("formatFetchResponse", () => {
     expect(text).toContain("data-source=");
   });
 
-  it("should use preserved HTML structure when available", () => {
+  it("renders escaped text instead of preserved source HTML when available", () => {
     const fetchWithHtml: FetchResponse = {
       ...sampleFetch,
       html: "<article><h1>Smith v Jones</h1><p>[1] Appeal allowed.</p></article>",
     };
     const result = formatFetchResponse(fetchWithHtml, "html");
     const text = getText(result.content);
-    expect(text).toContain("<h1>Smith v Jones</h1>");
-    expect(text).toContain("<p>[1] Appeal allowed.</p>");
-    expect(text).not.toContain("<pre>");
+    expect(text).toContain("<pre>This is a sample judgement text.</pre>");
+    expect(text).not.toContain("<h1>Smith v Jones</h1>");
   });
 
-  it("sanitises preserved HTML before wrapping the fetched response", () => {
+  it("does not render fetched source HTML as active markup", () => {
     const fetchWithHtml: FetchResponse = {
       ...sampleFetch,
+      text: "Smith v Jones\n[1] Appeal allowed.",
       html: [
         '<article onclick="evil()">',
         "<h1>Smith v Jones</h1>",
@@ -402,10 +402,12 @@ describe("formatFetchResponse", () => {
     };
     const result = formatFetchResponse(fetchWithHtml, "html");
     const text = getText(result.content);
-    expect(text).toContain("<h1>Smith v Jones</h1>");
-    expect(text).toContain("<a>bad</a>");
-    expect(text).toContain('<a href="https://example.test/doc">safe</a>');
-    expect(text).toContain('<span title="kept">Styled text</span>');
+    expect(text).toContain("<pre>Smith v Jones");
+    expect(text).toContain("[1] Appeal allowed.");
+    expect(text).not.toContain("<h1>Smith v Jones</h1>");
+    expect(text).not.toContain('href="javascript:alert(1)"');
+    expect(text).not.toContain('href="https://example.test/doc"');
+    expect(text).not.toContain('title="kept"');
     expect(text).not.toContain("onclick");
     expect(text).not.toContain("javascript:");
     expect(text).not.toContain("<script");

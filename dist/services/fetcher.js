@@ -214,6 +214,21 @@ function austliiDocumentTargets(url) {
         : [url, classicDoc, wwwDoc];
     return uniqueUrls(targets);
 }
+function isAustliiOrigin(url) {
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        return hostname === "austlii.edu.au" || hostname.endsWith(".austlii.edu.au");
+    }
+    catch {
+        return false;
+    }
+}
+function assertFinalAustliiUrl(requestUrl, finalUrl) {
+    if (isAustliiOrigin(finalUrl)) {
+        return;
+    }
+    throw new Error(`AustLII fetch redirected outside AustLII: ${requestUrl} -> ${finalUrl}`);
+}
 /**
  * Fetches an AustLII document through the impit TLS-impersonating transport,
  * detecting Cloudflare challenges and falling back to the local OALC corpus.
@@ -261,6 +276,13 @@ async function fetchAustliiDocument(url) {
         }
         if (r.status < 200 || r.status >= 300) {
             lastError = new HttpStatusError(target, r.status);
+            continue;
+        }
+        try {
+            assertFinalAustliiUrl(target, r.finalUrl);
+        }
+        catch (error) {
+            lastError = error;
             continue;
         }
         return parseDocumentBuffer(r.body, r.headers["content-type"], url, {

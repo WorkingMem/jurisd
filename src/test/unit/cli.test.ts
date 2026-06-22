@@ -253,7 +253,7 @@ describe("runCli tool loopback (offline tools)", () => {
     expect(process.exitCode).toBe(4);
     const parsed = JSON.parse(written) as { degraded: boolean; sources: Record<string, string> };
     expect(parsed.degraded).toBe(true);
-    expect(parsed.sources).toEqual({ austlii: "blocked" });
+    expect(parsed.sources).toEqual({ austlii: "blocked", exa: "not_configured" });
   });
 
   it("sets exitCode 4 when search-case coverage is incomplete", async () => {

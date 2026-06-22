@@ -367,7 +367,9 @@ class AxiosFetcher implements HttpFetcher {
       }
     }
     const body = Buffer.from(response.data);
-    return { status: response.status, headers, body, finalUrl: url, via: "axios" };
+    const request = response.request as { res?: { responseUrl?: string } } | undefined;
+    const finalUrl = request?.res?.responseUrl ?? url;
+    return { status: response.status, headers, body, finalUrl, via: "axios" };
   }
 }
 

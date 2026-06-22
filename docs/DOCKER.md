@@ -145,6 +145,10 @@ for a containerised run:
 | `AUSTLII_CF_CLEARANCE`         | _(unset)_               | Reuse an already-solved Cloudflare `cf_clearance` cookie.               |
 | `AUSLAW_USE_IMPIT`             | `true`                  | Use the impit TLS-impersonating client for AustLII.                     |
 | `AUSTLII_TRANSPORT`            | `auto`                  | Force `impit` or `axios` for AustLII fetches when debugging.            |
+| `EXA_API_KEY`                  | _(unset)_               | Exa key for AustLII URL discovery when native AustLII search is blocked. |
+| `EXA_SEARCH_TYPE`              | `auto`                  | Exa search type: `auto`, `instant`, `fast`, `deep-lite`, `deep`, or `deep-reasoning`. |
+| `EXA_MAX_RESULTS`              | `10`                    | Exa result headroom before post-filtering.                              |
+| `EXA_TIMEOUT`                  | `10000`                 | Exa request timeout (ms).                                               |
 | `TAVILY_API_KEY`               | _(unset)_               | Tavily API key for AustLII-only search fallback.                        |
 | `AUSTLII_TAVILY_FALLBACK`      | `false`                 | Set `true` to opt in after Cloudflare blocks AustLII search.            |
 | `TAVILY_SEARCH_DEPTH`          | `advanced`              | Tavily search depth, `advanced` or `basic`.                             |
@@ -154,11 +158,11 @@ for a containerised run:
 
 Pass with `-e KEY=value` or `--env-file .env` (see `.env.example`).
 
-When Tavily fallback is enabled, Tavily is used only to discover candidate
-AustLII URLs after native AustLII search is Cloudflare-blocked. jurisd still
-fetches the AustLII source document before returning metadata, and Tavily
-provider calls are rate-limited, cached briefly, and circuit-broken after
-provider failures.
+When native AustLII search is Cloudflare-blocked, neutral-citation queries can
+build a direct AustLII URL without calling a search provider. Exa and Tavily are
+used only to discover candidate AustLII URLs. jurisd still fetches the AustLII
+source document before returning metadata, and provider calls are rate-limited;
+Tavily calls are also cached briefly and circuit-broken after provider failures.
 
 ```bash
 docker run -i --rm \
