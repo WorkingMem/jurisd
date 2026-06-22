@@ -36,6 +36,18 @@ const mainWorkflow = fs.readFileSync(
   new URL("../../../.github/workflows/main.yml", import.meta.url),
   "utf8",
 );
+const releaseWorkflow = fs.readFileSync(
+  new URL("../../../.github/workflows/release.yml", import.meta.url),
+  "utf8",
+);
+
+function releaseWorkflowJob(name: string): string {
+  const match = releaseWorkflow.match(
+    new RegExp(`\\n  ${name}:\\n[\\s\\S]*?(?=\\n  [a-zA-Z0-9_-]+:\\n|$)`),
+  );
+  expect(match).not.toBeNull();
+  return match?.[0] ?? "";
+}
 
 describe("package installability metadata", () => {
   it("points the CLI bin at the tracked built entrypoint", () => {
@@ -76,5 +88,36 @@ describe("package installability metadata", () => {
       'npm run clean && npm run build && git diff --exit-code -- dist && test -z "$(git status --porcelain -- dist)"',
     );
     expect(mainWorkflow).toContain("npm run check:dist");
+  });
+
+  it("publishes release tags through npm trusted publishing", () => {
+    const verifyJob = releaseWorkflowJob("verify");
+    const publishJob = releaseWorkflowJob("publish");
+    const githubReleaseJob = releaseWorkflowJob("github-release");
+
+    expect(releaseWorkflow).toContain("permissions:\n  contents: read");
+    expect(verifyJob).toContain("permissions:\n      contents: read");
+    expect(verifyJob).not.toContain("id-token: write");
+    expect(verifyJob).toContain("persist-credentials: false");
+    expect(verifyJob).toContain('test "$TAG_VERSION" = "$PACKAGE_VERSION"');
+    expect(verifyJob).toContain("npm run check:dist");
+    expect(verifyJob).toContain("npm pack --json");
+    expect(verifyJob).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
+
+    expect(publishJob).toContain("needs: verify");
+    expect(publishJob).toContain("environment: npm-publish");
+    expect(publishJob).toContain("id-token: write");
+    expect(releaseWorkflow).toContain('node-version: "24.x"');
+    expect(releaseWorkflow).toContain("package-manager-cache: false");
+    expect(publishJob).toContain('registry-url: "https://registry.npmjs.org"');
+    expect(publishJob).toContain(
+      "actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131",
+    );
+    expect(publishJob).toContain("npm publish *.tgz --access public");
+    expect(publishJob).not.toContain("npm ci");
+    expect(publishJob).not.toContain("npm test");
+
+    expect(githubReleaseJob).toContain("needs: publish");
+    expect(githubReleaseJob).toContain("contents: write");
   });
 });

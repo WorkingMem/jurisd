@@ -5,7 +5,7 @@ export interface SearchResult {
     reportedCitation?: string;
     url: string;
     source: "austlii" | "source";
-    discoverySource?: "austlii-search" | "tavily-fallback";
+    discoverySource?: "austlii-search" | "tavily-fallback" | "exa-fallback" | "citation-url";
     summary?: string;
     jurisdiction?: string;
     year?: string;

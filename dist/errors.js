@@ -47,7 +47,7 @@ export class CloudflareBlockedError extends AustLiiError {
         return (`AustLII is behind a Cloudflare challenge and cannot be accessed directly ` +
             `(${resourceUrl})${fallbackClause}. Direct AustLII search and fetch are ` +
             "unavailable without a configured fallback source. Configure ONE of: " +
-            "EXA_API_KEY (Exa neural search — returns canonical austlii.edu.au URLs), or " +
+            "EXA_API_KEY (Exa search discovery returns canonical austlii.edu.au URLs), or " +
             "SESSION_COOKIE (removed.invalid full text). " +
             "Advanced: AUSTLII_CF_CLEARANCE from a solved browser session.");
     }

@@ -82,20 +82,23 @@ export function parseCitation(text) {
     };
 }
 export function formatAGLC4(info) {
-    let result = info.title;
-    if (info.neutralCitation) {
-        result += ` ${info.neutralCitation}`;
+    let result = info.title.trim();
+    if (info.neutralCitation && !containsCitation(result, info.neutralCitation)) {
+        result = result ? `${result} ${info.neutralCitation}` : info.neutralCitation;
     }
-    if (info.reportedCitation) {
-        if (info.neutralCitation) {
-            result += `,`;
-        }
-        result += ` ${info.reportedCitation}`;
+    if (info.reportedCitation && !containsCitation(result, info.reportedCitation)) {
+        const separator = info.neutralCitation ? ", " : " ";
+        result = result ? `${result}${separator}${info.reportedCitation}` : info.reportedCitation;
     }
     if (info.pinpoint) {
         result += ` at ${info.pinpoint}`;
     }
     return result;
+}
+function containsCitation(text, citation) {
+    const normalisedText = normaliseCitation(text).toLowerCase();
+    const normalisedCitation = normaliseCitation(citation).toLowerCase();
+    return normalisedCitation.length > 0 && normalisedText.includes(normalisedCitation);
 }
 export function shortFormAGLC4(title, pinpoint) {
     return pinpoint ? `${title} ${pinpoint}` : title;

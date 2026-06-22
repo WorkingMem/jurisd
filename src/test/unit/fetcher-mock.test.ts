@@ -171,6 +171,33 @@ describe("fetchDocumentText AustLII routing (transport seam)", () => {
     expect(result.metadata!.source).toBeUndefined();
   });
 
+  it("rejects a successful AustLII fetch whose final URL leaves AustLII", async () => {
+    getMock.mockResolvedValue({
+      status: 200,
+      headers: { "content-type": "text/html" },
+      body: Buffer.from(AUSTLII_CLASSIC_JUDGMENT_HTML, "utf-8"),
+      finalUrl: "https://removed.invalid/article/67683",
+      via: "impit" as const,
+    });
+
+    await expect(fetchDocumentText(MABO_URL)).rejects.toThrow(
+      /redirected outside AustLII.*source\.io/,
+    );
+  });
+
+  it("accepts a successful AustLII fetch whose final URL stays on an AustLII subdomain", async () => {
+    getMock.mockResolvedValue({
+      status: 200,
+      headers: { "content-type": "text/html" },
+      body: Buffer.from(AUSTLII_CLASSIC_JUDGMENT_HTML, "utf-8"),
+      finalUrl: "https://www4.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
+      via: "impit" as const,
+    });
+
+    const result = await fetchDocumentText(MABO_URL);
+    expect(result.text).toContain("Mabo");
+  });
+
   it("on CF challenge: consults OALC and returns oalc-fallback on a hit", async () => {
     getMock.mockResolvedValue({
       status: 403,

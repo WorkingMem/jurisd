@@ -10,7 +10,7 @@ import {
 } from "./utils/formatter.js";
 import { fetchDocumentText } from "./services/fetcher.js";
 import { searchAustLii, type SearchResult, type SearchOptions } from "./services/austlii.js";
-import { searchAustliiViaExa } from "./services/exa.js";
+import { searchAustliiViaExaWithStatus } from "./services/exa.js";
 import { mergeCaseSearchResults } from "./services/search-merge.js";
 import {
   resolveArticle,
@@ -89,6 +89,56 @@ function austliiUrlFromNeutral(neutralCitation: string): string | undefined {
   return `https://www.austlii.edu.au/cgi-bin/viewdoc/${austliiPath}/${year}/${num}.html`;
 }
 
+function jurisdictionFromAustliiPath(url: string): string | undefined {
+  try {
+    const pathParts = new URL(url).pathname.split("/");
+    const casesIndex = pathParts.indexOf("cases");
+    return casesIndex >= 0 ? pathParts[casesIndex + 1]?.toLowerCase() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function requestedJurisdiction(options: SearchOptions): string | undefined {
+  if (!options.jurisdiction || options.jurisdiction === "other") {
+    return undefined;
+  }
+  return options.jurisdiction === "federal" ? "cth" : options.jurisdiction;
+}
+
+function directAustliiResultFromNeutralQuery(
+  query: string,
+  options: SearchOptions,
+): SearchResult | undefined {
+  if (options.type !== "case") {
+    return undefined;
+  }
+  const neutralCitation = normaliseCitation(query).match(NEUTRAL_CITATION_PATTERN)?.[0];
+  if (!neutralCitation) {
+    return undefined;
+  }
+  const url = austliiUrlFromNeutral(neutralCitation);
+  if (!url) {
+    return undefined;
+  }
+  const jurisdiction = jurisdictionFromAustliiPath(url);
+  const requested = requestedJurisdiction(options);
+  if (requested && jurisdiction !== requested) {
+    return undefined;
+  }
+  const year = neutralCitation.match(/\[(\d{4})\]/)?.[1];
+  return {
+    title: neutralCitation,
+    neutralCitation,
+    url,
+    source: "austlii",
+    discoverySource: "citation-url",
+    jurisdiction,
+    year,
+    type: "case",
+  };
+}
+
 /**
  * Build a filesystem-safe key for a cited-by source file.
  * e.g. parent "mabo1992" + "[2024] HCA 5" → "mabo1992_citing_2024_hca_5"
@@ -111,7 +161,7 @@ function austliiSearchWarning(error: unknown): SearchWarning | undefined {
     source: "austlii",
     message:
       "AustLII search is blocked by a Cloudflare challenge. Configure EXA_API_KEY " +
-      "(Exa neural search) or SESSION_COOKIE (removed.invalid) to recover results; " +
+      "(Exa search discovery) or SESSION_COOKIE (removed.invalid) to recover results; " +
       "direct document fetch still works when you already have a URL.",
   };
 }
@@ -173,19 +223,19 @@ export function createMcpServer(): McpServer {
       } catch (error) {
         const warning = austliiSearchWarning(error);
         if (!warning) throw error;
-        const exaResults = await searchAustliiViaExa(
+        const exaOutcome = await searchAustliiViaExaWithStatus(
           query,
           options,
           limit ?? config.defaults.searchLimit,
         );
-        if (exaResults.length > 0) {
-          return formatSearchResults(exaResults, format ?? "json", {
-            sources: { austlii: "blocked", exa: "ok" },
+        if (exaOutcome.results.length > 0) {
+          return formatSearchResults(exaOutcome.results, format ?? "json", {
+            sources: { austlii: "blocked", exa: exaOutcome.status },
           });
         }
         return formatSearchResults([], format ?? "json", {
           warnings: [warning],
-          sources: { austlii: "blocked" },
+          sources: { austlii: "blocked", exa: exaOutcome.status },
         });
       }
     },
@@ -251,17 +301,23 @@ export function createMcpServer(): McpServer {
       sources.source = sourceOutcome.value.status;
       let merged = mergeCaseSearchResults(austliiResults, upstreamResults, limit);
 
-      // Exa neural-search fallback: when the free providers return nothing and
-      // AustLII was Cloudflare-blocked, recover canonical austlii.edu.au URLs.
+      // Deterministic citation URLs and Exa search discovery avoid failing the
+      // whole search when AustLII's own search endpoint is Cloudflare-blocked.
       if (merged.length === 0 && sources.austlii === "blocked") {
-        const exaResults = await searchAustliiViaExa(
-          query,
-          caseOptions,
-          limit ?? config.defaults.searchLimit,
-        );
-        if (exaResults.length > 0) {
-          merged = exaResults.slice(0, limit ?? config.defaults.searchLimit);
-          sources.exa = "ok";
+        const directResult = directAustliiResultFromNeutralQuery(query, caseOptions);
+        if (directResult) {
+          merged = [directResult];
+          sources.austlii_direct = "ok";
+        } else {
+          const exaOutcome = await searchAustliiViaExaWithStatus(
+            query,
+            caseOptions,
+            limit ?? config.defaults.searchLimit,
+          );
+          sources.exa = exaOutcome.status;
+          if (exaOutcome.results.length > 0) {
+            merged = exaOutcome.results.slice(0, limit ?? config.defaults.searchLimit);
+          }
         }
       }
 

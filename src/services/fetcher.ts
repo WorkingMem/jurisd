@@ -273,6 +273,22 @@ function austliiDocumentTargets(url: string): string[] {
   return uniqueUrls(targets);
 }
 
+function isAustliiOrigin(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === "austlii.edu.au" || hostname.endsWith(".austlii.edu.au");
+  } catch {
+    return false;
+  }
+}
+
+function assertFinalAustliiUrl(requestUrl: string, finalUrl: string): void {
+  if (isAustliiOrigin(finalUrl)) {
+    return;
+  }
+  throw new Error(`AustLII fetch redirected outside AustLII: ${requestUrl} -> ${finalUrl}`);
+}
+
 /**
  * Fetches an AustLII document through the impit TLS-impersonating transport,
  * detecting Cloudflare challenges and falling back to the local OALC corpus.
@@ -322,6 +338,13 @@ async function fetchAustliiDocument(url: string): Promise<FetchResponse> {
     }
     if (r.status < 200 || r.status >= 300) {
       lastError = new HttpStatusError(target, r.status);
+      continue;
+    }
+
+    try {
+      assertFinalAustliiUrl(target, r.finalUrl);
+    } catch (error) {
+      lastError = error;
       continue;
     }
 

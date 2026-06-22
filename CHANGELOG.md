@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
+## [0.4.0] - 2026-06-22
+
+### Added
+
+- Added direct AustLII case URL synthesis for neutral-citation queries, so
+  searches such as `[2018] HCA 9` can return the canonical AustLII URL without
+  calling AustLII search or a paid discovery provider.
+- Added machine-readable Exa fallback status (`ok`, `not_configured`, `failed`)
+  to degraded search responses so missing keys and provider failures are visible
+  instead of silently collapsing to an empty result set.
+- Added `docs/RELEASE.md` with the npm trusted-publishing setup and 0.4.0 tag
+  checklist.
+
+### Changed
+
+- Hardened Exa fallback filtering by requested type and jurisdiction, canonical
+  AustLII URL host, and current Exa search-type values.
+- Hardened AustLII fetch source integrity by rejecting redirects whose final URL
+  leaves the AustLII origin.
+- Render fetched-document HTML output from escaped source text rather than
+  replaying preserved provider HTML.
+- Updated AustLII fallback docs to distinguish direct citation URL resolution,
+  Exa search discovery, removed.invalid, and visible degraded coverage.
+
+### Packaging
+
+- Bumped the npm package version to `0.4.0`.
+- Extended the tag-triggered release workflow to validate generated artefacts,
+  lint, formatting, tests, package contents, and npm trusted publishing before
+  creating the GitHub release.
+
 ## [0.3.0] - 2026-06-21
 
 ### Added
@@ -197,7 +228,8 @@ legal research across AustLII and removed.invalid.
 - Source-store citeKey hardening against path traversal (#108)
 - Dependency updates resolving known HIGH severity advisories; npm audit in CI
 
-[Unreleased]: https://github.com/russellbrenner/jurisd/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/russellbrenner/jurisd/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/russellbrenner/jurisd/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/russellbrenner/jurisd/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/russellbrenner/jurisd/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/russellbrenner/jurisd/releases/tag/v0.1.0

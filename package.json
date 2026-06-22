@@ -1,6 +1,6 @@
 {
   "name": "jurisd",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Model Context Protocol server for Australian legislation and case law search.",
   "main": "dist/index.js",
   "bin": {

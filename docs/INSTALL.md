@@ -5,10 +5,10 @@ with an MCP-compatible client (Claude Code, Claude Desktop, Cursor), and the
 client launches it over stdio on demand.
 
 **The offline floor:** with **no API key and no network**, the local-module
-recall layer still answers. Every environment variable below is optional. The
-live AustLII layer needs network but no key; its Cloudflare-aware transport is a
-normal production dependency so hosted installs do not silently lose direct
-document fetch capability.
+recall layer still answers. Every environment variable below is optional. Direct
+AustLII document fetch uses the Cloudflare-aware transport, but AustLII search
+may be blocked by Cloudflare; in that case jurisd reports degraded coverage and
+uses configured discovery fallbacks instead of failing silently.
 
 ## Day-0 install paths
 
@@ -165,8 +165,10 @@ prompts.
 
 ## Environment variables (all optional)
 
-With none of these set, the live AustLII layer and the local-module recall layer
-both work. Set them only to enable the feature each one gates.
+With none of these set, the local-module recall layer works, direct AustLII URLs
+can still be fetched, and neutral-citation case queries can build direct AustLII
+URLs. General live search needs network access and, when AustLII search is
+Cloudflare-blocked, one of the configured discovery fallbacks below.
 
 ### Authentication / BYOK
 
@@ -207,34 +209,46 @@ distinction is capability presence, framed as baseline vs domain-specialised.
 
 ### Live layer / search defaults
 
-| Variable                  | Effect                                                 |
-| ------------------------- | ------------------------------------------------------ |
-| `LOG_LEVEL`               | `0`=DEBUG, `1`=INFO, `2`=WARN, `3`=ERROR.              |
-| `AUSTLII_SEARCH_BASE`     | AustLII search endpoint.                               |
-| `AUSTLII_REFERER`         | Referer header.                                        |
-| `AUSTLII_USER_AGENT`      | User-agent string.                                     |
-| `AUSTLII_TIMEOUT`         | Request timeout (ms).                                  |
-| `AUSTLII_CF_CLEARANCE`    | Optional pre-solved Cloudflare `cf_clearance` cookie.  |
-| `AUSLAW_USE_IMPIT`        | Set `false` to disable the default impit transport.    |
-| `AUSTLII_TRANSPORT`       | `auto`, `impit`, or `axios` for AustLII fetches.       |
-| `AUSTLII_TAVILY_FALLBACK` | Set `true` to opt in to Tavily search fallback.        |
-| `TAVILY_API_KEY`          | Tavily API key for AustLII search fallback.            |
-| `TAVILY_SEARCH_DEPTH`     | Tavily search depth: `advanced` (default) or `basic`.  |
-| `TAVILY_TIMEOUT`          | Tavily request timeout (ms).                           |
-| `TAVILY_MAX_RESULTS`      | Tavily max results, clamped to 1-20.                   |
-| `DEFAULT_SEARCH_LIMIT`    | Default search results (default 10).                   |
-| `MAX_SEARCH_LIMIT`        | Maximum search results (default 50).                   |
-| `DEFAULT_OUTPUT_FORMAT`   | Default format: `json` / `text` / `markdown` / `html`. |
-| `DEFAULT_SORT_BY`         | Default sort: `auto` / `relevance` / `date`.           |
+| Variable                  | Effect                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `LOG_LEVEL`               | `0`=DEBUG, `1`=INFO, `2`=WARN, `3`=ERROR.                                            |
+| `AUSTLII_SEARCH_BASE`     | AustLII search endpoint.                                                             |
+| `AUSTLII_REFERER`         | Referer header.                                                                      |
+| `AUSTLII_USER_AGENT`      | User-agent string.                                                                   |
+| `AUSTLII_TIMEOUT`         | Request timeout (ms).                                                                |
+| `AUSTLII_CF_CLEARANCE`    | Optional pre-solved Cloudflare `cf_clearance` cookie.                                |
+| `AUSLAW_USE_IMPIT`        | Set `false` to disable the default impit transport.                                  |
+| `AUSTLII_TRANSPORT`       | `auto`, `impit`, or `axios` for AustLII fetches.                                     |
+| `EXA_API_KEY`             | Exa key for AustLII URL discovery when native AustLII search is blocked.             |
+| `EXA_SEARCH_TYPE`         | Exa search type: `auto`, `instant`, `fast`, `deep-lite`, `deep`, or `deep-reasoning`. |
+| `EXA_MAX_RESULTS`         | Exa result headroom before post-filtering.                                           |
+| `EXA_TIMEOUT`             | Exa request timeout (ms).                                                            |
+| `AUSTLII_TAVILY_FALLBACK` | Set `true` to opt in to Tavily search fallback.                                      |
+| `TAVILY_API_KEY`          | Tavily API key for AustLII search fallback.                                          |
+| `TAVILY_SEARCH_DEPTH`     | Tavily search depth: `advanced` (default) or `basic`.                                |
+| `TAVILY_TIMEOUT`          | Tavily request timeout (ms).                                                         |
+| `TAVILY_MAX_RESULTS`      | Tavily max results, clamped to 1-20.                                                 |
+| `DEFAULT_SEARCH_LIMIT`    | Default search results (default 10).                                                 |
+| `MAX_SEARCH_LIMIT`        | Maximum search results (default 50).                                                 |
+| `DEFAULT_OUTPUT_FORMAT`   | Default format: `json` / `text` / `markdown` / `html`.                               |
+| `DEFAULT_SORT_BY`         | Default sort: `auto` / `relevance` / `date`.                                         |
 
-When AustLII search endpoints are blocked by a Cloudflare challenge and both
-`TAVILY_API_KEY` and `AUSTLII_TAVILY_FALLBACK=true` are set, jurisd sends the
-search terms to Tavily, asks for AustLII-only primary-source candidates, validates
-them against the requested type and jurisdiction, then fetches the AustLII source
-document before returning result metadata. Tavily extraction is not used for
-AustLII text, because direct extraction still fails on challenged AustLII pages.
-Tavily calls are rate-limited, cached briefly, and circuit-broken after provider
-failures so an exposed command surface does not loop against the configured key.
+When AustLII search endpoints are blocked by a Cloudflare challenge, jurisd first
+uses any already-returned removed.invalid results. If the query contains a neutral
+citation, such as `[1992] HCA 23`, it builds the canonical AustLII case URL from
+the citation without calling a search provider. If no direct citation URL is
+available and `EXA_API_KEY` is set, Exa is used only to discover AustLII
+primary-source URLs, filtered by requested type and jurisdiction. Exa text is not
+returned as source text.
+
+If both `TAVILY_API_KEY` and `AUSTLII_TAVILY_FALLBACK=true` are set, Tavily can
+also be used for candidate discovery. jurisd asks for AustLII-only primary-source
+candidates, validates them against the requested type and jurisdiction, then
+fetches the AustLII source document before returning result metadata. Tavily
+extraction is not used for AustLII text, because direct extraction still fails on
+challenged AustLII pages. Tavily calls are rate-limited, cached briefly, and
+circuit-broken after provider failures so an exposed command surface does not
+loop against the configured key.
 
 See [`.env.example`](../.env.example) for a copy-paste template and `src/config.ts`
 for every default.
