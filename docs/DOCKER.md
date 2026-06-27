@@ -1,6 +1,6 @@
 # Running jurisd in Docker
 
-jurisd ships as a multi-stage container image: a Debian-slim Node 20 runtime
+jurisd ships as a multi-stage container image: a Debian-slim Node 26 runtime
 with the compiled server and the two native dependencies that make the
 local-data and Cloudflare-aware fetch paths work (`@duckdb/node-api`, `impit`).
 
@@ -43,7 +43,7 @@ publish prebuilt binaries for `linux-x64-gnu` and `linux-arm64-gnu`. On Apple
 Silicon (podman/Docker Desktop default arm64 VM) you get the arm64 prebuild; on
 an x86 host, the x64 prebuild. Cross-building for a different arch requires
 `--platform` and an emulator (qemu/binfmt); the prebuilds still resolve because
-they are glibc-targeted (this is why the base is `node:20-bookworm-slim`, not
+they are glibc-targeted (this is why the base is `node:26-bookworm-slim`, not
 Alpine/musl).
 
 ## Use with Claude Code
@@ -138,6 +138,7 @@ for a containerised run:
 | `JURISD_MODULE_VERIFY_ON_LOAD` | `false`                 | sha256-verify each parquet against the manifest on load.                |
 | `JURISD_MODELS_DIR`            | `~/.jurisd/models`      | Embedder model cache (only used if transformers is added to the image). |
 | `JURISD_EMBED_OFFLINE`         | `false`                 | Hard-fail instead of fetching the embedder model over the network.      |
+| `AUSLAW_FETCH_TIMEOUT`         | `15000`                 | Generic (non-AustLII) document-fetch timeout (ms).                      |
 | `AUSTLII_TIMEOUT`              | `60000`                 | AustLII request timeout (ms); AustLII is slow.                          |
 | `AUSTLII_CF_CLEARANCE`         | _(unset)_               | Reuse an already-solved Cloudflare `cf_clearance` cookie.               |
 | `AUSLAW_USE_IMPIT`             | `true`                  | Use the impit TLS-impersonating client for AustLII (needs impit).       |
@@ -170,7 +171,7 @@ docker compose down
 ## Verifying the image
 
 `scripts/docker-handshake.mjs` drives the stdio `initialize` + `tools/list`
-exchange and asserts the tool count (12):
+exchange and asserts the tool count (15):
 
 ```bash
 node scripts/docker-handshake.mjs --engine docker --image jurisd:latest

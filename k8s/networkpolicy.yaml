@@ -1,8 +1,8 @@
 ---
 # Default-deny + least-privilege egress for the jurisd workload.
 #
-# jurisd's whole purpose is making OUTBOUND HTTP requests to AustLII with a
-# TLS-impersonating client. Without a NetworkPolicy a
+# jurisd's whole purpose is making OUTBOUND HTTP requests to legal sources
+# (AustLII) with a TLS-impersonating client. Without a NetworkPolicy a
 # compromised pod (e.g. via a dependency parsing attacker-influenced fetched
 # content) has unrestricted egress to the internet AND to internal cluster
 # services / the cloud metadata endpoint — ideal for SSRF pivoting and exfil.

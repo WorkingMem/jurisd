@@ -106,6 +106,38 @@ Prefix types:
 
 ## Development Guidelines
 
+### Command contracts and public surfaces
+
+jurisd has multiple public adapters: MCP, CLI, and future TUI. Do not add or change a public command by editing one adapter only.
+
+Foundation PR 1 is introducing the command contract registry. Once present, add or change public commands through that registry.
+
+For any command-surface change:
+
+1. Preserve MCP compatibility while the registry is being introduced.
+2. Update the command contract registry once present.
+3. Update or regenerate public help/reference docs.
+4. Update `docs/MCP-COMPATIBILITY.md` once present if MCP exposure changes. Before then, update the MCP tool-surface tests.
+5. Add or update tests for CLI routing, help, metadata completeness, and MCP compatibility.
+6. Document side-effect class, capability gates, and output behaviour.
+
+MCP tools are curated. Operator/install/update/destructive commands remain CLI-only unless a later authority decision explicitly allows MCP exposure.
+
+### Security-sensitive changes
+
+Run an explicit security review for changes involving:
+
+- URLs or source fetching
+- local file paths
+- credentials or provider keys
+- terminal rendering
+- shell completions
+- MCP tool exposure
+- command parsing
+- graph/corpus/review mutations
+
+Never commit secrets, `.env` files, provider tokens, cookies, or credential-bearing URLs.
+
 ### Code Style
 
 Key principles:
@@ -293,7 +325,6 @@ src/
 ├── data/                 # Data-module manifest schema + types
 ├── services/
 │   ├── austlii.ts       # AustLII search integration
-│   ├── modules.ts       # Local data-module loader (DuckDB over parquet)
 │   └── fetcher.ts       # Document text retrieval
 ├── utils/
 │   ├── formatter.ts      # Output formatting

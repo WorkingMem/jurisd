@@ -22,7 +22,7 @@ so you can tell a genuine miss from an error.
 | ---------------------------------- | ----------------------- | -------------------------------------------- |
 | Read a specific provision (`s 18`) | `get_provision`         | `search_legislation` → `fetch_document_text` |
 | Act outline / structure            | `get_act_structure`     | `search_legislation` → `fetch_document_text` |
-| Who cites this case                | `find_citing`           | — (offline only; install a decisions module) |
+| Who cites this case                | `find_citing`           | —                                            |
 | Concept / natural-language recall  | `semantic_search_local` | `search_cases` / `search_legislation`        |
 
 Always check `list_data_modules` once at the start of a research session so you know
@@ -37,8 +37,8 @@ with module name, version, and snapshot date; mind the staleness advisory.
   authority-ranked). `method`: auto/title/phrase/all/any/near/boolean;
   `jurisdiction`; `sortBy` auto/relevance/date; `offset` for pagination.
 - **`search_legislation`** — same controls for legislation (`method` adds `legis`).
-- **`fetch_document_text`** — full text from an AustLII URL (HTML, digital-text PDF via
-  pdf-parse). Pass `citeKey` to also save a local source copy + freshness headers.
+- **`fetch_document_text`** — full text from an AustLII URL (HTML, PDF via
+  pdf-parse, OCR fallback). Pass `citeKey` to also save a local source copy + freshness headers.
 
 ### Citation + bibliography (AGLC4)
 
@@ -50,13 +50,13 @@ with module name, version, and snapshot date; mind the staleness advisory.
 - **`cite`** — write to the local cache. `action`: `add` (default; assigns a biblatex
   cite key, returns AGLC4 string) or `refresh_source` (conditional-HEAD freshness check).
 - **`bibliography`** — read the cache (no network). `op`: `get`, `list` (default),
-  `export` (writes a `.bib`), `cited_by` (populated offline via `find_citing`).
+  `export` (writes a `.bib`), `cited_by`.
 
 ### Local data modules (offline)
 
 - **`get_provision`** — deterministic single-provision lookup (no embedding/ranking).
 - **`get_act_structure`** — containment tree (Act → Part → Division → section/sched/clause).
-- **`find_citing`** — offline citator, with each citation's provenance span.
+- **`find_citing`** — offline citator twin, with each citation's provenance span.
   `kinds`: `cites`/`considers` (considers = stronger substantive engagement).
 - **`semantic_search_local`** — local vector recall (bge-small, offline, no key);
   optional `filter` on jurisdiction/type/segment_type; `k` results.
@@ -68,9 +68,8 @@ with module name, version, and snapshot date; mind the staleness advisory.
 - **`resolve_citation` vs `search_cases`**: if you already have a citation or a precise
   case name, use `resolve_citation` (it validates the neutral cite and hands back the
   canonical URL). Use `search_cases` for open-ended topic discovery.
-- **`find_citing`**: who-cites-what is offline only — install a decisions module that
-  covers the area, then `find_citing` gives deterministic results with provenance spans.
-  There is no live citator; outside module coverage, fall back to topic search.
+- **`find_citing` (local)**: use `find_citing` when a module covers the area — it is
+  offline, deterministic, and gives provenance spans for each citation.
 - **`get_provision` vs `search_legislation`**: a known provision (`s 18`, `sch 2`,
   `reg 12`, `cl 4(1)`) → `get_provision`. On a typed not-found, fall through to
   `search_legislation` then `fetch_document_text`.
@@ -105,7 +104,7 @@ Filter to one logical document with `document`. List/inspect with `op=list` / `o
 3. **Verify** — `resolve_citation mode=validate`, or read with `fetch_document_text`.
 4. **Pinpoint** — `format_citation mode=pinpoint` (url + paragraphNumber/phrase).
 5. **Cache** — `cite action=add` to record the source and get a cite key + AGLC4 string;
-   use `find_citing` (offline, with a decisions module) to pull who-cites-it.
+   optionally `find_citing` offline to see who-cites-it.
 6. **Bibliography** — `bibliography op=export` to emit the `.bib`.
 
 ## Module management

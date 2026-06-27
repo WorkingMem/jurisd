@@ -714,7 +714,7 @@ export interface FindCitingResult {
 }
 
 /**
- * Local twin of `search_citing_cases`: documents in installed modules whose
+ * Local cited-by recall: documents in installed modules whose
  * text cites `target`, via edges of kind cites/considers whose dst resolves to
  * the target. Runs per ready module and unions the results — each hit carries
  * the metadata of the module it came from (each module is a closed world).

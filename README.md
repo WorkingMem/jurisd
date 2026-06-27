@@ -92,7 +92,7 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `search_cases`        | Natural-language case-law search across all AU/NZ jurisdictions; authority ranking; title/phrase/boolean methods; pagination. |
 | `search_legislation`  | Search AU/NZ legislation with the same method/jurisdiction/sort controls.                                                     |
-| `fetch_document_text` | Fetch full text from an AustLII URL (HTML and digital-text PDF).                                                              |
+| `fetch_document_text` | Fetch full text from an AustLII URL (HTML, PDF, OCR fallback).                                                                |
 
 ### Citation + bibliography (AGLC4)
 
@@ -115,7 +115,7 @@ and snapshot date (plus a staleness advisory when the snapshot is old).
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `get_provision`         | Deterministic provision lookup (e.g. `s 18` of an Act). No embedding, no ranking; typed not-found so the router can fall through.                      |
 | `get_act_structure`     | Containment tree of an Act (Act → Part → Division → section/schedule/clause) over `act_provision` edges, closed-world.                                 |
-| `find_citing`           | Offline citator: documents in installed modules that cite a target, with each citation's provenance span.                                              |
+| `find_citing`           | Documents in installed modules that cite a target, with each citation's provenance span.                                                               |
 | `semantic_search_local` | Vector recall: the query is embedded locally (bge-small, offline, no key) and ranked by cosine over chunk embeddings, with optional facet pre-filters. |
 | `list_data_modules`     | Introspect installed modules: coverage, doc/chunk counts, embedding descriptor, load status, snapshot date and staleness.                              |
 
@@ -219,7 +219,7 @@ state, not a marketing number.
 
 ## Licensing
 
-- **Code:** MIT (see [LICENSE](LICENSE)). Third-party dependency licences are
+- **Code:** Apache-2.0 (see [LICENSE](LICENSE)). Third-party dependency licences are
   catalogued in [LICENSE-THIRD-PARTY.md](LICENSE-THIRD-PARTY.md).
 - **Module data:** licensed **per source**, declared in each module's
   `manifest.json` `licence` block, and surfaced at `fetch-module` install time.
@@ -339,4 +339,4 @@ advice.**
 
 ## License
 
-MIT
+Apache-2.0

@@ -4,7 +4,7 @@
 
 server:
   name: jurisd
-  version: 0.1.0
+  version: 0.2.0
   description: Australian legislation and case law searcher with document retrieval.
 
 austlii:
@@ -22,7 +22,7 @@ austlii:
 
 fetch:
   # User agent for generic (non-AustLII) document fetches
-  userAgent: ${AUSLAW_FETCH_USER_AGENT:-jurisd/0.1.0 (legal research tool)}
+  userAgent: ${AUSLAW_FETCH_USER_AGENT:-jurisd/0.2.0 (legal research tool)}
 
   # Request timeout in milliseconds
   timeout: ${AUSLAW_FETCH_TIMEOUT:-15000}

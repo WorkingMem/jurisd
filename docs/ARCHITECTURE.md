@@ -14,7 +14,7 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 - AustLII case + legislation search
 - Digital PDF text extraction (pdf-parse)
 - AGLC4 citation formatting
-- Offline local-data-module recall (provision lookup, Act structure, citation graph, semantic search)
+- Local data-module citation recall (offline)
 
 ---
 
@@ -29,7 +29,7 @@ flowchart TD
         Local["Local data-module recall (5, offline):<br/>get_provision, get_act_structure, find_citing,<br/>semantic_search_local, list_data_modules"]
     end
 
-    LiveSrc["Live source:<br/>AustLII (primary search + fetch)"]
+    LiveSrc["Live sources:<br/>AustLII (primary search)"]
     Modules["Local data modules<br/>(DuckDB over parquet)"]
     Adapter["Domain-adapter slot (optional):<br/>baseline vs domain-specialised, BYOK"]
 
@@ -69,7 +69,7 @@ Local data-module recall (5; offline, closed-world over installed modules):
 |------|-------------|
 | get_provision | Deterministic provision lookup (no embedding, no ranking) |
 | get_act_structure | Containment tree via `act_provision` edges |
-| find_citing | Offline citator (cites/considers edges) |
+| find_citing | Offline citator over installed modules (cites/considers edges) |
 | semantic_search_local | Local-embedding cosine recall over chunk vectors |
 | list_data_modules | Introspect installed modules (metadata only) |
 
@@ -138,13 +138,14 @@ MCP_TRANSPORT=http npm start
 
 ## Configuration
 
-| Variable            | Default           | Description                                   |
-| ------------------- | ----------------- | --------------------------------------------- |
-| AUSTLII_SEARCH_BASE | AustLII URL       | Search endpoint                               |
-| AUSTLII_TIMEOUT     | 60000             | Request timeout (ms)                          |
-| MCP_TRANSPORT       | stdio             | stdio or http                                 |
-| ISAACUS_API_KEY     | —                 | BYOK key for the optional domain-adapter slot |
-| JURISD_MODULES_DIR  | ~/.jurisd/modules | Installed local data-module root              |
+| Variable             | Default           | Description                                   |
+| -------------------- | ----------------- | --------------------------------------------- |
+| AUSTLII_SEARCH_BASE  | AustLII URL       | Search endpoint                               |
+| AUSTLII_TIMEOUT      | 60000             | Request timeout (ms)                          |
+| AUSLAW_FETCH_TIMEOUT | 15000             | Generic document-fetch timeout (ms)           |
+| MCP_TRANSPORT        | stdio             | stdio or http                                 |
+| ISAACUS_API_KEY      | —                 | BYOK key for the optional domain-adapter slot |
+| JURISD_MODULES_DIR   | ~/.jurisd/modules | Installed local data-module root              |
 
 ---
 
@@ -174,4 +175,4 @@ npx vitest run src/test/unit/   # Unit only (fast, no network)
 
 ---
 
-**License:** MIT
+**License:** Apache-2.0

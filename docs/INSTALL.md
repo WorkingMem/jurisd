@@ -215,6 +215,6 @@ a key.
 ## Docker and Kubernetes
 
 For container and k3s deployment, see [DOCKER.md](DOCKER.md) and
-[../k8s/README.md](../k8s/README.md). Store `ISAACUS_API_KEY` in a Kubernetes
-Secret (not a ConfigMap) and reference it via `envFrom` or
-`env[].valueFrom.secretKeyRef`.
+[../k8s/README.md](../k8s/README.md). Store
+`ISAACUS_API_KEY` in a Kubernetes Secret (not a
+ConfigMap) and reference it via `envFrom` or `env[].valueFrom.secretKeyRef`.

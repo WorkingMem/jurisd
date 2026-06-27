@@ -85,17 +85,12 @@ cite {
 
 ### 6. (Optional) who relies on it
 
-Who-cites-what is offline-only. With a decisions module installed, I trace later
-citing cases with `find_citing`:
+When a decisions module covers the area, I trace later citing cases offline:
 
 ```
 find_citing { target: "Mabo v Queensland (No 2) [1992] HCA 23" }
-→ { count: 27, results: [ { caseName: "...", neutralCitation: "...",
-    provenance: { ... } }, ... ] }
+→ { target: "mabo1992", count: 27, citations: [ ... ] }
 ```
-
-Without a decisions module covering the area, `find_citing` returns a typed
-not-found and I fall back to topic search.
 
 ### 7. Emit the bibliography
 

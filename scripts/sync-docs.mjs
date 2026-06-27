@@ -56,7 +56,7 @@ function getAnnotation(relPath) {
     "src/constants.ts": " # Shared constants",
     "src/errors.ts": " # Error types and handling",
     "src/services/austlii.ts": " # AustLII search integration",
-    "src/services/fetcher.ts": " # Document text retrieval (HTML/PDF)",
+    "src/services/fetcher.ts": " # Document text retrieval (HTML/PDF/OCR)",
     "src/utils/formatter.ts": " # Output formatting (JSON/text/markdown/html)",
     "src/utils/logger.ts": " # Logging utility",
     "docs/DOCKER.md": " # Docker deployment guide",

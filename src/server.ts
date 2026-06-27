@@ -745,7 +745,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Bibliography (Read Citation Cache)",
       description:
-        "Read from the local citation cache without network calls. op=get retrieves one citation by cite key, AGLC4 string, neutral citation, or title. op=list (default) lists cached citations, optionally filtered to a document. op=export writes a BibLaTeX .bib file and returns the bib text. op=cited_by returns the locally cached cited-by list for a citation (run cache_cited_by first to populate).",
+        "Read from the local citation cache without network calls. op=get retrieves one citation by cite key, AGLC4 string, neutral citation, or title. op=list (default) lists cached citations, optionally filtered to a document. op=export writes a BibLaTeX .bib file and returns the bib text. op=cited_by returns the locally cached cited-by list for a citation.",
       inputSchema: bibliographyShape,
     },
     async (rawInput) => {
@@ -847,7 +847,7 @@ export function createMcpServer(): McpServer {
                   citedByFetchedAt: entry.citedByFetchedAt ?? null,
                   totalCount: entry.citedByTotalCount ?? 0,
                   citedBy: [],
-                  note: "No cited-by data cached. Run cache_cited_by to populate.",
+                  note: "No cited-by data cached.",
                 }),
               },
             ],

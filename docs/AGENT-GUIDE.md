@@ -110,7 +110,7 @@
       "court": "HCA",
       "date": "2024-02-15",
       "url": "https://www.austlii.edu.au/...",
-      "source": "austlii",
+      "source": "source",
       "snippet": "..."
     }
   ]
@@ -153,7 +153,7 @@
 **Supported URLs:**
 
 - AustLII HTML: https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html
-- AustLII PDF (digital text): https://www.austlii.edu.au/...
+- AustLII PDF: https://www.austlii.edu.au/...
 
 **Response Format:**
 
@@ -370,7 +370,7 @@
 
 5. **Use pinpoint for precision:** When referencing specific passages, generate pinpoint citations.
 
-6. **Trace subsequent treatment:** With a decisions module installed, use find_citing to see who cites a case.
+6. **Check citing cases:** Use find_citing (offline, when a module covers the area) to find subsequent treatment of a case.
 
 ---
 
@@ -399,15 +399,22 @@
 { "tool": "format_citation", "arguments": { "title": "...", "neutralCitation": "[2024] HCA 1" } }
 ```
 
+**Step 4:** Find citing cases (offline, when a module covers the area)
+
+```json
+{ "tool": "find_citing", "arguments": { "caseName": "[2024] HCA 1" } }
+```
+
 ---
 
 ## Configuration
 
 ### Environment Variables (User-Provided)
 
-| Variable        | Purpose                                       | Required                                    |
-| --------------- | --------------------------------------------- | ------------------------------------------- |
-| ISAACUS_API_KEY | BYOK key for the optional domain-adapter slot | For the optional domain-specialised adapter |
+| Variable         | Purpose                                       | Required                                    |
+| ---------------- | --------------------------------------------- | ------------------------------------------- |
+| ISAACUS_API_KEY  | BYOK key for the optional domain-adapter slot | For the optional domain-specialised adapter |
+| LITELLM_BASE_URL | LiteLLM gateway                               | For generative fallback                     |
 
 ---
 
@@ -417,7 +424,7 @@
 | ------- | ----------- | -------- |
 | AustLII | 10 requests | 1 minute |
 
-**Note:** This is enforced server-side. Exceeding the limit returns an error, not cached results.
+**Note:** These are enforced server-side. Exceeding limits returns errors, not cached results.
 
 ---
 
@@ -429,5 +436,5 @@
 
 ---
 
-**License:** MIT  
+**License:** Apache-2.0
 **Contact:** contact@workingmem.ai

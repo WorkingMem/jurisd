@@ -36,7 +36,7 @@ data:
     # jurisd Configuration
     server:
       name: jurisd
-      version: 0.1.0
+      version: 0.2.0
       description: Australian legislation and case law searcher with document retrieval.
 
     austlii:
