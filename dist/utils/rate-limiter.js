@@ -64,8 +64,6 @@ export class RateLimiter {
 }
 /** Rate limiter for AustLII: 10 requests per minute */
 export const austliiRateLimiter = new RateLimiter(10);
-/** Rate limiter for removed.invalid: 5 requests per minute */
-export const upstreamRateLimiter = new RateLimiter(5);
 /** Rate limiter for Tavily fallback discovery: 5 requests per minute */
 export const tavilyRateLimiter = new RateLimiter(5, { maxQueue: 20 });
 //# sourceMappingURL=rate-limiter.js.map

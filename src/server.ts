@@ -13,12 +13,6 @@ import { searchAustLii, type SearchResult, type SearchOptions } from "./services
 import { searchAustliiViaExaWithStatus } from "./services/exa.js";
 import { mergeCaseSearchResults } from "./services/search-merge.js";
 import {
-  resolveArticle,
-  buildCitationLookupUrl,
-  searchUpstreamWithStatus,
-  searchCitingCases,
-} from "./services/source.js";
-import {
   formatAGLC4,
   formatShortForm,
   validateCitation,
@@ -37,9 +31,6 @@ import {
   listCitations,
   exportBib,
   updateSourceFields,
-  updateCitedBy,
-  updateCitedBySource,
-  type CitedByRef,
 } from "./services/citation-cache.js";
 import { storeSource, checkSourceFreshness } from "./services/source-store.js";
 import {
@@ -139,21 +130,6 @@ function directAustliiResultFromNeutralQuery(
   };
 }
 
-/**
- * Build a filesystem-safe key for a cited-by source file.
- * e.g. parent "mabo1992" + "[2024] HCA 5" → "mabo1992_citing_2024_hca_5"
- */
-function citedBySourceKey(parentCiteKey: string, neutralCitation: string): string {
-  const slug = neutralCitation
-    .replace(/[[\]]/g, "")
-    .replace(/\s+/g, "_")
-    .replace(/[^a-zA-Z0-9_]/g, "")
-    .replace(/_+/g, "_")
-    .replace(/^_|_$/g, "")
-    .toLowerCase();
-  return `${parentCiteKey}_citing_${slug}`;
-}
-
 function austliiSearchWarning(error: unknown): SearchWarning | undefined {
   if (!(error instanceof CloudflareBlockedError)) return undefined;
   return {
@@ -161,7 +137,7 @@ function austliiSearchWarning(error: unknown): SearchWarning | undefined {
     source: "austlii",
     message:
       "AustLII search is blocked by a Cloudflare challenge. Configure EXA_API_KEY " +
-      "(Exa search discovery) or SESSION_COOKIE (removed.invalid) to recover results; " +
+      "(Exa search discovery) to recover results; " +
       "direct document fetch still works when you already have a URL.",
   };
 }
@@ -169,8 +145,8 @@ function austliiSearchWarning(error: unknown): SearchWarning | undefined {
 /**
  * Build a fresh McpServer with all tools registered.
  *
- * Tool surface follows the tool-surface consolidation: 10 base tools, with
- * mode/op/action dispatch replacing the former one-tool-per-operation layout.
+ * Tool surface follows the tool-surface consolidation: mode/op/action dispatch
+ * replaces the former one-tool-per-operation layout.
  *
  * In stateless HTTP mode (`sessionIdGenerator: undefined`), each request
  * requires its own server + transport instance because
@@ -277,29 +253,18 @@ export function createMcpServer(): McpServer {
       const warnings: SearchWarning[] = [];
       const sources: SearchSourceStatuses = {};
 
-      // Run AustLII and removed.invalid searches independently so a blocked AustLII
-      // search cannot discard useful removed.invalid case results.
-      const [austliiOutcome, sourceOutcome] = await Promise.allSettled([
-        searchAustLii(query, caseOptions),
-        searchUpstreamWithStatus(query, { type: "case", jurisdiction, limit }),
-      ]);
-
       let austliiResults: SearchResult[] = [];
-      if (austliiOutcome.status === "fulfilled") {
-        austliiResults = austliiOutcome.value;
+      try {
+        austliiResults = await searchAustLii(query, caseOptions);
         sources.austlii = "ok";
-      } else {
-        const warning = austliiSearchWarning(austliiOutcome.reason);
-        if (!warning) throw austliiOutcome.reason;
+      } catch (error) {
+        const warning = austliiSearchWarning(error);
+        if (!warning) throw error;
         warnings.push(warning);
         sources.austlii = "blocked";
       }
 
-      if (sourceOutcome.status === "rejected") throw sourceOutcome.reason;
-
-      const upstreamResults = sourceOutcome.value.results;
-      sources.source = sourceOutcome.value.status;
-      let merged = mergeCaseSearchResults(austliiResults, upstreamResults, limit);
+      let merged = mergeCaseSearchResults(austliiResults, limit);
 
       // Deterministic citation URLs and Exa search discovery avoid failing the
       // whole search when AustLII's own search endpoint is Cloudflare-blocked.
@@ -350,7 +315,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Fetch Document Text",
       description:
-        "Fetch full text for a legislation or case URL (AustLII or removed.invalid). When a `citeKey` is supplied and AUSLAW_FETCH_SOURCES is not set to 'false', also saves a local markdown copy to the sources directory and updates the cache entry's HTTP freshness headers. Without `citeKey`, only the document text is returned.",
+        "Fetch full text for a legislation or case URL (AustLII). When a `citeKey` is supplied and AUSLAW_FETCH_SOURCES is not set to 'false', also saves a local markdown copy to the sources directory and updates the cache entry's HTTP freshness headers. Without `citeKey`, only the document text is returned.",
       inputSchema: fetchDocumentShape,
     },
     async (rawInput) => {
@@ -382,75 +347,6 @@ export function createMcpServer(): McpServer {
       }
 
       return formatFetchResponse(response, format ?? "json");
-    },
-  );
-
-  // ── source_lookup ───────────────────────────────────────────────────────────
-  const sourceLookupShape = {
-    by: z
-      .enum(["article_id", "citation"])
-      .describe(
-        "Lookup key: article_id resolves metadata for a numeric removed.invalid article ID; citation builds a removed.invalid lookup URL for a neutral citation",
-      ),
-    articleId: z
-      .number()
-      .int()
-      .min(1)
-      .optional()
-      .describe("removed.invalid article ID — required when by=article_id"),
-    citation: z
-      .string()
-      .min(1)
-      .optional()
-      .describe("Neutral citation, e.g. '[2008] NSWSC 323' — required when by=citation"),
-  };
-  const sourceLookupParser = z.object(sourceLookupShape).superRefine((d, ctx) => {
-    if (d.by === "article_id" && d.articleId === undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "articleId is required when by=article_id",
-      });
-    }
-    if (d.by === "citation" && !d.citation) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "citation is required when by=citation",
-      });
-    }
-  });
-
-  server.registerTool(
-    "source_lookup",
-    {
-      title: "Look up removed.invalid Article or Citation",
-      description:
-        "Look up removed.invalid (Upstream Source) by article ID or neutral citation. by=article_id resolves metadata (case name, neutral citation, jurisdiction, year) for a numeric article ID. by=citation generates a removed.invalid lookup URL for a neutral citation (e.g. '[2008] NSWSC 323') — removed.invalid does not expose a public search API, so this provides a direct link.",
-      inputSchema: sourceLookupShape,
-    },
-    async (rawInput) => {
-      const input = sourceLookupParser.parse(rawInput);
-
-      if (input.by === "article_id") {
-        const article = await resolveArticle(input.articleId!);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(article, null, 2),
-            },
-          ],
-        };
-      }
-
-      const lookupUrl = buildCitationLookupUrl(input.citation!);
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({ citation: input.citation, sourceUrl: lookupUrl }, null, 2),
-          },
-        ],
-      };
     },
   );
 
@@ -690,47 +586,6 @@ export function createMcpServer(): McpServer {
     },
   );
 
-  // ── search_citing_cases ───────────────────────────────────────────────────
-  const searchCitingCasesShape = {
-    caseName: z
-      .string()
-      .min(1)
-      .describe(
-        "Case name or citation to find citing cases for, e.g. 'Mabo v Queensland (No 2)' or '[1992] HCA 23'",
-      ),
-    format: formatEnum.optional(),
-  };
-  const searchCitingCasesParser = z.object(searchCitingCasesShape);
-
-  server.registerTool(
-    "search_citing_cases",
-    {
-      title: "Search Citing Cases (Citator)",
-      description:
-        "Find cases that cite a given case on removed.invalid. Uses removed.invalid's RemoteService citator. Requires SESSION_COOKIE. Returns citing cases with neutral citations, case names, removed.invalid URLs, and the total count of citing cases. Results are a sample (typically 20-30) of the full set.",
-      inputSchema: searchCitingCasesShape,
-    },
-    async (rawInput) => {
-      const { caseName, format } = searchCitingCasesParser.parse(rawInput);
-      const { results, totalCount } = await searchCitingCases(caseName);
-      const output = { totalCount, results };
-      const fmt = format ?? "json";
-      if (fmt === "json") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(output, null, 2) }] };
-      }
-      // Markdown/text fallback
-      const lines = [
-        `**${results.length} of ${totalCount} citing cases found**`,
-        "",
-        ...results.map(
-          (r) =>
-            `- ${r.caseName} ${r.neutralCitation}${r.reportedCitation ? "; " + r.reportedCitation : ""} — ${r.sourceUrl}`,
-        ),
-      ];
-      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
-    },
-  );
-
   // ── cite ──────────────────────────────────────────────────────────────────
   const citeShape = {
     action: z
@@ -750,7 +605,7 @@ export function createMcpServer(): McpServer {
       .string()
       .url()
       .optional()
-      .describe("Primary source URL (AustLII or removed.invalid) — required for action=add"),
+      .describe("Primary source URL (AustLII) — required for action=add"),
     type: z
       .enum(["case", "legislation", "secondary", "treaty"])
       .default("case")
@@ -1038,7 +893,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Bibliography (Read Citation Cache)",
       description:
-        "Read from the local citation cache without network calls. op=get retrieves one citation by cite key, AGLC4 string, neutral citation, or title. op=list (default) lists cached citations, optionally filtered to a document. op=export writes a BibLaTeX .bib file and returns the bib text. op=cited_by returns the locally cached cited-by list for a citation (run cache_cited_by first to populate).",
+        "Read from the local citation cache without network calls. op=get retrieves one citation by cite key, AGLC4 string, neutral citation, or title. op=list (default) lists cached citations, optionally filtered to a document. op=export writes a BibLaTeX .bib file and returns the bib text. op=cited_by returns the locally cached cited-by list for a citation.",
       inputSchema: bibliographyShape,
     },
     async (rawInput) => {
@@ -1140,7 +995,7 @@ export function createMcpServer(): McpServer {
                   citedByFetchedAt: entry.citedByFetchedAt ?? null,
                   totalCount: entry.citedByTotalCount ?? 0,
                   citedBy: [],
-                  note: "No cited-by data cached. Run cache_cited_by to populate.",
+                  note: "No cited-by data cached for this citation.",
                 }),
               },
             ],
@@ -1194,165 +1049,6 @@ export function createMcpServer(): McpServer {
       // text / html
       const lines = entries.map((e, i) => `${i + 1}. [${e.citeKey}] ${e.aglc4Full}`);
       return { content: [{ type: "text" as const, text: lines.join("\n") || "(empty)" }] };
-    },
-  );
-
-  // ── cache_cited_by ────────────────────────────────────────────────────────
-  const cacheCitedByShape = {
-    citeKey: z
-      .string()
-      .min(1)
-      .describe("Cite key of the parent case whose citing cases should be fetched and cached"),
-  };
-  const cacheCitedByParser = z.object(cacheCitedByShape);
-
-  server.registerTool(
-    "cache_cited_by",
-    {
-      title: "Cache Cited-By Results",
-      description:
-        "Fetch citing cases for a cached citation from removed.invalid and store them locally. " +
-        "Metadata is saved for all results; source files are downloaded for the top N entries " +
-        "(controlled by AUSLAW_CITED_BY_DOWNLOAD_LIMIT, default 5). " +
-        "Requires SESSION_COOKIE. Can be disabled via AUSLAW_CACHE_CITED_BY=false.",
-      inputSchema: cacheCitedByShape,
-    },
-    async (rawInput) => {
-      const { citeKey } = cacheCitedByParser.parse(rawInput);
-
-      if (!config.citedBy.enabled) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({
-                error: "Cited-by caching is disabled (AUSLAW_CACHE_CITED_BY=false)",
-              }),
-            },
-          ],
-        };
-      }
-
-      const parent = await getCitation(config.cache.dir, citeKey);
-      if (!parent) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({ error: `No cached citation found for key: ${citeKey}` }),
-            },
-          ],
-        };
-      }
-
-      if (!config.source.sessionCookie) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({
-                error: "SESSION_COOKIE is required to fetch cited-by data",
-              }),
-            },
-          ],
-        };
-      }
-
-      // Search removed.invalid for cases that cite this one
-      const query = parent.neutralCitation ?? parent.title;
-      const { results, totalCount } = await searchCitingCases(query);
-
-      // Guard: if the API returns nothing but we have prior data, treat this as
-      // a likely failure (bad/expired cookie, network error) rather than a
-      // genuine empty set — preserving existing cache instead of erasing it.
-      if (results.length === 0 && totalCount === 0 && (parent.citedBy?.length ?? 0) > 0) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({
-                error:
-                  "removed.invalid returned no results but existing cited-by data is present. " +
-                  "The session cookie may be expired. Existing cache preserved.",
-                existingCount: parent.citedBy!.length,
-              }),
-            },
-          ],
-        };
-      }
-
-      // Snapshot prior source fields so conditional GET (ETag/Last-Modified)
-      // works correctly when cache_cited_by is called a second time.
-      const priorSources = new Map(
-        (parent.citedBy ?? [])
-          .filter((r) => r.neutralCitation)
-          .map((r) => [r.neutralCitation!, r] as const),
-      );
-
-      // Build CitedByRef entries — prefer AustLII URL where derivable
-      const refs: CitedByRef[] = results.map((r) => {
-        const derivedUrl = r.neutralCitation ? austliiUrlFromNeutral(r.neutralCitation) : undefined;
-        const year = r.neutralCitation
-          ? parseInt(r.neutralCitation.match(/\[(\d{4})\]/)?.[1] ?? "", 10) || undefined
-          : undefined;
-        return {
-          title: r.caseName,
-          neutralCitation: r.neutralCitation || undefined,
-          aglc4Full: r.neutralCitation
-            ? formatAGLC4({ title: r.caseName, neutralCitation: r.neutralCitation })
-            : r.caseName,
-          url: derivedUrl ?? r.sourceUrl,
-          year,
-          court: r.court,
-        };
-      });
-
-      const now = new Date().toISOString();
-      await updateCitedBy(config.cache.dir, citeKey, refs, totalCount, now);
-
-      // Optionally download sources for the top-N refs
-      let sourcesDownloaded = 0;
-      if (config.citedBy.downloadSources) {
-        const toDownload = refs.slice(0, config.citedBy.downloadLimit);
-        for (const ref of toDownload) {
-          if (!ref.url || !ref.neutralCitation) continue;
-          try {
-            const fileKey = citedBySourceKey(citeKey, ref.neutralCitation);
-            const prior = priorSources.get(ref.neutralCitation) ?? null;
-            const storeResult = await storeSource(fileKey, ref.url, prior, config.sources.dir);
-            const relPath = path.relative(config.cache.dir, storeResult.path);
-            await updateCitedBySource(config.cache.dir, citeKey, ref.neutralCitation, {
-              sourceFile: relPath,
-              sourceFetchedAt: now,
-              contentHash: storeResult.contentHash,
-              sourceEtag: storeResult.etag,
-              sourceLastModified: storeResult.lastModified,
-            });
-            sourcesDownloaded++;
-          } catch {
-            // Best-effort — one failure should not abort the rest
-          }
-        }
-      }
-
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(
-              {
-                citeKey,
-                totalCount,
-                cached: refs.length,
-                sourcesDownloaded,
-                citedByFetchedAt: now,
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
     },
   );
 
@@ -1491,10 +1187,9 @@ export function createMcpServer(): McpServer {
     {
       title: "Find Citing Documents (local module)",
       description:
-        "The offline twin of search_citing_cases: documents in installed local data modules whose text cites " +
-        "a target document, via cites/considers edges (closed-world, deterministic). Returns each citing " +
-        "document with the provenance span of the citation. Use search_citing_cases for the live removed.invalid " +
-        "citator instead. Requires @duckdb/node-api and at least one installed module.",
+        "Documents in installed local data modules whose text cites a target document, via cites/considers " +
+        "edges (closed-world, deterministic). Returns each citing document with the provenance span of the " +
+        "citation. Requires @duckdb/node-api and at least one installed module.",
       inputSchema: findCitingShape,
     },
     async (rawInput) => {

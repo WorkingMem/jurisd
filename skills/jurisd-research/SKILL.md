@@ -1,15 +1,15 @@
 ---
 name: jurisd-research
-description: Expert Australian/NZ legal research and AGLC4 citation using the jurisd MCP server. Use when finding cases or legislation (AustLII/removed.invalid), looking up a provision offline, formatting or resolving citations, building a pinpoint, tracing who-cites-what, or producing an AGLC4 bibliography. Triggers on case law, legislation, "AGLC4", "pinpoint", "citator", "cited by", "bibliography", neutral citations like "[1992] HCA 23", or jurisdiction codes (cth/vic/nsw/qld/sa/wa/tas/nt/act/nz).
+description: Expert Australian/NZ legal research and AGLC4 citation using the jurisd MCP server. Use when finding cases or legislation (AustLII), looking up a provision offline, formatting or resolving citations, building a pinpoint, tracing who-cites-what, or producing an AGLC4 bibliography. Triggers on case law, legislation, "AGLC4", "pinpoint", "citator", "cited by", "bibliography", neutral citations like "[1992] HCA 23", or jurisdiction codes (cth/vic/nsw/qld/sa/wa/tas/nt/act/nz).
 ---
 
 # jurisd: Australian/NZ legal research
 
-jurisd is an MCP server for AU/NZ legal research. It searches AustLII (with removed.invalid
-citation enhancement at runtime), fetches full-text judgments, formats AGLC4 citations, manages a
-local citation cache + bibliography, and serves offline recall from installed data
-modules. There are **15 tools**; operation variants are picked via a
-`mode`/`op`/`action`/`by` discriminator, not separate tools.
+jurisd is an MCP server for AU/NZ legal research. It searches AustLII, fetches
+full-text judgments, formats AGLC4 citations, manages a local citation cache +
+bibliography, and serves offline recall from installed data modules. There are
+**12 tools**; operation variants are picked via a `mode`/`op`/`action`/`by`
+discriminator, not separate tools.
 
 ## Core rule: local first, live as fallback
 
@@ -20,25 +20,25 @@ so you can tell a genuine miss from an error.
 
 | Need                               | Local first (offline)   | Live fallback                                       |
 | ---------------------------------- | ----------------------- | --------------------------------------------------- |
-| Read a specific provision (`s 18`) | `get_provision`         | `search_legislation` → `fetch_document_text`        |
-| Act outline / structure            | `get_act_structure`     | `search_legislation` → `fetch_document_text`        |
-| Who cites this case                | `find_citing`           | `search_citing_cases` (needs `SESSION_COOKIE`) |
-| Concept / natural-language recall  | `semantic_search_local` | `search_cases` / `search_legislation`               |
+| Read a specific provision (`s 18`) | `get_provision`         | `search_legislation` → `fetch_document_text` |
+| Act outline / structure            | `get_act_structure`     | `search_legislation` → `fetch_document_text` |
+| Who cites this case                | `find_citing`           | — (local module graph only)                  |
+| Concept / natural-language recall  | `semantic_search_local` | `search_cases` / `search_legislation`        |
 
 Always check `list_data_modules` once at the start of a research session so you know
 which layer to lead with. Every local answer carries `metadata.source = "local_module"`
 with module name, version, and snapshot date; mind the staleness advisory.
 
-## The 15 tools
+## The 12 tools
 
 ### Live research
 
 - **`search_cases`** — NL case-law search across all AU/NZ jurisdictions (AustLII,
-  authority-ranked; removed.invalid citation data cross-referenced into results at runtime). `method`: auto/title/phrase/all/any/near/boolean;
+  authority-ranked). `method`: auto/title/phrase/all/any/near/boolean;
   `jurisdiction`; `sortBy` auto/relevance/date; `offset` for pagination.
 - **`search_legislation`** — same controls for legislation (`method` adds `legis`).
-- **`fetch_document_text`** — full text from an AustLII or removed.invalid URL (HTML, PDF via
-  pdf-parse, removed.invalid RPC). Pass `citeKey` to also save a local source copy + freshness headers.
+- **`fetch_document_text`** — full text from an AustLII URL (HTML, PDF via
+  pdf-parse). Pass `citeKey` to also save a local source copy + freshness headers.
 
 ### Citation + bibliography (AGLC4)
 
@@ -47,16 +47,10 @@ with module name, version, and snapshot date; mind the staleness advisory.
   only), `search` (text only).
 - **`format_citation`** — AGLC4 formatter. `mode`: `full` (default), `short`, `ibid`,
   `subsequent` (needs `footnoteRef`), `pinpoint` (fetches a judgment and locates a para).
-- **`source_lookup`** — removed.invalid lookup. `by`: `article_id` (resolve metadata) or
-  `citation` (build a lookup URL; removed.invalid has no public search API).
-- **`search_citing_cases`** — live removed.invalid citator (who cites X). Needs
-  `SESSION_COOKIE`. Returns a sample (~20-30) plus `totalCount`.
 - **`cite`** — write to the local cache. `action`: `add` (default; assigns a biblatex
   cite key, returns AGLC4 string) or `refresh_source` (conditional-HEAD freshness check).
 - **`bibliography`** — read the cache (no network). `op`: `get`, `list` (default),
-  `export` (writes a `.bib`), `cited_by`.
-- **`cache_cited_by`** — fetch + store a cached citation's citing cases from removed.invalid
-  (needs `SESSION_COOKIE`); downloads top-N sources. Populates `bibliography op=cited_by`.
+  `export` (writes a `.bib`), `cited_by` (reads the local citation cache).
 
 ### Local data modules (offline)
 
@@ -74,10 +68,9 @@ with module name, version, and snapshot date; mind the staleness advisory.
 - **`resolve_citation` vs `search_cases`**: if you already have a citation or a precise
   case name, use `resolve_citation` (it validates the neutral cite and hands back the
   canonical URL). Use `search_cases` for open-ended topic discovery.
-- **`find_citing` (local) vs `search_citing_cases` (live)**: lead with `find_citing`
-  when a module covers the area — it is offline, deterministic, and gives provenance
-  spans. Use `search_citing_cases` for live, removed.invalid-wide coverage; it needs a session
-  cookie and returns only a sample of the full set.
+- **Who cites this case**: use `find_citing` against an installed decisions module —
+  it is offline, deterministic, and gives provenance spans. Coverage is bounded by the
+  installed module; there is no live citing-cases source.
 - **`get_provision` vs `search_legislation`**: a known provision (`s 18`, `sch 2`,
   `reg 12`, `cl 4(1)`) → `get_provision`. On a typed not-found, fall through to
   `search_legislation` then `fetch_document_text`.
@@ -112,7 +105,7 @@ Filter to one logical document with `document`. List/inspect with `op=list` / `o
 3. **Verify** — `resolve_citation mode=validate`, or read with `fetch_document_text`.
 4. **Pinpoint** — `format_citation mode=pinpoint` (url + paragraphNumber/phrase).
 5. **Cache** — `cite action=add` to record the source and get a cite key + AGLC4 string;
-   optionally `cache_cited_by` to pull who-cites-it (or `find_citing` offline).
+   optionally `find_citing` (offline module graph) to pull who-cites-it.
 6. **Bibliography** — `bibliography op=export` to emit the `.bib`.
 
 ## Module management
@@ -150,12 +143,10 @@ key, no network) is always present. A **domain-specialised** rerank / extractive
 activates only if a provider key is set **and reachable** (e.g. `ISAACUS_API_KEY`); it
 refines the local top-k, never replaces it, and silently degrades to baseline when the
 key is unset or unreachable (reported by the capability probe, never thrown in a result).
-`search_citing_cases` and `cache_cited_by` need `SESSION_COOKIE`; without it, prefer
-the offline `find_citing`.
 
 ## Gotchas
 
 - Live tools hit the network and can be slow/flaky; prefer offline tools when a module covers the area.
-- `search_citing_cases` returns a **sample**, not the full set — read `totalCount`.
+- `find_citing` coverage is bounded by the installed decisions module — a miss means the module doesn't cover that area, not that nothing cites the case.
 - For short/ibid/subsequent forms, `title` is the **abbreviated** name picked at first reference, not the full case name.
 - `pinpoint` mode needs an AustLII `url` with paragraph blocks; if none are found it returns an error rather than guessing.

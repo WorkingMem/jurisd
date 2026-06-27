@@ -10,6 +10,6 @@ AGLC4 is a separate copyrighted work and is not distributed with, or licensed by
 this project; its citation rules are used to produce and check conformant output,
 not to reproduce the guide.
 
-jurisd queries third-party legal databases (including AustLII and removed.invalid) at
-runtime. Content retrieved from those sources remains the property of its respective
+jurisd queries third-party legal databases (including AustLII) at runtime.
+Content retrieved from those sources remains the property of its respective
 owners and is not redistributed as part of this project.

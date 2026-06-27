@@ -11,10 +11,10 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 
 **Key Features:**
 
-- AustLII case + legislation search, with removed.invalid citation enhancement
+- AustLII case + legislation search, with Exa search-discovery fallback
 - Digital PDF text extraction (pdf-parse)
 - AGLC4 citation formatting
-- removed.invalid citator integration (runtime)
+- Local citation-graph recall over installed data modules
 
 ---
 
@@ -24,12 +24,12 @@ jurisd is a Model Context Protocol (MCP) server for Australian and New Zealand l
 flowchart TD
     Clients["MCP Clients (Claude Code, Cursor, etc.)"]
 
-    subgraph Server["jurisd Server (15 tools)"]
-        Live["Live + citation (10):<br/>search_cases, search_legislation, fetch_document_text,<br/>format_citation, resolve_citation, source_lookup,<br/>search_citing_cases, cite, bibliography, cache_cited_by"]
+    subgraph Server["jurisd Server (12 tools)"]
+        Live["Live + citation (7):<br/>search_cases, search_legislation, fetch_document_text,<br/>format_citation, resolve_citation,<br/>cite, bibliography"]
         Local["Local data-module recall (5, offline):<br/>get_provision, get_act_structure, find_citing,<br/>semantic_search_local, list_data_modules"]
     end
 
-    LiveSrc["Live sources:<br/>AustLII (primary search),<br/>removed.invalid (runtime citation enhancement)"]
+    LiveSrc["Live sources:<br/>AustLII (primary search),<br/>Exa (search-discovery fallback)"]
     Modules["Local data modules<br/>(DuckDB over parquet)"]
     Adapter["Domain-adapter slot (optional):<br/>baseline vs domain-specialised, BYOK"]
 
@@ -50,29 +50,26 @@ The distinction is capability presence, never a paid/free tier.
 
 ### 1. MCP Server
 
-**Tools** (15; live/citation operation variants selected via
-`mode`/`op`/`action`/`by`):
+**Tools** (12; live/citation operation variants selected via
+`mode`/`op`/`action`):
 
-Live + citation (10):
+Live + citation (7):
 | Tool | Description |
 |------|-------------|
-| search_cases | AustLII case search, cross-referenced with removed.invalid citation data |
+| search_cases | AustLII case search |
 | search_legislation | AustLII legislation search |
 | fetch_document_text | Full-text retrieval (HTML/PDF) |
 | format_citation | AGLC4 formatting: `mode: full\|short\|ibid\|subsequent\|pinpoint` |
 | resolve_citation | Citation resolution: `mode: auto\|validate\|search` |
-| source_lookup | removed.invalid lookup: `by: article_id\|citation` |
-| search_citing_cases | removed.invalid citator (live) |
 | cite | Citation cache write: `action: add\|refresh_source` |
 | bibliography | Citation cache read: `op: get\|list\|export\|cited_by` |
-| cache_cited_by | Fetch + cache citing cases locally |
 
 Local data-module recall (5; offline, closed-world over installed modules):
 | Tool | Description |
 |------|-------------|
 | get_provision | Deterministic provision lookup (no embedding, no ranking) |
 | get_act_structure | Containment tree via `act_provision` edges |
-| find_citing | Offline twin of search_citing_cases (cites/considers edges) |
+| find_citing | Local citation-graph recall (cites/considers edges) |
 | semantic_search_local | Local-embedding cosine recall over chunk vectors |
 | list_data_modules | Introspect installed modules (metadata only) |
 
@@ -82,26 +79,20 @@ Local data-module recall (5; offline, closed-world over installed modules):
 - Authority-based ranking (HCA > FCAFC > FCA > state courts)
 - Rate limiting: 10 req/min
 
-### 3. removed.invalid Service (runtime citation enhancement)
+### 3. Document Fetcher
 
-- RPC reverse-engineering
-- Protocols: resolveRecords (citable lookup), fetchRequest (fetch), RemoteService (citator)
-- Cross-references removed.invalid citation data into live results; AustLII remains the primary search backend
-- Rate limiting: 5 req/min
-
-### 4. Document Fetcher
-
+- AustLII-only: `fetchDocumentText` routes to `fetchAustliiDocument`; non-AustLII URLs are rejected by `assertFetchableUrl`
 - HTML: Cheerio parse
 - PDF: pdf-parse (digital text only)
 - Extracts paragraphs for pinpoint citations
 
-### 5. Citation Service
+### 4. Citation Service
 
 - AGLC4 formatting
 - Validates against AustLII
 - Generates pinpoint citations
 
-### 6. Local Data Layer
+### 5. Local Data Layer
 
 - Installed parquet "data modules" under `~/.jurisd/modules/`, each a closed
   world validated against the vendored manifest schema (`src/data/manifest.ts`)
@@ -158,7 +149,6 @@ MCP_TRANSPORT=http npm start
 | EXA_SEARCH_TYPE           | auto              | Exa search type                                  |
 | TAVILY_API_KEY            | unset             | Tavily API key for AustLII-only search fallback  |
 | AUSTLII_TAVILY_FALLBACK   | false             | Enable with `true` after privacy review          |
-| SESSION_COOKIE       | unset             | removed.invalid auth cookie                              |
 | MCP_TRANSPORT             | stdio             | stdio or http                                    |
 | ISAACUS_API_KEY           | unset             | BYOK key for the optional domain-adapter slot    |
 | JURISD_MODULES_DIR        | ~/.jurisd/modules | Installed local data-module root                 |
@@ -176,7 +166,7 @@ npx vitest run src/test/unit/   # Unit only (fast, no network)
 
 ## Security
 
-- **SSRF Protection:** URL allowlist (AustLII, removed.invalid only)
+- **SSRF Protection:** URL allowlist (AustLII only)
 - **Rate Limiting:** Token bucket per source
 - **Secrets:** Never commit cookies or API keys
 

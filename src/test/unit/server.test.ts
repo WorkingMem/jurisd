@@ -12,13 +12,10 @@ const EXPECTED_TOOLS = [
   "search_legislation",
   "search_cases",
   "fetch_document_text",
-  "source_lookup",
   "format_citation",
   "resolve_citation",
-  "search_citing_cases",
   "cite",
   "bibliography",
-  "cache_cited_by",
   // deterministic / graph / semantic recall tools.
   "get_provision",
   "get_act_structure",
@@ -33,8 +30,6 @@ const REMOVED_TOOLS = [
   "format_short_citation",
   "validate_citation",
   "search_by_citation",
-  "resolve_source_article",
-  "source_citation_lookup",
   "cache_citation",
   "check_source_freshness",
   "get_cached_citation",
@@ -70,26 +65,6 @@ describe("createMcpServer tool surface", () => {
 });
 
 describe("mode/op/action/by dispatch validation", () => {
-  it("source_lookup rejects by=article_id without articleId", async () => {
-    const client = await connectedClient();
-    const result = await client.callTool({
-      name: "source_lookup",
-      arguments: { by: "article_id" },
-    });
-    expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("articleId is required");
-  });
-
-  it("source_lookup rejects by=citation without citation", async () => {
-    const client = await connectedClient();
-    const result = await client.callTool({
-      name: "source_lookup",
-      arguments: { by: "citation" },
-    });
-    expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("citation is required");
-  });
-
   it("format_citation rejects pinpoint mode without url", async () => {
     const client = await connectedClient();
     const result = await client.callTool({
@@ -158,18 +133,5 @@ describe("offline dispatch paths", () => {
     expect(result.isError).toBeFalsy();
     const text = (result.content as Array<{ type: string; text: string }>)[0]!.text;
     expect(text.toLowerCase()).toContain("ibid");
-  });
-
-  it("source_lookup by=citation builds a lookup URL without network access", async () => {
-    const client = await connectedClient();
-    const result = await client.callTool({
-      name: "source_lookup",
-      arguments: { by: "citation", citation: "[2008] NSWSC 323" },
-    });
-    expect(result.isError).toBeFalsy();
-    const text = (result.content as Array<{ type: string; text: string }>)[0]!.text;
-    const parsed = JSON.parse(text) as { citation: string; sourceUrl: string };
-    expect(parsed.citation).toBe("[2008] NSWSC 323");
-    expect(parsed.sourceUrl).toContain("removed.invalid");
   });
 });

@@ -19,9 +19,9 @@ export interface FetchResponse {
  *
  * Supports HTML pages, PDF documents, and plain text.
  *
- * AustLII URLs are routed through the impit transport with Cloudflare-challenge
- * detection and an OALC corpus fallback; removed.invalid and all other URLs are
- * unchanged.
+ * Only AustLII URLs are fetchable (enforced by {@link assertFetchableUrl}); they
+ * are routed through the impit transport with Cloudflare-challenge detection and
+ * an OALC corpus fallback.
  *
  * @param url - Absolute URL of the document to fetch
  * @returns Promise resolving to a {@link FetchResponse} with extracted text

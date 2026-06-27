@@ -30,12 +30,6 @@ export interface Config {
         /** Accept-Language header sent on AustLII requests. */
         acceptLanguage: string;
     };
-    source: {
-        baseUrl: string;
-        userAgent: string;
-        timeout: number;
-        sessionCookie?: string;
-    };
     exa: {
         /**
          * Exa API key (https://exa.ai). When set, Exa is used as a search-discovery
@@ -68,14 +62,6 @@ export interface Config {
         dir: string;
         /** When true, fetch_document_text automatically saves a local source copy. */
         fetchByDefault: boolean;
-    };
-    citedBy: {
-        /** Cache cited-by results from removed.invalid citator lookups. */
-        enabled: boolean;
-        /** Download source files for the top-N citing cases when caching cited-by results. */
-        downloadSources: boolean;
-        /** Maximum number of citing-case sources to download per lookup. */
-        downloadLimit: number;
     };
     transport: {
         /**

@@ -9,18 +9,10 @@ import type { SearchResult } from "../../services/austlii.js";
 
 const mocks = vi.hoisted(() => ({
   searchAustLii: vi.fn(),
-  searchUpstreamWithStatus: vi.fn(),
 }));
 
 vi.mock("../../services/austlii.js", () => ({
   searchAustLii: mocks.searchAustLii,
-}));
-
-vi.mock("../../services/source.js", () => ({
-  buildCitationLookupUrl: vi.fn((citation: string) => `https://removed.invalid/search/${citation}`),
-  resolveArticle: vi.fn(),
-  searchCitingCases: vi.fn(),
-  searchUpstreamWithStatus: mocks.searchUpstreamWithStatus,
 }));
 
 async function connectedClient() {
@@ -57,52 +49,7 @@ describe("AustLII search degradation", () => {
     vi.clearAllMocks();
   });
 
-  it("search_cases returns source results when AustLII search is blocked", async () => {
-    const sourceResult: SearchResult = {
-      title: "Mabo v Queensland (No 2)",
-      neutralCitation: "[1992] HCA 23",
-      reportedCitation: "(1992) 175 CLR 1",
-      url: "https://removed.invalid/article/67683",
-      source: "source",
-      type: "case",
-      jurisdiction: "cth",
-      year: "1992",
-    };
-    mocks.searchAustLii.mockRejectedValueOnce(
-      new CloudflareBlockedError("https://www.austlii.edu.au/cgi-bin/sinosrch.cgi", false),
-    );
-    mocks.searchUpstreamWithStatus.mockResolvedValueOnce({ results: [sourceResult], status: "ok" });
-
-    const { client, server } = await connectedClient();
-    try {
-      const result = await client.callTool({
-        name: "search_cases",
-        arguments: { query: "Mabo", format: "json" },
-      });
-
-      expect(result.isError).not.toBe(true);
-      const parsed = JSON.parse(firstText(result)) as {
-        results: Array<SearchResult & { aglc4: string }>;
-        warnings: Array<{ code: string; source: string; message: string }>;
-        sources: Record<string, string>;
-        degraded: boolean;
-      };
-      expect(parsed.degraded).toBe(true);
-      expect(parsed.sources).toEqual({ austlii: "blocked", source: "ok" });
-      expect(parsed.results).toHaveLength(1);
-      expect(parsed.results[0]!.source).toBe("source");
-      expect(parsed.results[0]!.neutralCitation).toBe("[1992] HCA 23");
-      expect(parsed.warnings[0]).toMatchObject({
-        code: "austlii_cloudflare_blocked",
-        source: "austlii",
-      });
-      expect(parsed.warnings[0]!.message).not.toMatch(/cf_clearance|Cookie/);
-    } finally {
-      await Promise.allSettled([client.close(), server.close()]);
-    }
-  });
-
-  it("search_cases reports incomplete coverage when AustLII succeeds and source is not configured", async () => {
+  it("search_cases returns AustLII results when the search succeeds", async () => {
     const austliiResult: SearchResult = {
       title: "Mabo v Queensland (No 2)",
       neutralCitation: "[1992] HCA 23",
@@ -113,10 +60,6 @@ describe("AustLII search degradation", () => {
       year: "1992",
     };
     mocks.searchAustLii.mockResolvedValueOnce([austliiResult]);
-    mocks.searchUpstreamWithStatus.mockResolvedValueOnce({
-      results: [],
-      status: "not_configured",
-    });
 
     const { client, server } = await connectedClient();
     try {
@@ -126,16 +69,10 @@ describe("AustLII search degradation", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      const parsed = JSON.parse(firstText(result)) as {
-        results: Array<SearchResult & { aglc4: string }>;
-        warnings: unknown[];
-        sources: Record<string, string>;
-        degraded: boolean;
-      };
-      expect(parsed.degraded).toBe(true);
-      expect(parsed.warnings).toEqual([]);
-      expect(parsed.sources).toEqual({ austlii: "ok", source: "not_configured" });
-      expect(parsed.results[0]!.source).toBe("austlii");
+      const parsed = JSON.parse(firstText(result)) as Array<SearchResult & { aglc4: string }>;
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0]!.source).toBe("austlii");
+      expect(parsed[0]!.neutralCitation).toBe("[1992] HCA 23");
     } finally {
       await Promise.allSettled([client.close(), server.close()]);
     }
@@ -172,46 +109,10 @@ describe("AustLII search degradation", () => {
     }
   });
 
-  it("search_cases reports when source is not configured during an AustLII block", async () => {
+  it("search_cases reports a Cloudflare block as a degraded result", async () => {
     mocks.searchAustLii.mockRejectedValueOnce(
       new CloudflareBlockedError("https://www.austlii.edu.au/cgi-bin/sinosrch.cgi", false),
     );
-    mocks.searchUpstreamWithStatus.mockResolvedValueOnce({
-      results: [],
-      status: "not_configured",
-    });
-
-    const { client, server } = await connectedClient();
-    try {
-      const result = await client.callTool({
-        name: "search_cases",
-        arguments: { query: "Mabo", format: "json" },
-      });
-
-      expect(result.isError).not.toBe(true);
-      expect(mocks.searchUpstreamWithStatus).toHaveBeenCalled();
-      const parsed = JSON.parse(firstText(result)) as {
-        results: SearchResult[];
-        warnings: Array<{ code: string; source: string; message: string }>;
-        sources: Record<string, string>;
-        degraded: boolean;
-      };
-      expect(parsed).toMatchObject({
-        results: [],
-        degraded: true,
-        sources: { austlii: "blocked", source: "not_configured" },
-      });
-      expect(parsed.warnings[0]?.code).toBe("austlii_cloudflare_blocked");
-    } finally {
-      await Promise.allSettled([client.close(), server.close()]);
-    }
-  });
-
-  it("search_cases reports when source fails during an AustLII block", async () => {
-    mocks.searchAustLii.mockRejectedValueOnce(
-      new CloudflareBlockedError("https://www.austlii.edu.au/cgi-bin/sinosrch.cgi", false),
-    );
-    mocks.searchUpstreamWithStatus.mockResolvedValueOnce({ results: [], status: "failed" });
 
     const { client, server } = await connectedClient();
     try {
@@ -230,47 +131,10 @@ describe("AustLII search degradation", () => {
       expect(parsed).toMatchObject({
         results: [],
         degraded: true,
-        sources: { austlii: "blocked", source: "failed" },
+        sources: { austlii: "blocked", exa: "not_configured" },
       });
       expect(parsed.warnings[0]?.code).toBe("austlii_cloudflare_blocked");
-    } finally {
-      await Promise.allSettled([client.close(), server.close()]);
-    }
-  });
-
-  it("search_cases reports when source fails while AustLII succeeds", async () => {
-    const austliiResult: SearchResult = {
-      title: "Mabo v Queensland (No 2)",
-      neutralCitation: "[1992] HCA 23",
-      url: "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
-      source: "austlii",
-      type: "case",
-      jurisdiction: "cth",
-      year: "1992",
-    };
-    mocks.searchAustLii.mockResolvedValueOnce([austliiResult]);
-    mocks.searchUpstreamWithStatus.mockResolvedValueOnce({ results: [], status: "failed" });
-
-    const { client, server } = await connectedClient();
-    try {
-      const result = await client.callTool({
-        name: "search_cases",
-        arguments: { query: "Mabo", format: "json" },
-      });
-
-      expect(result.isError).not.toBe(true);
-      const parsed = JSON.parse(firstText(result)) as {
-        results: SearchResult[];
-        warnings: unknown[];
-        sources: Record<string, string>;
-        degraded: boolean;
-      };
-      expect(parsed).toMatchObject({
-        degraded: true,
-        warnings: [],
-        sources: { austlii: "ok", source: "failed" },
-      });
-      expect(parsed.results[0]!.source).toBe("austlii");
+      expect(parsed.warnings[0]!.message).not.toMatch(/cf_clearance|Cookie/);
     } finally {
       await Promise.allSettled([client.close(), server.close()]);
     }
@@ -293,9 +157,8 @@ describe("AustLII search degradation", () => {
     }
   });
 
-  it("search_cases does not silently swallow unexpected source failures", async () => {
-    mocks.searchAustLii.mockResolvedValueOnce([]);
-    mocks.searchUpstreamWithStatus.mockRejectedValueOnce(new Error("source transport failed"));
+  it("search_cases does not silently swallow unexpected AustLII failures", async () => {
+    mocks.searchAustLii.mockRejectedValueOnce(new AustLiiError("transport failed", 500));
 
     const { client, server } = await connectedClient();
     try {
@@ -303,7 +166,7 @@ describe("AustLII search degradation", () => {
         name: "search_cases",
         arguments: { query: "Mabo", format: "json" },
       });
-      expect(text).toContain("source transport failed");
+      expect(text).toContain("transport failed");
     } finally {
       await Promise.allSettled([client.close(), server.close()]);
     }

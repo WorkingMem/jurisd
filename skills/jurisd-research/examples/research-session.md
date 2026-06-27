@@ -85,15 +85,19 @@ cite {
 
 ### 6. (Optional) who relies on it
 
-A removed.invalid session cookie is configured, so I trace later citing cases and cache them:
+If a decisions module covered HCA, I would trace later citing cases offline with
+`find_citing` (provenance spans included):
 
 ```
-cache_cited_by { citeKey: "mabo1992" }
-→ { citeKey: "mabo1992", totalCount: 1840, cached: 27, sourcesDownloaded: 5 }
+find_citing { target: "Mabo v Queensland (No 2) [1992] HCA 23" }
+→ { found: false, metadata: { source: "local_module", module: "legislation-cth",
+    reason: "no decisions module installed for cth/HCA" } }
 ```
 
-If no cookie were set, I would use the offline `find_citing { target: "Mabo v
-Queensland (No 2) [1992] HCA 23" }` against an installed decisions module instead.
+Here only a Commonwealth legislation module is installed, so this returns a typed
+not-found. With a decisions module loaded it would return the citing cases, each with
+its provenance span. There is no live citing-cases source — coverage is whatever the
+installed module provides.
 
 ### 7. Emit the bibliography
 

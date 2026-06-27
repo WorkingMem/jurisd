@@ -143,7 +143,7 @@ If your client edits a JSON config directly (Claude Desktop's
 }
 ```
 
-To pass environment variables, add an `"env": { "SESSION_COOKIE": "..." }`
+To pass environment variables, add an `"env": { "EXA_API_KEY": "..." }`
 block to the server entry.
 
 ### Claude Code skill
@@ -172,22 +172,10 @@ Cloudflare-blocked, one of the configured discovery fallbacks below.
 
 ### Authentication / BYOK
 
-| Variable              | Enables                                                                                                                                      |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SESSION_COOKIE` | removed.invalid citation/article resolution, the citator (citing-cases), and authenticated full-text fetch at runtime. Your own subscription cookie. |
-| `ISAACUS_API_KEY`     | The optional **domain-specialised** adapter slot (rerank + extractive-QA) over local results (BYOK).                                         |
-| `ISAACUS_BASE_URL`    | Override the domain-adapter endpoint (optional; defaults to the provider's base URL).                                                        |
-
-**`SESSION_COOKIE`** — log in to removed.invalid in your browser, open DevTools →
-Network, navigate to any article, copy the full `Cookie` request header value
-(`IID=...; alcsessionid=...; cf_clearance=...`), and set it:
-
-```bash
-export SESSION_COOKIE="IID=abc123; alcsessionid=xyz789; cf_clearance=..."
-```
-
-Treat it like a password. It grants full access to your removed.invalid subscription. Do
-not commit it; rotate if compromised.
+| Variable           | Enables                                                                                              |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| `ISAACUS_API_KEY`  | The optional **domain-specialised** adapter slot (rerank + extractive-QA) over local results (BYOK). |
+| `ISAACUS_BASE_URL` | Override the domain-adapter endpoint (optional; defaults to the provider's base URL).                |
 
 **`ISAACUS_API_KEY`** — bring-your-own-key for the domain-adapter slot. When set
 and the endpoint is reachable, the capability probe reports a
@@ -233,10 +221,9 @@ distinction is capability presence, framed as baseline vs domain-specialised.
 | `DEFAULT_OUTPUT_FORMAT`   | Default format: `json` / `text` / `markdown` / `html`.                               |
 | `DEFAULT_SORT_BY`         | Default sort: `auto` / `relevance` / `date`.                                         |
 
-When AustLII search endpoints are blocked by a Cloudflare challenge, jurisd first
-uses any already-returned removed.invalid results. If the query contains a neutral
-citation, such as `[1992] HCA 23`, it builds the canonical AustLII case URL from
-the citation without calling a search provider. If no direct citation URL is
+When AustLII search endpoints are blocked by a Cloudflare challenge and the query
+contains a neutral citation, such as `[1992] HCA 23`, jurisd builds the canonical
+AustLII case URL from the citation without calling a search provider. If no direct citation URL is
 available and `EXA_API_KEY` is set, Exa is used only to discover AustLII
 primary-source URLs, filtered by requested type and jurisdiction. Exa text is not
 returned as source text.
@@ -335,5 +322,5 @@ a key.
 
 For container and k3s deployment, see [DOCKER.md](DOCKER.md) and
 [../k8s/README.md](../k8s/README.md). Store
-`SESSION_COOKIE` and `ISAACUS_API_KEY` in a Kubernetes Secret (not a
+`ISAACUS_API_KEY` and any other API keys in a Kubernetes Secret (not a
 ConfigMap) and reference them via `envFrom` or `env[].valueFrom.secretKeyRef`.

@@ -3,18 +3,15 @@ import { createMcpServer } from "../../server.js";
 
 const MCP_COMPATIBILITY_TOOL_NAMES = [
   "bibliography",
-  "cache_cited_by",
   "cite",
   "fetch_document_text",
   "find_citing",
   "format_citation",
   "get_act_structure",
   "get_provision",
-  "source_lookup",
   "list_data_modules",
   "resolve_citation",
   "search_cases",
-  "search_citing_cases",
   "search_legislation",
   "semantic_search_local",
 ].sort();
@@ -29,11 +26,11 @@ function registeredToolNames(): string[] {
 }
 
 describe("MCP compatibility reference", () => {
-  it("keeps the current 15 MCP tool names stable", () => {
+  it("keeps the current 12 MCP tool names stable", () => {
     expect(registeredToolNames()).toEqual(MCP_COMPATIBILITY_TOOL_NAMES);
   });
 
   it("documents the current compatibility count", () => {
-    expect(MCP_COMPATIBILITY_TOOL_NAMES).toHaveLength(15);
+    expect(MCP_COMPATIBILITY_TOOL_NAMES).toHaveLength(12);
   });
 });

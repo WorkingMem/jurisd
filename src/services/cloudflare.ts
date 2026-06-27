@@ -112,7 +112,6 @@ export function isCloudflareChallenge(
 export function cfBlockMessage(url: string): string {
   return (
     `AustLII is behind a Cloudflare challenge and cannot be fetched directly (${url}). ` +
-    "Configure a fallback source: set EXA_API_KEY (search discovery) " +
-    "or SESSION_COOKIE (removed.invalid)."
+    "Configure a fallback source: set EXA_API_KEY (search discovery)."
   );
 }

@@ -21,7 +21,7 @@ changes. For a local clone, set `command` to `node` and `args` to the absolute
 path of `dist/index.js`.
 
 All env vars are optional (jurisd answers offline with no key). To pass one
-— e.g. your removed.invalid subscription cookie — add an `env` block to the server
+— e.g. your `EXA_API_KEY` — add an `env` block to the server
 entry. See [INSTALL.md](INSTALL.md) for the full env-var reference.
 
 ---
@@ -68,14 +68,14 @@ Edit `claude_desktop_config.json`:
     "jurisd": {
       "command": "npx",
       "args": ["-y", "jurisd"],
-      "env": { "SESSION_COOKIE": "" }
+      "env": { "EXA_API_KEY": "" }
     }
   }
 }
 ```
 
 Restart Claude Desktop after editing. (Remove the `env` block if you are not
-setting a removed.invalid cookie.)
+setting any API key.)
 
 ## Cursor
 
@@ -168,7 +168,7 @@ command = "npx"
 args = ["-y", "jurisd"]
 ```
 
-Add an env table if needed: `env = { SESSION_COOKIE = "" }`.
+Add an env table if needed: `env = { EXA_API_KEY = "" }`.
 
 ## Zed
 
@@ -223,7 +223,7 @@ The lowest common denominator is a stdio server with:
 
 ## Verify it works
 
-After wiring it up, confirm the 15-tool surface is live. From a clone you can
+After wiring it up, confirm the 12-tool surface is live. From a clone you can
 run the stdio handshake check directly:
 
 ```bash

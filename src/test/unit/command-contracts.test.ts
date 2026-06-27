@@ -5,18 +5,15 @@ const FLAG_PATTERN = /--[a-z][a-z0-9-]*/g;
 
 const REQUIRED_MCP_TOOLS = [
   "bibliography",
-  "cache_cited_by",
   "cite",
   "fetch_document_text",
   "find_citing",
   "format_citation",
   "get_act_structure",
   "get_provision",
-  "source_lookup",
   "list_data_modules",
   "resolve_citation",
   "search_cases",
-  "search_citing_cases",
   "search_legislation",
   "semantic_search_local",
 ].sort();

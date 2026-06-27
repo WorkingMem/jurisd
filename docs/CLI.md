@@ -113,7 +113,7 @@ is a TUI control and is not passed to the MCP tool.
 The web search commands are read-only in the TUI. They do not fetch source text
 with `citeKey`, store source files, export caches, or expose credentials. The
 TUI transcript renders provider status loudly, including `DEGRADED`, `warnings`,
-and `sources` when AustLII, Source, or Exa coverage is blocked or unavailable.
+and `sources` when AustLII or Exa coverage is blocked or unavailable.
 
 Terminal framework decision: WB3 deliberately uses Node readline rather than a
 fullscreen TUI framework. The shell must run under `TERM=dumb`, narrow

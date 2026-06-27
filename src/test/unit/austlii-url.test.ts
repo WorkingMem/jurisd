@@ -22,7 +22,7 @@ describe("isAustliiUrl", () => {
   });
 
   it("returns false for non-AustLII URLs", () => {
-    expect(isAustliiUrl("https://removed.invalid/article/12345")).toBe(false);
+    expect(isAustliiUrl("https://example.com/doc/12345")).toBe(false);
     expect(isAustliiUrl("https://legislation.gov.au/C2010A00051")).toBe(false);
   });
 
@@ -45,7 +45,7 @@ describe("toWwwUrl", () => {
   });
 
   it("leaves non-AustLII URLs unchanged", () => {
-    const external = "https://removed.invalid/article/12345";
+    const external = "https://example.com/doc/12345";
     expect(toWwwUrl(external)).toBe(external);
   });
 
@@ -76,7 +76,7 @@ describe("toClassicUrl", () => {
   });
 
   it("leaves non-AustLII URLs unchanged", () => {
-    const external = "https://removed.invalid/article/12345";
+    const external = "https://example.com/doc/12345";
     expect(toClassicUrl(external)).toBe(external);
   });
 
@@ -116,7 +116,7 @@ describe("toClassicDocUrl", () => {
   });
 
   it("leaves non-AustLII URLs unchanged", () => {
-    const external = "https://removed.invalid/article/12345";
+    const external = "https://example.com/doc/12345";
     expect(toClassicDocUrl(external)).toBe(external);
   });
 

@@ -1,12 +1,9 @@
-import axios from "axios";
 import * as cheerio from "cheerio";
 import { fileTypeFromBuffer } from "file-type";
 import { config } from "../config.js";
-import { MAX_CONTENT_LENGTH } from "../constants.js";
-import { isSourceUrl, extractArticleId, fetchSourceArticleContent } from "./source.js";
-import { assertFetchableUrl, assertRedirectAllowed, MAX_REDIRECTS } from "../utils/url-guard.js";
-import { austliiRateLimiter, upstreamRateLimiter } from "../utils/rate-limiter.js";
-import { isAustliiUrl, toClassicDocUrl, toWwwUrl, austliiUrlToNeutralCitation, austliiUrlIsLegislation, } from "./austlii-url.js";
+import { assertFetchableUrl } from "../utils/url-guard.js";
+import { austliiRateLimiter } from "../utils/rate-limiter.js";
+import { toClassicDocUrl, toWwwUrl, austliiUrlToNeutralCitation, austliiUrlIsLegislation, } from "./austlii-url.js";
 import { fetcherForUrl } from "./transport.js";
 import { isCloudflareChallenge } from "./cloudflare.js";
 import { lookupByCitation } from "./oalc.js";
@@ -26,50 +23,10 @@ async function extractTextFromPdf(buffer, url) {
     }
 }
 /**
- * Extracts text from removed.invalid HTML with special handling for their structure
+ * Generic HTML text extraction for AustLII and other sources
  */
 function extractTextFromHtml(html) {
     const $ = cheerio.load(html);
-    // Remove unwanted elements
-    $("script, style, nav, header, footer, .sidebar, .navigation, .menu").remove();
-    // removed.invalid specific selectors
-    const sourceSelectors = [
-        ".judgment-text",
-        ".judgment-content",
-        ".decision-text",
-        "#judgment",
-        ".case-content",
-        "article.judgment",
-    ];
-    for (const selector of sourceSelectors) {
-        const $content = $(selector);
-        if ($content.length > 0) {
-            const text = $content.text().trim();
-            if (text.length > 200) {
-                return text;
-            }
-        }
-    }
-    // Fall through to generic extraction
-    return extractTextFromHtml(html);
-}
-/**
- * Generic HTML text extraction for AustLII and other sources
- */
-function extractTextFromHtml(html, url) {
-    const $ = cheerio.load(html);
-    // Check if this is removed.invalid
-    if (url) {
-        try {
-            const hostname = new URL(url).hostname.toLowerCase();
-            if (hostname === "removed.invalid" || hostname.endsWith(".removed.invalid")) {
-                return extractTextFromHtml(html);
-            }
-        }
-        catch {
-            // If URL parsing fails, fall through to generic extraction.
-        }
-    }
     // Remove script and style elements
     $("script, style, nav, header, footer").remove();
     // Try to find the main content area
@@ -151,12 +108,11 @@ function extractParagraphBlocks(html) {
 /**
  * Parses a fetched document body (Buffer + content-type) into a
  * {@link FetchResponse}, driving the PDF, HTML and plain-text paths off the
- * detected content type. Shared by the AustLII (impit) and generic (axios)
- * fetch paths so both parse identically.
+ * detected content type.
  *
  * @param buffer - Raw response bytes.
  * @param rawContentType - The `content-type` response header (may be undefined).
- * @param url - The source URL (used for source-specific HTML extraction + metadata).
+ * @param url - The source URL (recorded in metadata).
  * @param extra - Optional `etag`/`lastModified`/`source` to fold into the result.
  */
 async function parseDocumentBuffer(buffer, rawContentType, url, extra) {
@@ -173,7 +129,7 @@ async function parseDocumentBuffer(buffer, rawContentType, url, extra) {
     // Handle HTML documents
     else if (contentType.includes("text/html") || detectedType?.mime === "text/html") {
         const rawHtml = buffer.toString("utf-8");
-        text = extractTextFromHtml(rawHtml, url);
+        text = extractTextFromHtml(rawHtml);
         paragraphs = extractParagraphBlocks(rawHtml);
         cleanedHtml = cleanHtmlForOutput(rawHtml);
     }
@@ -315,9 +271,9 @@ async function fetchAustliiDocument(url) {
  *
  * Supports HTML pages, PDF documents, and plain text.
  *
- * AustLII URLs are routed through the impit transport with Cloudflare-challenge
- * detection and an OALC corpus fallback; removed.invalid and all other URLs are
- * unchanged.
+ * Only AustLII URLs are fetchable (enforced by {@link assertFetchableUrl}); they
+ * are routed through the impit transport with Cloudflare-challenge detection and
+ * an OALC corpus fallback.
  *
  * @param url - Absolute URL of the document to fetch
  * @returns Promise resolving to a {@link FetchResponse} with extracted text
@@ -325,85 +281,6 @@ async function fetchAustliiDocument(url) {
  */
 export async function fetchDocumentText(url) {
     assertFetchableUrl(url);
-    // removed.invalid uses RPC — content is loaded client-side and not available
-    // via a plain HTTP fetch. Route through the direct RPC API when a
-    // session cookie is configured; reject with a helpful message otherwise.
-    if (isSourceUrl(url)) {
-        if (!config.source.sessionCookie) {
-            throw new Error("fetch_document_text requires SESSION_COOKIE for removed.invalid URLs. " +
-                "removed.invalid renders content via a RPC single-page application. " +
-                "Set SESSION_COOKIE in your environment (see README for extraction instructions).");
-        }
-        const articleId = extractArticleId(url);
-        if (!articleId) {
-            throw new Error(`Could not extract article ID from removed.invalid URL: ${url}`);
-        }
-        await upstreamRateLimiter.throttle();
-        let html;
-        try {
-            html = await fetchSourceArticleContent(articleId, config.source.sessionCookie);
-        }
-        catch (error) {
-            // Convert AxiosError to a plain Error so config.headers (which contains the
-            // Cookie with SESSION_COOKIE) is never propagated to the caller or logger.
-            if (axios.isAxiosError(error)) {
-                const status = error.response?.status;
-                if (status === 401 || status === 403) {
-                    throw new Error(`removed.invalid returned ${status}. The SESSION_COOKIE may have expired — re-extract it from your browser session.`);
-                }
-                throw new Error(`Failed to fetch removed.invalid article ${articleId}: ${error.message}`);
-            }
-            throw error;
-        }
-        const text = extractTextFromHtml(html, url);
-        const paragraphs = extractParagraphBlocks(html);
-        const cleanedHtml = cleanHtmlForOutput(html);
-        return {
-            text,
-            html: cleanedHtml,
-            contentType: "text/html",
-            sourceUrl: url,
-            metadata: {
-                contentLength: String(html.length),
-                contentType: "text/html",
-                source: "source-rpc-rpc",
-            },
-            paragraphs,
-        };
-    }
-    // AustLII: route through the impit TLS-impersonating transport with
-    // Cloudflare-challenge detection and OALC corpus fallback.
-    if (isAustliiUrl(url)) {
-        return fetchAustliiDocument(url);
-    }
-    try {
-        await austliiRateLimiter.throttle();
-        const headers = {
-            "User-Agent": config.source.userAgent,
-        };
-        const response = await axios.get(url, {
-            responseType: "arraybuffer",
-            headers,
-            timeout: config.source.timeout,
-            maxContentLength: MAX_CONTENT_LENGTH,
-            maxRedirects: MAX_REDIRECTS,
-            beforeRedirect: assertRedirectAllowed,
-        });
-        const buffer = Buffer.from(response.data);
-        const rawContentType = response.headers["content-type"];
-        return parseDocumentBuffer(buffer, typeof rawContentType === "string" ? rawContentType : undefined, url, {
-            etag: response.headers["etag"] ?? undefined,
-            lastModified: response.headers["last-modified"] ?? undefined,
-        });
-    }
-    catch (error) {
-        if (axios.isAxiosError(error)) {
-            if (isSourceUrl(url) && (error.response?.status === 401 || error.response?.status === 403)) {
-                throw new Error(`removed.invalid returned ${error.response.status}. Set SESSION_COOKIE env var with your authenticated session cookie.`);
-            }
-            throw new Error(`Failed to fetch document from ${url}: ${error.message}`);
-        }
-        throw error;
-    }
+    return fetchAustliiDocument(url);
 }
 //# sourceMappingURL=fetcher.js.map

@@ -46,7 +46,7 @@ const sampleWarning = {
   source: "austlii",
   message: "AustLII search is blocked by a Cloudflare challenge.",
 };
-const sampleSources: SearchSourceStatuses = { austlii: "blocked", source: "ok" };
+const sampleSources: SearchSourceStatuses = { austlii: "blocked", exa: "ok" };
 
 describe("formatSearchResults", () => {
   it("should format results as JSON", () => {
@@ -86,7 +86,7 @@ describe("formatSearchResults", () => {
 
   it("formats source-only degradation as a degraded result object", () => {
     const result = formatSearchResults([], "json", {
-      sources: { austlii: "blocked", source: "not_configured" },
+      sources: { austlii: "blocked", exa: "not_configured" },
     });
     const parsed = JSON.parse(getText(result.content)) as {
       results: SearchResult[];
@@ -97,7 +97,7 @@ describe("formatSearchResults", () => {
     expect(parsed).toEqual({
       results: [],
       warnings: [],
-      sources: { austlii: "blocked", source: "not_configured" },
+      sources: { austlii: "blocked", exa: "not_configured" },
       degraded: true,
     });
     expect((result.structuredContent as { data: unknown }).data).toEqual(parsed);
@@ -120,10 +120,10 @@ describe("formatSearchResults", () => {
 
   it("renders source-only degradation in text output", () => {
     const result = formatSearchResults([], "text", {
-      sources: { austlii: "blocked", source: "not_configured" },
+      sources: { austlii: "blocked", exa: "not_configured" },
     });
     const text = getText(result.content);
-    expect(text).toContain("Source status: austlii=blocked, source=not_configured");
+    expect(text).toContain("Source status: austlii=blocked, exa=not_configured");
     expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
   });
 
@@ -143,10 +143,10 @@ describe("formatSearchResults", () => {
 
   it("renders source-only degradation in markdown output", () => {
     const result = formatSearchResults([], "markdown", {
-      sources: { austlii: "blocked", source: "not_configured" },
+      sources: { austlii: "blocked", exa: "not_configured" },
     });
     const text = getText(result.content);
-    expect(text).toContain("> Source status: austlii=blocked, source=not\\_configured");
+    expect(text).toContain("> Source status: austlii=blocked, exa=not\\_configured");
     expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
   });
 
@@ -194,11 +194,11 @@ describe("formatSearchResults", () => {
 
   it("renders source-only degradation in HTML output", () => {
     const result = formatSearchResults([], "html", {
-      sources: { austlii: "blocked", source: "not_configured" },
+      sources: { austlii: "blocked", exa: "not_configured" },
     });
     const text = getText(result.content);
     expect(text).toContain('class="source-status"');
-    expect(text).toContain("austlii=blocked, source=not_configured");
+    expect(text).toContain("austlii=blocked, exa=not_configured");
     expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
   });
 

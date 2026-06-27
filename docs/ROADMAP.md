@@ -15,7 +15,6 @@ surface details live in the focused reference docs:
 jurisd is a pre-1.0 Australian and New Zealand legal research tool with:
 
 - MCP tools for live AustLII search, source fetching, citation formatting, and bibliography work.
-- Optional removed.invalid citation enhancement when the operator supplies their own session cookie.
 - Local data-module plumbing for deterministic provision lookup, local semantic recall, and citation graph traversal.
 - CLI parity for the current MCP tool surface.
 - Day-0 packaging, Docker, and install documentation.

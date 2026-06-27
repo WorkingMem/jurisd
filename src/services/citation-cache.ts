@@ -26,7 +26,7 @@ export interface CitedByRef {
   title: string;
   neutralCitation?: string;
   aglc4Full?: string;
-  /** Primary URL — AustLII if derivable from neutral citation, otherwise removed.invalid. */
+  /** Primary URL — the AustLII URL derived from the neutral citation when available. */
   url?: string;
   year?: number;
   court?: string;
@@ -74,12 +74,12 @@ export interface CachedCitation {
   keywords?: string[];
   summary?: string;
 
-  // Cited-by — populated by cache_cited_by / refresh_cited_by tool calls
-  /** Citing cases from removed.invalid citator. All have metadata; top-N have sourceFile. */
+  // Cited-by — populated from the local citation cache.
+  /** Citing cases. All have metadata; downloaded entries also have sourceFile. */
   citedBy?: CitedByRef[];
-  /** ISO timestamp when the cited-by list was last fetched from removed.invalid. */
+  /** ISO timestamp when the cited-by list was last populated. */
   citedByFetchedAt?: string;
-  /** Total citing-case count reported by removed.invalid (may exceed citedBy.length). */
+  /** Total citing-case count (may exceed citedBy.length). */
   citedByTotalCount?: number;
 
   // Embedding slot — populated by a future kannon-2 / local-model integration
@@ -339,8 +339,8 @@ export async function exportBib(cacheDir: string, document?: string): Promise<st
 
 /**
  * Replace the citedBy list on an existing cache entry and record when it was
- * fetched.  Overwrites any prior citedBy array so callers always store the
- * most recent snapshot from removed.invalid.
+ * populated.  Overwrites any prior citedBy array so callers always store the
+ * most recent snapshot.
  *
  * Note: same load-mutate-save limitation as upsertCitation.
  */

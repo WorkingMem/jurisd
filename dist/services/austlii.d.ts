@@ -4,7 +4,7 @@ export interface SearchResult {
     neutralCitation?: string;
     reportedCitation?: string;
     url: string;
-    source: "austlii" | "source";
+    source: "austlii";
     discoverySource?: "austlii-search" | "tavily-fallback" | "exa-fallback" | "citation-url";
     summary?: string;
     jurisdiction?: string;

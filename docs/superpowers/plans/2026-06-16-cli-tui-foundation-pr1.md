@@ -272,18 +272,15 @@ import { createMcpServer } from "../../server.js";
 
 const MCP_COMPATIBILITY_TOOL_NAMES = [
   "bibliography",
-  "cache_cited_by",
   "cite",
   "fetch_document_text",
   "find_citing",
   "format_citation",
   "get_act_structure",
   "get_provision",
-  "source_lookup",
   "list_data_modules",
   "resolve_citation",
   "search_cases",
-  "search_citing_cases",
   "search_legislation",
   "semantic_search_local",
 ].sort();
@@ -338,18 +335,15 @@ MCP exposure is curated. Operator, install, update, destructive, filesystem-writ
 | Tool | Status | Notes |
 |---|---|---|
 | `bibliography` | stable | Citation cache bibliography output |
-| `cache_cited_by` | stable | Cache cited-by information |
 | `cite` | stable | Citation helper |
 | `fetch_document_text` | stable | Fetch document text from allowed sources |
 | `find_citing` | stable | Local module graph recall |
 | `format_citation` | stable | AGLC4 citation formatting |
 | `get_act_structure` | stable | Local module act structure |
 | `get_provision` | stable | Local module provision lookup |
-| `source_lookup` | stable | removed.invalid article or citation lookup |
 | `list_data_modules` | stable | Local module listing |
 | `resolve_citation` | stable | Citation resolution |
 | `search_cases` | stable | Case search |
-| `search_citing_cases` | stable | Citing case search |
 | `search_legislation` | stable | Legislation search |
 | `semantic_search_local` | stable | Local semantic search over installed modules |
 
@@ -406,18 +400,15 @@ import { COMMAND_CONTRACTS, getCommandContractByCliName } from "../../commands/c
 
 const REQUIRED_MCP_TOOLS = [
   "bibliography",
-  "cache_cited_by",
   "cite",
   "fetch_document_text",
   "find_citing",
   "format_citation",
   "get_act_structure",
   "get_provision",
-  "source_lookup",
   "list_data_modules",
   "resolve_citation",
   "search_cases",
-  "search_citing_cases",
   "search_legislation",
   "semantic_search_local",
 ].sort();
@@ -628,11 +619,8 @@ export const COMMAND_CONTRACTS: CommandContract[] = [
     },
   },
   makeContract("source.fetchDocument", "fetch-document-text", "fetch_document_text", "source", "network_read", ["url"], [], [], [], "Fetch full text for a source document.", "jurisd fetch-document-text <url>"),
-  makeContract("source.sourceLookup", "source-lookup", "source_lookup", "source", "network_read", [], ["articleId"], [], [], "Look up removed.invalid article metadata or citation URL.", "jurisd source-lookup --by citation --citation '[2008] NSWSC 323'"),
   makeContract("cite.format", "format-citation", "format_citation", "cite", "read_only_query", ["title"], ["footnoteRef", "pinpointPara", "pinpointPage", "paragraphNumber"], [], [], "Format an AGLC4 citation.", "jurisd format-citation 'Mabo v Queensland (No 2)' --neutral-citation '[1992] HCA 23'"),
   makeContract("cite.resolve", "resolve-citation", "resolve_citation", "cite", "network_read", ["citation"], [], [], [], "Resolve a citation to an authoritative source.", "jurisd resolve-citation '[1992] HCA 23'"),
-  makeContract("cite.searchCitingCases", "search-citing-cases", "search_citing_cases", "cite", "network_read", ["caseName"], [], [], [], "Search for cases citing a named case.", "jurisd search-citing-cases 'Mabo v Queensland (No 2)'"),
-  makeContract("cite.cacheCitedBy", "cache-cited-by", "cache_cited_by", "cite", "network_read", ["citeKey"], [], [], [], "Cache cited-by information for a citation key.", "jurisd cache-cited-by mabo-1992-hca-23"),
   makeContract("cite.create", "cite", "cite", "cite", "local_metadata_read", ["title"], ["year", "footnoteNumber"], [], ["keywords"], "Create or record a citation cache entry.", "jurisd cite 'Mabo v Queensland (No 2)' --year 1992"),
   makeContract("cite.bibliography", "bibliography", "bibliography", "cite", "local_metadata_read", [], [], [], [], "Render a bibliography from cached citations.", "jurisd bibliography"),
   makeContract("corpus.getProvision", "get-provision", "get_provision", "corpus", "local_metadata_read", ["act", "provision"], [], [], [], "Get a provision from an installed local data module.", "jurisd get-provision 'Family Law Act 1975 (Cth)' 's 60CC'"),

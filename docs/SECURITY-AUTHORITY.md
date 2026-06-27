@@ -49,7 +49,7 @@ stripped before MCP tool execution.
 
 Search results rendered in the TUI must show degraded provider state loudly,
 including warnings and source statuses, so AustLII Cloudflare blocks or
-Source/Exa unavailability cannot fail silently.
+Exa unavailability cannot fail silently.
 
 ## Shell completions
 

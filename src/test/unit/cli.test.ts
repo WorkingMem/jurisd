@@ -13,18 +13,12 @@ import type { SearchResult } from "../../services/austlii.js";
 
 const toolMocks = vi.hoisted(() => ({
   searchAustLii: vi.fn(),
-  searchUpstreamWithStatus: vi.fn(),
   fetchDocumentText: vi.fn(),
 }));
 
 vi.mock("../../services/austlii.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../services/austlii.js")>();
   return { ...actual, searchAustLii: toolMocks.searchAustLii };
-});
-
-vi.mock("../../services/source.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../services/source.js")>();
-  return { ...actual, searchUpstreamWithStatus: toolMocks.searchUpstreamWithStatus };
 });
 
 vi.mock("../../services/fetcher.js", async (importOriginal) => {
@@ -199,7 +193,6 @@ describe("runCli tool loopback (offline tools)", () => {
   beforeEach(() => {
     process.exitCode = 0;
     toolMocks.searchAustLii.mockReset();
-    toolMocks.searchUpstreamWithStatus.mockReset();
     toolMocks.fetchDocumentText.mockReset();
     scratch = fs.mkdtempSync(path.join(os.tmpdir(), "jurisd-cli-"));
     setModulesRootForTest(scratch, true);
@@ -291,7 +284,7 @@ describe("runCli tool loopback (offline tools)", () => {
     expect(parsed.sources).toEqual({ austlii: "blocked", exa: "not_configured" });
   });
 
-  it("sets exitCode 4 when search-case coverage is incomplete", async () => {
+  it("sets exitCode 0 when search-case returns AustLII results", async () => {
     const austliiResult: SearchResult = {
       title: "Mabo v Queensland (No 2)",
       neutralCitation: "[1992] HCA 23",
@@ -302,51 +295,12 @@ describe("runCli tool loopback (offline tools)", () => {
       year: "1992",
     };
     toolMocks.searchAustLii.mockResolvedValueOnce([austliiResult]);
-    toolMocks.searchUpstreamWithStatus.mockResolvedValueOnce({
-      results: [],
-      status: "not_configured",
-    });
 
     const handled = await runCli(["search-cases", "Mabo", "--format", "json"]);
     expect(handled).toBe(true);
-    expect(process.exitCode).toBe(4);
-    const parsed = JSON.parse(written) as {
-      degraded: boolean;
-      sources: Record<string, string>;
-      results: SearchResult[];
-    };
-    expect(parsed.degraded).toBe(true);
-    expect(parsed.sources).toEqual({ austlii: "ok", source: "not_configured" });
-    expect(parsed.results[0]!.source).toBe("austlii");
-  });
-
-  it("sets exitCode 4 when search-case source coverage fails", async () => {
-    const austliiResult: SearchResult = {
-      title: "Mabo v Queensland (No 2)",
-      neutralCitation: "[1992] HCA 23",
-      url: "https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
-      source: "austlii",
-      type: "case",
-      jurisdiction: "cth",
-      year: "1992",
-    };
-    toolMocks.searchAustLii.mockResolvedValueOnce([austliiResult]);
-    toolMocks.searchUpstreamWithStatus.mockResolvedValueOnce({
-      results: [],
-      status: "failed",
-    });
-
-    const handled = await runCli(["search-cases", "Mabo", "--format", "json"]);
-    expect(handled).toBe(true);
-    expect(process.exitCode).toBe(4);
-    const parsed = JSON.parse(written) as {
-      degraded: boolean;
-      sources: Record<string, string>;
-      results: SearchResult[];
-    };
-    expect(parsed.degraded).toBe(true);
-    expect(parsed.sources).toEqual({ austlii: "ok", source: "failed" });
-    expect(parsed.results[0]!.source).toBe("austlii");
+    expect(process.exitCode).toBe(0);
+    const parsed = JSON.parse(written) as Array<SearchResult & { aglc4: string }>;
+    expect(parsed[0]!.source).toBe("austlii");
   });
 
   it("does not treat fetched source text as degraded CLI metadata", async () => {

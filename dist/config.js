@@ -30,12 +30,6 @@ export function loadConfig() {
                 "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             acceptLanguage: process.env.AUSTLII_ACCEPT_LANGUAGE || "en-AU,en;q=0.9",
         },
-        source: {
-            baseUrl: process.env.SOURCE_BASE_URL || "https://removed.invalid",
-            userAgent: process.env.SOURCE_USER_AGENT || "jurisd/0.1.0 (legal research tool)",
-            timeout: parseInt(process.env.SOURCE_TIMEOUT || "15000", 10),
-            sessionCookie: process.env.SESSION_COOKIE || undefined,
-        },
         exa: {
             apiKey: process.env.EXA_API_KEY || undefined,
             searchType: process.env.EXA_SEARCH_TYPE || "auto",
@@ -55,11 +49,6 @@ export function loadConfig() {
         sources: {
             dir: sourcesDir,
             fetchByDefault: process.env.AUSLAW_FETCH_SOURCES !== "false",
-        },
-        citedBy: {
-            enabled: process.env.AUSLAW_CACHE_CITED_BY !== "false",
-            downloadSources: process.env.AUSLAW_DOWNLOAD_CITED_BY_SOURCES !== "false",
-            downloadLimit: parseInt(process.env.AUSLAW_CITED_BY_DOWNLOAD_LIMIT ?? "5", 10) || 5,
         },
         transport: {
             useImpit: process.env.AUSLAW_USE_IMPIT !== "false",

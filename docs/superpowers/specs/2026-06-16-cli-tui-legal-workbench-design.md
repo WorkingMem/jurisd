@@ -1015,7 +1015,7 @@ Credentials are configuration secrets.
 
 They must never appear in command arguments, logs, TUI transcript, MCP result metadata, Evidence Packs, generated docs/examples, or debug output except in redacted form.
 
-SOURCE session cookies, Isaacus keys, provider keys, and graph backend credentials are credential-dependent capability gates, not product tiers.
+Isaacus keys, provider keys, and graph backend credentials are credential-dependent capability gates, not product tiers.
 
 ## 13. Evidence Packs and exports
 

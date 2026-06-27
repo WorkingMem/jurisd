@@ -8,9 +8,6 @@ _jurisd_complete() {
     bibliography)
       candidates=$'--cite-key\n--document\n--format\n--help\n--op\n--output-path\n--query'
       ;;
-    cache-cited-by)
-      candidates=$'--help'
-      ;;
     cite)
       candidates=$'--action\n--cite-key\n--court\n--document\n--footnote-number\n--help\n--jurisdiction\n--keywords\n--neutral-citation\n--pinpoint\n--reported-citation\n--style\n--summary\n--type\n--url\n--year'
       ;;
@@ -36,10 +33,7 @@ _jurisd_complete() {
       candidates=$'--format\n--help\n--module'
       ;;
     help)
-      candidates=$'bibliography\ncache-cited-by\ncite\ncommands\ncompletion\nfetch-document-text\nfetch-module\nfind-citing\nformat-citation\nget-act-structure\nget-provision\nsource-lookup\nlist-data-modules\nlist-modules\nresolve-citation\nsearch-cases\nsearch-citing-cases\nsearch-legislation\nsemantic-search-local\ntui\nverify-module'
-      ;;
-    source-lookup)
-      candidates=$'--article-id\n--by\n--citation\n--help'
+      candidates=$'bibliography\ncite\ncommands\ncompletion\nfetch-document-text\nfetch-module\nfind-citing\nformat-citation\nget-act-structure\nget-provision\nlist-data-modules\nlist-modules\nresolve-citation\nsearch-cases\nsearch-legislation\nsemantic-search-local\ntui\nverify-module'
       ;;
     list-data-modules)
       candidates=$'--format\n--help\n--include-invalid\n--refresh'
@@ -52,9 +46,6 @@ _jurisd_complete() {
       ;;
     search-cases)
       candidates=$'--format\n--help\n--jurisdiction\n--limit\n--method\n--offset\n--sort-by'
-      ;;
-    search-citing-cases)
-      candidates=$'--format\n--help'
       ;;
     search-legislation)
       candidates=$'--format\n--help\n--jurisdiction\n--limit\n--method\n--offset\n--sort-by'
@@ -69,7 +60,7 @@ _jurisd_complete() {
       candidates=$'--help\n--modules-dir'
       ;;
     *)
-      candidates=$'bibliography\ncache-cited-by\ncite\ncompletion\nfetch-document-text\nfetch-module\nfind-citing\nformat-citation\nget-act-structure\nget-provision\nhelp\nsource-lookup\nlist-data-modules\nlist-modules\nresolve-citation\nsearch-cases\nsearch-citing-cases\nsearch-legislation\nsemantic-search-local\ntui\nverify-module'
+      candidates=$'bibliography\ncite\ncompletion\nfetch-document-text\nfetch-module\nfind-citing\nformat-citation\nget-act-structure\nget-provision\nhelp\nlist-data-modules\nlist-modules\nresolve-citation\nsearch-cases\nsearch-legislation\nsemantic-search-local\ntui\nverify-module'
       ;;
   esac
   while IFS= read -r candidate; do

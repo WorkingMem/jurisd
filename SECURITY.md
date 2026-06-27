@@ -25,7 +25,7 @@ We will respond within 48 hours and provide updates as the issue is addressed.
 
 This tool:
 
-- Makes HTTP requests to AustLII and removed.invalid
+- Makes HTTP requests to AustLII (and to Exa/Tavily/Isaacus when those keys are configured)
 - Does not store user data
 - Does not require authentication
 - Runs locally as an MCP server
@@ -60,7 +60,7 @@ We monitor dependencies for vulnerabilities using:
 This tool makes requests to:
 
 - AustLII (public legal database)
-- removed.invalid (if user provides URLs)
+- Exa, Tavily, and Isaacus (only when the corresponding API key is configured)
 
 Users should:
 
