@@ -4,14 +4,19 @@ import { getCommandContractByCliName } from "../../commands/contracts.js";
 import { renderCommandHelp, renderTopLevelHelp } from "../../commands/help.js";
 
 describe("CLI help rendering", () => {
-  it("renders task-oriented top-level help", () => {
+  it("renders task-oriented top-level help derived from the command contracts", () => {
     const help = renderTopLevelHelp();
     expect(help).toContain("jurisd");
     expect(help).toContain("search");
     expect(help).toContain("cite");
-    expect(help).toContain("mcp");
+    // Real, invokable commands must appear; the `modules` group in particular
+    // was previously omitted from the hand-maintained help.
+    expect(help).toContain("search-cases");
+    expect(help).toContain("fetch-module");
     expect(help).toContain("completion");
-    expect(help).toContain("Run `jurisd help <topic>`");
+    // `mcp serve` was never a real command — bare `jurisd` serves the MCP server.
+    expect(help).not.toContain("mcp serve");
+    expect(help).toContain("Run `jurisd help <command>`");
   });
 
   it("renders per-command help from a command contract", () => {

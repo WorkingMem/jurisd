@@ -1,35 +1,60 @@
 import { COMMAND_CONTRACTS } from "./contracts.js";
 import type { CommandContract } from "./types.js";
 
-const GROUPS = [
-  ["search", "Search cases, legislation, citations, and local modules"],
-  ["cite", "Resolve, format, cache, and list citations"],
-  ["corpus", "Inspect installed local data modules and future corpora"],
-  ["graph", "Inspect local relationship data and future graph traces"],
-  ["source", "Fetch or inspect source documents"],
-  ["mcp", "Run and inspect MCP integration"],
-  ["doctor", "Diagnose configuration and capabilities"],
-  ["tui", "Open the inline terminal workbench shell"],
+// Preferred display order for command groups. Any group present on a contract
+// but missing here is still shown (appended, sorted) so new groups can never
+// silently vanish from `--help` — the drift that previously hid the `modules`
+// group and advertised a non-existent `mcp` command.
+const GROUP_ORDER = [
+  "search",
+  "cite",
+  "corpus",
+  "source",
+  "graph",
+  "modules",
+  "doctor",
+  "tui",
 ] as const;
 
+function cliName(contract: CommandContract): string {
+  return contract.adapters.cli.canonicalName ?? contract.id;
+}
+
+/** Group the CLI-enabled commands by their contract `cli.group`. */
+function groupedCommands(): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+  for (const contract of COMMAND_CONTRACTS) {
+    if (!contract.adapters.cli.enabled) continue;
+    const group = contract.adapters.cli.group || "other";
+    const names = groups.get(group) ?? [];
+    names.push(cliName(contract));
+    groups.set(group, names);
+  }
+  for (const names of groups.values()) names.sort();
+  return groups;
+}
+
 export function renderTopLevelHelp(): string {
+  const groups = groupedCommands();
+  const orderedNames = [
+    ...GROUP_ORDER.filter((name) => groups.has(name)),
+    ...[...groups.keys()].filter((name) => !GROUP_ORDER.includes(name as never)).sort(),
+  ];
+  const width = Math.max(...orderedNames.map((name) => name.length));
+
   const lines = [
     "jurisd - source-backed Australian legal research",
     "",
     "Usage:",
     "  jurisd <command> [arguments] [flags]",
-    "  jurisd help <topic>",
-    "  jurisd completion <shell>",
-    "  jurisd tui",
-    "  jurisd mcp serve",
+    "  jurisd help <command>",
+    "  jurisd completion <bash|zsh|fish>",
+    "  jurisd                  (no command: serve the MCP server on stdio)",
     "",
-    "Common groups:",
-    ...GROUPS.map(([name, summary]) => `  ${name.padEnd(10)} ${summary}`),
+    "Commands:",
+    ...orderedNames.map((name) => `  ${name.padEnd(width)}  ${groups.get(name)!.join(", ")}`),
     "",
-    "Compatibility aliases:",
-    "  Existing flat commands such as search-cases and format-citation remain available.",
-    "",
-    "Run `jurisd help <topic>` or `jurisd <command> --help` for details.",
+    "Run `jurisd help <command>` or `jurisd <command> --help` for details.",
   ];
   return lines.join("\n");
 }

@@ -115,15 +115,25 @@ export function formatSearchResults(
   const warnings = options.warnings?.filter((warning) => warning.message) ?? [];
   const sources = options.sources;
   const sourceSummary = sourceStatusSummary(sources);
-  const degraded =
-    warnings.length > 0 ||
-    (sources ? Object.values(sources).some((status) => status !== "ok") : false);
-  const degradedData = degraded
-    ? { results: enriched, warnings, ...(sources ? { sources } : {}), degraded: true }
+  // `degraded` means the search came up short and the caller must act — it is
+  // driven by warnings, which a caller only raises when nothing recovered the
+  // results. A blocked primary source that a fallback substituted for is NOT
+  // degraded: it is reported through `sources` as provenance, not as failure.
+  const degraded = warnings.length > 0;
+  // Emit the structured meta object whenever there is anything to report
+  // (warnings or source provenance); otherwise the payload stays a bare array.
+  const hasMeta = warnings.length > 0 || sources !== undefined;
+  const metaData = hasMeta
+    ? {
+        results: enriched,
+        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(sources ? { sources } : {}),
+        ...(degraded ? { degraded: true } : {}),
+      }
     : undefined;
   switch (format) {
     case "json": {
-      const data = degradedData ?? enriched;
+      const data = metaData ?? enriched;
       return {
         content: ensureContent(JSON.stringify(data, null, 2)),
         structuredContent: {
@@ -161,7 +171,7 @@ export function formatSearchResults(
         content: ensureContent(
           `${warningHtml ? `${warningHtml}\n` : ""}${sourceHtml ? `${sourceHtml}\n` : ""}<ul>\n${rows}\n</ul>`,
         ),
-        ...(degradedData ? { structuredContent: { format: "html", data: degradedData } } : {}),
+        ...(metaData ? { structuredContent: { format: "html", data: metaData } } : {}),
       };
     }
     case "markdown": {
@@ -173,7 +183,7 @@ export function formatSearchResults(
       });
       return {
         content: ensureContent([...warningLines, ...sourceLines, ...lines].join("\n")),
-        ...(degradedData ? { structuredContent: { format: "markdown", data: degradedData } } : {}),
+        ...(metaData ? { structuredContent: { format: "markdown", data: metaData } } : {}),
       };
     }
     case "text":
@@ -186,7 +196,7 @@ export function formatSearchResults(
       });
       return {
         content: ensureContent([...warningLines, ...sourceLines, ...lines].join("\n")),
-        ...(degradedData ? { structuredContent: { format: "text", data: degradedData } } : {}),
+        ...(metaData ? { structuredContent: { format: "text", data: metaData } } : {}),
       };
     }
   }

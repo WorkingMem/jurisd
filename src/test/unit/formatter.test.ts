@@ -84,21 +84,21 @@ describe("formatSearchResults", () => {
     expect((result.structuredContent as { data: unknown }).data).toEqual(parsed);
   });
 
-  it("formats source-only degradation as a degraded result object", () => {
+  it("formats source provenance (no warnings) as a non-degraded result object", () => {
     const result = formatSearchResults([], "json", {
       sources: { austlii: "blocked", exa: "not_configured" },
     });
     const parsed = JSON.parse(getText(result.content)) as {
       results: SearchResult[];
-      warnings: unknown[];
+      warnings?: unknown[];
       sources: SearchSourceStatuses;
-      degraded: boolean;
+      degraded?: boolean;
     };
+    // Sources are provenance, not failure: present without warnings, the
+    // payload reports the sources but is not flagged degraded.
     expect(parsed).toEqual({
       results: [],
-      warnings: [],
       sources: { austlii: "blocked", exa: "not_configured" },
-      degraded: true,
     });
     expect((result.structuredContent as { data: unknown }).data).toEqual(parsed);
   });
@@ -124,7 +124,9 @@ describe("formatSearchResults", () => {
     });
     const text = getText(result.content);
     expect(text).toContain("Source status: austlii=blocked, exa=not_configured");
-    expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
+    expect(
+      (result.structuredContent as { data: { degraded?: boolean } }).data.degraded,
+    ).toBeUndefined();
   });
 
   it("should format results as markdown", () => {
@@ -147,7 +149,9 @@ describe("formatSearchResults", () => {
     });
     const text = getText(result.content);
     expect(text).toContain("> Source status: austlii=blocked, exa=not\\_configured");
-    expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
+    expect(
+      (result.structuredContent as { data: { degraded?: boolean } }).data.degraded,
+    ).toBeUndefined();
   });
 
   it("escapes markdown control characters in search output", () => {
@@ -199,7 +203,9 @@ describe("formatSearchResults", () => {
     const text = getText(result.content);
     expect(text).toContain('class="source-status"');
     expect(text).toContain("austlii=blocked, exa=not_configured");
-    expect((result.structuredContent as { data: { degraded: boolean } }).data.degraded).toBe(true);
+    expect(
+      (result.structuredContent as { data: { degraded?: boolean } }).data.degraded,
+    ).toBeUndefined();
   });
 
   it("should handle empty results", () => {

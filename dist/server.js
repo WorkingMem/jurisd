@@ -225,8 +225,15 @@ export function createMcpServer() {
                 }
             }
         }
-        const includeSourceStatus = warnings.length > 0 || Object.values(sources).some((status) => status !== "ok");
-        return formatSearchResults(merged, format ?? "json", includeSourceStatus ? { warnings, sources } : undefined);
+        // The Cloudflare warning is only actionable when nothing recovered the
+        // search. When a fallback (direct citation or Exa) supplied results,
+        // telling the user to "configure X to recover" is misleading — they
+        // already have a working path. Keep `sources` as quiet provenance.
+        const effectiveWarnings = merged.length > 0
+            ? warnings.filter((warning) => warning.code !== "austlii_cloudflare_blocked")
+            : warnings;
+        const includeSourceStatus = effectiveWarnings.length > 0 || Object.values(sources).some((status) => status !== "ok");
+        return formatSearchResults(merged, format ?? "json", includeSourceStatus ? { warnings: effectiveWarnings, sources } : undefined);
     });
     // ── fetch_document_text ───────────────────────────────────────────────────
     const fetchDocumentShape = {
