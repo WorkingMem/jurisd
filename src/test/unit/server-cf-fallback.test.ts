@@ -4,30 +4,19 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 /**
  * Cost-ordered fallback matrix for search_cases:
- *   free providers (austlii live + source) → Exa (if configured) → degraded result.
- * Two resilience properties:
- *   1. A Cloudflare block on AustLII must NOT take down source results (the old
- *      Promise.all rejected the whole search).
- *   2. When nothing recovers results, the tool degrades gracefully (warnings +
- *      sources + degraded:true) rather than throwing — matching the upstream
- *      degraded-coverage contract in search-degradation.test.ts.
+ *   AustLII live → Exa (if configured) → degraded result.
+ * When nothing recovers results, the tool degrades gracefully (warnings +
+ * sources + degraded:true) rather than throwing — matching the upstream
+ * degraded-coverage contract in search-degradation.test.ts.
  */
 
-const { searchAustLiiMock, searchUpstreamWithStatusMock, searchExaMock } = vi.hoisted(() => ({
+const { searchAustLiiMock, searchExaMock } = vi.hoisted(() => ({
   searchAustLiiMock: vi.fn(),
-  searchUpstreamWithStatusMock: vi.fn(),
   searchExaMock: vi.fn(),
 }));
 
 vi.mock("../../services/austlii.js", () => ({ searchAustLii: searchAustLiiMock }));
 vi.mock("../../services/exa.js", () => ({ searchAustliiViaExaWithStatus: searchExaMock }));
-vi.mock("../../services/source.js", () => ({
-  searchUpstreamWithStatus: searchUpstreamWithStatusMock,
-  searchUpstream: vi.fn(),
-  resolveArticle: vi.fn(),
-  buildCitationLookupUrl: vi.fn(),
-  searchCitingCases: vi.fn(),
-}));
 
 import { createMcpServer } from "../../server.js";
 import { CloudflareBlockedError } from "../../errors.js";
@@ -63,7 +52,6 @@ async function callSearchCases(
 describe("search_cases cost-ordered fallback matrix", () => {
   beforeEach(() => {
     searchAustLiiMock.mockReset();
-    searchUpstreamWithStatusMock.mockReset();
     searchExaMock.mockReset();
     // Default: no Exa results (acts as "Exa not configured").
     searchExaMock.mockResolvedValue({ results: [], status: "not_configured" });
@@ -77,28 +65,14 @@ describe("search_cases cost-ordered fallback matrix", () => {
         "[2018] HCA 9",
       ),
     ]);
-    searchUpstreamWithStatusMock.mockResolvedValue({ results: [], status: "ok" });
     const { isError, text } = await callSearchCases();
     expect(isError).toBe(false);
     expect(text).toContain("HCA/2018/9");
     expect(searchExaMock).not.toHaveBeenCalled();
   });
 
-  it("AustLII Cloudflare-blocked but source has results → source survives (resilience)", async () => {
+  it("AustLII empty + Exa configured → Exa results", async () => {
     searchAustLiiMock.mockRejectedValue(new CloudflareBlockedError("https://austlii", false));
-    searchUpstreamWithStatusMock.mockResolvedValue({
-      results: [caseResult("Pike v Tighe", "https://removed.invalid/article/1", "[2018] HCA 9")],
-      status: "ok",
-    });
-    const { isError, text } = await callSearchCases();
-    expect(isError).toBe(false);
-    expect(text).toContain("removed.invalid/article/1");
-    expect(searchExaMock).not.toHaveBeenCalled();
-  });
-
-  it("free providers empty + Exa configured → Exa results", async () => {
-    searchAustLiiMock.mockRejectedValue(new CloudflareBlockedError("https://austlii", false));
-    searchUpstreamWithStatusMock.mockResolvedValue({ results: [], status: "not_configured" });
     searchExaMock.mockResolvedValue({
       results: [
         caseResult(
@@ -117,7 +91,6 @@ describe("search_cases cost-ordered fallback matrix", () => {
 
   it("AustLII Cloudflare-blocked + neutral citation query -> direct AustLII URL without paid search", async () => {
     searchAustLiiMock.mockRejectedValue(new CloudflareBlockedError("https://austlii", false));
-    searchUpstreamWithStatusMock.mockResolvedValue({ results: [], status: "not_configured" });
     const { isError, text } = await callSearchCases("[2018] HCA 9");
     const payload = JSON.parse(text) as { results?: Array<{ aglc4?: string }> };
     expect(isError).toBe(false);
@@ -129,20 +102,17 @@ describe("search_cases cost-ordered fallback matrix", () => {
 
   it("nothing configured + AustLII blocked → degraded result naming the fallbacks", async () => {
     searchAustLiiMock.mockRejectedValue(new CloudflareBlockedError("https://austlii", false));
-    searchUpstreamWithStatusMock.mockResolvedValue({ results: [], status: "not_configured" });
     // searchExaMock default resolves not_configured (no key configured)
     const { isError, text } = await callSearchCases();
     expect(isError).toBe(false);
     expect(text).toContain("degraded");
     expect(text).toContain("EXA_API_KEY");
-    expect(text).toContain("SESSION_COOKIE");
     expect(text).toContain('"exa": "not_configured"');
     expect(searchExaMock).toHaveBeenCalledOnce();
   });
 
   it("genuine zero results (no challenge) → empty list, not an error", async () => {
     searchAustLiiMock.mockResolvedValue([]);
-    searchUpstreamWithStatusMock.mockResolvedValue({ results: [], status: "ok" });
     const { isError } = await callSearchCases();
     expect(isError).toBe(false);
   });

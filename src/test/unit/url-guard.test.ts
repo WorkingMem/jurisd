@@ -5,9 +5,6 @@ describe("assertFetchableUrl", () => {
   it("permits AustLII HTTPS URL", () => {
     expect(() => assertFetchableUrl("https://www.austlii.edu.au/case")).not.toThrow();
   });
-  it("permits removed.invalid HTTPS URL", () => {
-    expect(() => assertFetchableUrl("https://removed.invalid/article/12345")).not.toThrow();
-  });
   it("permits classic.austlii.edu.au", () => {
     expect(() => assertFetchableUrl("https://classic.austlii.edu.au/au/cases")).not.toThrow();
   });
@@ -39,7 +36,11 @@ describe("assertRedirectAllowed", () => {
   });
   it("permits a redirect reconstructed from protocol/host/path", () => {
     expect(() =>
-      assertRedirectAllowed({ protocol: "https:", host: "removed.invalid", path: "/article/1" }),
+      assertRedirectAllowed({
+        protocol: "https:",
+        host: "classic.austlii.edu.au",
+        path: "/au/cases/1",
+      }),
     ).not.toThrow();
   });
   it("blocks a redirect to a cloud-metadata address", () => {
@@ -65,7 +66,7 @@ describe("assertRedirectAllowed", () => {
     };
     expect(() =>
       assertRedirectAllowed({
-        href: "https://removed.invalid/article/1",
+        href: "https://classic.austlii.edu.au/au/cases/1",
         headers,
       }),
     ).not.toThrow();

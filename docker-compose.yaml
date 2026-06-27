@@ -35,8 +35,6 @@ services:
       AUSTLII_SEARCH_BASE: ${AUSTLII_SEARCH_BASE:-https://www.austlii.edu.au/cgi-bin/sinosrch.cgi}
       AUSTLII_REFERER: ${AUSTLII_REFERER:-https://www.austlii.edu.au/forms/search1.html}
       AUSTLII_TIMEOUT: ${AUSTLII_TIMEOUT:-60000}
-      # Optional removed.invalid session cookie for authenticated fetch (see .env.example).
-      SESSION_COOKIE: ${SESSION_COOKIE:-}
 
     volumes:
       # Mount your installed parquet data modules read-only at the documented

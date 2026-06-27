@@ -195,8 +195,8 @@ export async function exportBib(cacheDir, document) {
 }
 /**
  * Replace the citedBy list on an existing cache entry and record when it was
- * fetched.  Overwrites any prior citedBy array so callers always store the
- * most recent snapshot from removed.invalid.
+ * populated.  Overwrites any prior citedBy array so callers always store the
+ * most recent snapshot.
  *
  * Note: same load-mutate-save limitation as upsertCitation.
  */

@@ -212,10 +212,6 @@ export const COMMAND_CONTRACTS = [
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
         stringFlag("citeKey", "Existing citation cache key to associate with fetched source metadata."),
     ]),
-    makeContract("source.sourceLookup", "source-lookup", "source_lookup", "source", "network_read", [], ["articleId"], [], [], "Look up removed.invalid article metadata or citation URL.", "jurisd source-lookup --by citation --citation '[2008] NSWSC 323'", [
-        stringFlag("by", "Lookup mode.", ["article_id", "citation"]),
-        stringFlag("citation", "Neutral citation for by=citation lookups."),
-    ]),
     enableTui(makeContract("cite.format", "format-citation", "format_citation", "cite", "read_only_query", ["title"], ["footnoteRef", "pinpointPara", "pinpointPage", "paragraphNumber"], [], [], "Format an AGLC4 citation.", "jurisd format-citation 'Mabo v Queensland (No 2)' --neutral-citation '[1992] HCA 23'", [
         stringFlag("mode", "Citation mode.", ["full", "short", "ibid", "subsequent", "pinpoint"]),
         stringFlag("neutralCitation", "Neutral citation."),
@@ -230,8 +226,6 @@ export const COMMAND_CONTRACTS = [
         stringFlag("mode", "Resolution mode.", ["auto", "validate", "search"]),
         stringFlag("format", "Output format.", ["json", "text", "markdown", "html"]),
     ]),
-    makeContract("cite.searchCitingCases", "search-citing-cases", "search_citing_cases", "cite", "network_read", ["caseName"], [], [], [], "Search for cases citing a named case.", "jurisd search-citing-cases 'Mabo v Queensland (No 2)'", [stringFlag("format", "Output format.", ["json", "text", "markdown", "html"])]),
-    makeContract("cite.cacheCitedBy", "cache-cited-by", "cache_cited_by", "cite", "network_read", ["citeKey"], [], [], [], "Cache cited-by information for a citation key.", "jurisd cache-cited-by mabo-1992-hca-23"),
     makeContract("cite.create", "cite", "cite", "cite", "local_metadata_read", ["title"], ["year", "footnoteNumber"], [], ["keywords"], "Create or record a citation cache entry.", "jurisd cite 'Mabo v Queensland (No 2)' --year 1992", [
         stringFlag("action", "Citation cache action.", ["add", "refresh_source"]),
         stringFlag("neutralCitation", "Neutral citation."),

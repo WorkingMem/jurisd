@@ -11,10 +11,9 @@ describe("RateLimiter", () => {
     expect(Date.now() - start).toBeLessThan(100);
   });
 
-  it("creates austliiRateLimiter and upstreamRateLimiter singletons", async () => {
-    const { austliiRateLimiter, upstreamRateLimiter } = await import("../../utils/rate-limiter.js");
+  it("creates the austliiRateLimiter singleton", async () => {
+    const { austliiRateLimiter } = await import("../../utils/rate-limiter.js");
     expect(austliiRateLimiter).toBeDefined();
-    expect(upstreamRateLimiter).toBeDefined();
   });
 
   it("refills tokens after the refill interval elapses", async () => {

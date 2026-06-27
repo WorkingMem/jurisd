@@ -1,10 +1,4 @@
-const ALLOWED_HOSTS = new Set([
-    "www.austlii.edu.au",
-    "classic.austlii.edu.au",
-    "austlii.edu.au",
-    "removed.invalid",
-    "removed.invalid",
-]);
+const ALLOWED_HOSTS = new Set(["www.austlii.edu.au", "classic.austlii.edu.au", "austlii.edu.au"]);
 /**
  * Asserts that a URL is safe to fetch from.
  * Blocks SSRF vectors: non-HTTPS protocols, private/localhost hosts,
@@ -31,7 +25,7 @@ export function assertFetchableUrl(url) {
  * Maximum redirects to follow on guarded fetches. `assertFetchableUrl` only
  * validates the first hop; without a bound + per-hop re-check, a 302 from an
  * allowlisted origin to an internal address (or a metadata endpoint) would be
- * followed silently. Keep this small — legitimate AustLII/source flows redirect
+ * followed silently. Keep this small — legitimate AustLII flows redirect
  * at most once or twice.
  */
 export const MAX_REDIRECTS = 3;

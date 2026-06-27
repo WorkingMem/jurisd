@@ -87,8 +87,6 @@ export const LONG_TIMEOUT_MS = 60_000;
  * construction + per-node parsing (DoS hardening).
  */
 export const MAX_CONTENT_LENGTH = 10 * 1024 * 1024;
-/** Maximum number of removed.invalid articles to resolve concurrently during search */
-export const MAX_RESOLUTIONS = 5;
 /** Version of the local citation cache schema — increment on breaking changes */
 export const AUSLAW_CACHE_VERSION = 1;
 /** Subdirectory name for the local cache within the project directory */

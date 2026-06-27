@@ -1,16 +1,15 @@
 import type { SearchResult } from "./austlii.js";
 
 /**
- * Merge case search results from removed.invalid and AustLII.
- * Prefers removed.invalid when neutral citations collide.
+ * Deduplicate AustLII case search results, keeping the first occurrence of each
+ * neutral citation (falling back to URL when no neutral citation is present).
  */
 export function mergeCaseSearchResults(
   austliiResults: SearchResult[],
-  upstreamResults: SearchResult[],
   limit?: number,
 ): SearchResult[] {
   const seen = new Map<string, SearchResult>();
-  for (const result of [...upstreamResults, ...austliiResults]) {
+  for (const result of austliiResults) {
     const key = result.neutralCitation ?? result.url;
     if (!seen.has(key)) {
       seen.set(key, result);

@@ -191,14 +191,14 @@ describe("fetchWithTransport (axios path)", () => {
       .mockResolvedValueOnce({
         status: 302,
         headers: new Headers({
-          location: "https://removed.invalid/article/67683",
+          location: "https://classic.austlii.edu.au/au/cases/cth/HCA/1992/23.html",
         }),
         text: async () => "",
       })
       .mockResolvedValueOnce({
         status: 200,
         headers: new Headers({ "content-type": "text/html" }),
-        text: async () => "<html>source body</html>",
+        text: async () => "<html>redirected body</html>",
       });
 
     await fetchWithTransport("https://www.austlii.edu.au/au/cases/cth/HCA/1992/23.html", {

@@ -16,11 +16,6 @@ _jurisd() {
         $'--query'
       )
       ;;
-    cache-cited-by)
-      candidates=(
-        $'--help'
-      )
-      ;;
     cite)
       candidates=(
         $'--action'
@@ -107,7 +102,6 @@ _jurisd() {
     help)
       candidates=(
         $'bibliography'
-        $'cache-cited-by'
         $'cite'
         $'commands'
         $'completion'
@@ -117,24 +111,14 @@ _jurisd() {
         $'format-citation'
         $'get-act-structure'
         $'get-provision'
-        $'source-lookup'
         $'list-data-modules'
         $'list-modules'
         $'resolve-citation'
         $'search-cases'
-        $'search-citing-cases'
         $'search-legislation'
         $'semantic-search-local'
         $'tui'
         $'verify-module'
-      )
-      ;;
-    source-lookup)
-      candidates=(
-        $'--article-id'
-        $'--by'
-        $'--citation'
-        $'--help'
       )
       ;;
     list-data-modules)
@@ -167,12 +151,6 @@ _jurisd() {
         $'--method'
         $'--offset'
         $'--sort-by'
-      )
-      ;;
-    search-citing-cases)
-      candidates=(
-        $'--format'
-        $'--help'
       )
       ;;
     search-legislation)
@@ -211,7 +189,6 @@ _jurisd() {
     *)
       candidates=(
         $'bibliography'
-        $'cache-cited-by'
         $'cite'
         $'completion'
         $'fetch-document-text'
@@ -221,12 +198,10 @@ _jurisd() {
         $'get-act-structure'
         $'get-provision'
         $'help'
-        $'source-lookup'
         $'list-data-modules'
         $'list-modules'
         $'resolve-citation'
         $'search-cases'
-        $'search-citing-cases'
         $'search-legislation'
         $'semantic-search-local'
         $'tui'

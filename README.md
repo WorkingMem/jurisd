@@ -12,7 +12,7 @@ dependency, an absent API key, or an uninstalled module disables only the
 feature that needs it and is reported back, never swallowed. With no key and no
 network, the local-module recall path still answers.
 
-**Status:** pre-1.0, day-0 release candidate. 15 MCP tools across live research,
+**Status:** pre-1.0, day-0 release candidate. 12 MCP tools across live research,
 citation/bibliography, and local data modules.
 
 ## What jurisd is
@@ -30,10 +30,6 @@ assistant. It has three answer sources, tried in precedence order:
    fetch (HTML + PDF), and AGLC4 citation formatting.
 3. **OALC fallback (Layer 3)** — an Open Australian Legal Corpus layer that backs
    the live layer when a direct fetch is blocked.
-
-removed.invalid is supported as an optional runtime citation-enhancement source — the
-citator (citing cases), citation/article resolution, and cross-referencing of
-live results — when you supply your own session cookie.
 
 ## Quick start
 
@@ -97,7 +93,7 @@ and the offline/baseline guarantee.
 ### Claude Code skill
 
 A bundled [Claude Code skill](skills/jurisd-research/SKILL.md) teaches the agent
-expert jurisd usage from day 0 — which of the 15 tools to reach for, the
+expert jurisd usage from day 0 — which of the 12 tools to reach for, the
 local-first/live-fallback rule, AGLC4 citation workflows, and a
 [worked research session](skills/jurisd-research/examples/research-session.md).
 Install it by copying the skill folder into your skills directory:
@@ -111,7 +107,7 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 
 ## Tools
 
-15 tools in three groups. Operation variants are selected via a
+12 tools in three groups. Operation variants are selected via a
 `mode` / `op` / `action` / `by` discriminator on the relevant tool.
 
 ### Live research (AustLII)
@@ -120,7 +116,7 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `search_cases`        | Natural-language case-law search across all AU/NZ jurisdictions; authority ranking; title/phrase/boolean methods; pagination. |
 | `search_legislation`  | Search AU/NZ legislation with the same method/jurisdiction/sort controls.                                                     |
-| `fetch_document_text` | Fetch full text from an AustLII or removed.invalid URL (HTML, PDF, removed.invalid via RPC).                                              |
+| `fetch_document_text` | Fetch full text from an AustLII URL (HTML, PDF).                                                                               |
 
 > **AustLII sits behind Cloudflare.** AustLII now serves a JavaScript
 > managed-challenge that automated clients — including TLS-impersonating ones —
@@ -132,17 +128,15 @@ and AGLC4 prompts once the `jurisd` MCP server is registered.
 > | ------------------- | --------------------- | -------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 > | **Direct citation** | none                  | Free           | Queries containing a neutral citation such as `[2018] HCA 9` resolve directly to the canonical AustLII case URL. | Citation-only. It is not general natural-language search.                                                                                   |
 > | **Exa**             | `EXA_API_KEY`         | Paid/free tier | Search discovery returns canonical AustLII case/legislation URLs, even for obscure cases.                        | Discovery only (URL + citation); full text is fetched separately.                                                                           |
-> | **removed.invalid**         | `SESSION_COOKIE` | Free account   | Full-text search **and** document retrieval via removed.invalid, plus the citator.                                      | Needs a removed.invalid account; the session cookie expires and must be re-extracted.                                                               |
-> | **both**            | both of the above     | -              | Best coverage: source runs first, Exa fills the gaps it misses.                                                   | -                                                                                                                                           |
 > | **none**            | -                     | -              | -                                                                                                               | Search returns a degraded result whose warning names the env vars; document fetch still falls back to the local OALC corpus when available. |
 >
-> Resolution order: AustLII and removed.invalid, direct citation URL when present, Exa,
-> degraded result. The document source remains AustLII throughout.
+> Resolution order: direct citation URL when present, then Exa, then a degraded
+> result. The document source remains AustLII throughout.
 
 When AustLII search is Cloudflare-blocked, the tools degrade gracefully rather
-than failing: `search_cases` returns any removed.invalid (or Exa) results it can find
+than failing: `search_cases` returns any Exa results it can find
 plus a `warning`, `sources`, and `degraded: true`, and reports incomplete
-configured coverage (for example `source: "not_configured"`) instead of hiding
+configured coverage (for example `exa: "not_configured"`) instead of hiding
 that source status. `search_legislation` returns an empty degraded result with
 the same machine-readable status instead of failing the tool call. CLI search
 commands exit 4 for degraded source coverage.
@@ -153,11 +147,8 @@ commands exit 4 for degraded source coverage.
 | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `format_citation`     | Format an AGLC4 citation. `mode`: `full` (default), `short`, `ibid`, `subsequent`, `pinpoint`.                       |
 | `resolve_citation`    | Resolve a citation to its source. `mode`: `auto` (default), `validate` (AustLII existence check), `search`.          |
-| `source_lookup`         | Look up removed.invalid. `by`: `article_id` (resolve metadata) or `citation` (build a lookup URL).                           |
-| `search_citing_cases` | Find cases citing a target via the removed.invalid citator (requires `SESSION_COOKIE`).                                 |
 | `cite`                | Write to the local citation cache. `action`: `add` (default) or `refresh_source` (conditional-HEAD freshness check). |
 | `bibliography`        | Read the local citation cache (no network). `op`: `get`, `list` (default), `export` (`.bib`), `cited_by`.            |
-| `cache_cited_by`      | Fetch a cached citation's citing cases from removed.invalid and store them locally (requires `SESSION_COOKIE`).         |
 
 ### Local data modules (offline recall)
 
@@ -171,7 +162,7 @@ and snapshot date (plus a staleness advisory when the snapshot is old).
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `get_provision`         | Deterministic provision lookup (e.g. `s 18` of an Act). No embedding, no ranking; typed not-found so the router can fall through.                      |
 | `get_act_structure`     | Containment tree of an Act (Act → Part → Division → section/schedule/clause) over `act_provision` edges, closed-world.                                 |
-| `find_citing`           | Offline twin of `search_citing_cases`: documents in installed modules that cite a target, with each citation's provenance span.                        |
+| `find_citing`           | Documents in installed modules that cite a target, with each citation's provenance span.                                                              |
 | `semantic_search_local` | Vector recall: the query is embedded locally (bge-small, offline, no key) and ranked by cosine over chunk embeddings, with optional facet pre-filters. |
 | `list_data_modules`     | Introspect installed modules: coverage, doc/chunk counts, embedding descriptor, load status, snapshot date and staleness.                              |
 

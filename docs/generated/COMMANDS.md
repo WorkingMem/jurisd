@@ -11,7 +11,6 @@ Supported completion shells: `bash`, `zsh`, `fish`.
 | Command                 | Group     | Side effect           | MCP                     | TUI      | Summary                                                    |
 | ----------------------- | --------- | --------------------- | ----------------------- | -------- | ---------------------------------------------------------- |
 | `bibliography`          | `cite`    | `local_metadata_read` | `bibliography`          | disabled | Render a bibliography from cached citations.               |
-| `cache-cited-by`        | `cite`    | `network_read`        | `cache_cited_by`        | disabled | Cache cited-by information for a citation key.             |
 | `cite`                  | `cite`    | `local_metadata_read` | `cite`                  | disabled | Create or record a citation cache entry.                   |
 | `completion`            | `doctor`  | `read_only_query`     | CLI only                | disabled | Print a shell completion script.                           |
 | `fetch-document-text`   | `source`  | `network_read`        | `fetch_document_text`   | disabled | Fetch full text for a source document.                     |
@@ -20,12 +19,10 @@ Supported completion shells: `bash`, `zsh`, `fish`.
 | `format-citation`       | `cite`    | `read_only_query`     | `format_citation`       | enabled  | Format an AGLC4 citation.                                  |
 | `get-act-structure`     | `corpus`  | `local_metadata_read` | `get_act_structure`     | enabled  | Get act structure from an installed local data module.     |
 | `get-provision`         | `corpus`  | `local_metadata_read` | `get_provision`         | enabled  | Get a provision from an installed local data module.       |
-| `source-lookup`           | `source`  | `network_read`        | `source_lookup`           | disabled | Look up removed.invalid article metadata or citation URL.          |
 | `list-data-modules`     | `corpus`  | `local_metadata_read` | `list_data_modules`     | enabled  | List installed local data modules.                         |
 | `list-modules`          | `modules` | `local_metadata_read` | CLI only                | disabled | List installed data modules via the operator CLI.          |
 | `resolve-citation`      | `cite`    | `network_read`        | `resolve_citation`      | disabled | Resolve a citation to an authoritative source.             |
 | `search-cases`          | `search`  | `network_read`        | `search_cases`          | enabled  | Search Australian and New Zealand case law.                |
-| `search-citing-cases`   | `cite`    | `network_read`        | `search_citing_cases`   | disabled | Search for cases citing a named case.                      |
 | `search-legislation`    | `search`  | `network_read`        | `search_legislation`    | enabled  | Search Australian and New Zealand legislation.             |
 | `semantic-search-local` | `search`  | `local_metadata_read` | `semantic_search_local` | enabled  | Run local semantic search over installed data modules.     |
 | `tui`                   | `tui`     | `local_metadata_read` | CLI only                | disabled | Open the inline TUI shell.                                 |
@@ -65,36 +62,6 @@ Flags:
 Examples:
 
 - `jurisd bibliography`
-
-## `cache-cited-by`
-
-Cache cited-by information for a citation key.
-
-- Command id: `cite.cacheCitedBy`
-- Group: `cite`
-- Side effect: `network_read`
-- Stability: `stable`
-- MCP tool: `cache_cited_by`
-- TUI: not enabled
-- Result contract: `cite.cacheCitedBy.v1`
-
-Usage:
-
-```bash
-jurisd cache-cited-by mabo-1992-hca-23
-```
-
-Arguments:
-
-- `citeKey`: citeKey argument.
-
-Flags:
-
-- none
-
-Examples:
-
-- `jurisd cache-cited-by mabo-1992-hca-23`
 
 ## `cite`
 
@@ -370,38 +337,6 @@ Examples:
 
 - `jurisd get-provision 'Family Law Act 1975 (Cth)' 's 60CC'`
 
-## `source-lookup`
-
-Look up removed.invalid article metadata or citation URL.
-
-- Command id: `source.sourceLookup`
-- Group: `source`
-- Side effect: `network_read`
-- Stability: `stable`
-- MCP tool: `source_lookup`
-- TUI: not enabled
-- Result contract: `source.sourceLookup.v1`
-
-Usage:
-
-```bash
-jurisd source-lookup --by citation --citation '[2008] NSWSC 323'
-```
-
-Arguments:
-
-- none
-
-Flags:
-
-- `--article-id` (number): articleId value.
-- `--by` (string): Lookup mode.
-- `--citation` (string): Neutral citation for by=citation lookups.
-
-Examples:
-
-- `jurisd source-lookup --by citation --citation '[2008] NSWSC 323'`
-
 ## `list-data-modules`
 
 List installed local data modules.
@@ -529,36 +464,6 @@ Flags:
 Examples:
 
 - `jurisd search-cases "native title" --jurisdiction cth --limit 5`
-
-## `search-citing-cases`
-
-Search for cases citing a named case.
-
-- Command id: `cite.searchCitingCases`
-- Group: `cite`
-- Side effect: `network_read`
-- Stability: `stable`
-- MCP tool: `search_citing_cases`
-- TUI: not enabled
-- Result contract: `cite.searchCitingCases.v1`
-
-Usage:
-
-```bash
-jurisd search-citing-cases 'Mabo v Queensland (No 2)'
-```
-
-Arguments:
-
-- `caseName`: caseName argument.
-
-Flags:
-
-- `--format` (string): Output format.
-
-Examples:
-
-- `jurisd search-citing-cases 'Mabo v Queensland (No 2)'`
 
 ## `search-legislation`
 

@@ -66,7 +66,7 @@ export function formatCapabilityProbeSummary(caps) {
         : caps.domain_adapter.configured
             ? "  Legal-domain refinement: configured but currently unreachable, using baseline ranking."
             : "  Legal-domain refinement: not configured, using baseline ranking.");
-    lines.push("  Live AustLII, Source, Exa, and citation search are checked when their search commands run.");
+    lines.push("  Live AustLII, Exa, and citation search are checked when their search commands run.");
     return lines.join("\n");
 }
 let _cachedAdapterProbe = null;

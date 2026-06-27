@@ -20,16 +20,6 @@ austlii:
   # Request timeout in milliseconds (AustLII can be slow)
   timeout: ${AUSTLII_TIMEOUT:-60000}
 
-source:
-  # Base URL for removed.invalid
-  baseUrl: ${SOURCE_BASE_URL:-https://removed.invalid}
-
-  # User agent for removed.invalid requests
-  userAgent: ${SOURCE_USER_AGENT:-jurisd/0.2.0 (legal research tool)}
-
-  # Request timeout in milliseconds
-  timeout: ${SOURCE_TIMEOUT:-15000}
-
 defaults:
   # Default number of search results
   searchLimit: ${DEFAULT_SEARCH_LIMIT:-10}

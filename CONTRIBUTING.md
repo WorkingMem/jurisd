@@ -325,7 +325,6 @@ src/
 ├── data/                 # Data-module manifest schema + types
 ├── services/
 │   ├── austlii.ts       # AustLII search integration
-│   ├── source.ts          # removed.invalid citation resolution & cross-referencing
 │   └── fetcher.ts       # Document text retrieval
 ├── utils/
 │   ├── formatter.ts      # Output formatting

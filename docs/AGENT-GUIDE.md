@@ -109,7 +109,7 @@
     "court": "HCA",
     "date": "2024-02-15",
     "url": "https://www.austlii.edu.au/...",
-    "source": "source",
+    "source": "austlii",
     "snippet": "..."
   }
 ]
@@ -117,8 +117,7 @@
 
 When a search source is unavailable but the tool call itself succeeds, JSON
 responses use a degraded object instead of the normal array. This includes
-AustLII search blocks and incomplete configured coverage such as
-`source: "not_configured"`:
+AustLII search blocks:
 
 ```json
 {
@@ -131,8 +130,7 @@ AustLII search blocks and incomplete configured coverage such as
     }
   ],
   "sources": {
-    "austlii": "blocked",
-    "source": "not_configured"
+    "austlii": "blocked"
   },
   "degraded": true
 }
@@ -167,7 +165,7 @@ CLI callers should also treat exit code 4 as source unavailable.
 
 ### fetch_document_text
 
-**Purpose:** Fetch full text from AustLII or removed.invalid URL.
+**Purpose:** Fetch full text from an AustLII URL.
 
 **Parameters:**
 | Name | Type | Required | Description |
@@ -179,7 +177,8 @@ CLI callers should also treat exit code 4 as source unavailable.
 
 - AustLII HTML: https://www.austlii.edu.au/cgi-bin/viewdoc/au/cases/cth/HCA/1992/23.html
 - AustLII PDF: https://www.austlii.edu.au/...
-- removed.invalid: https://removed.invalid/article/68901
+
+Non-AustLII URLs are rejected.
 
 **Response Format:**
 
@@ -259,68 +258,6 @@ CLI callers should also treat exit code 4 as source unavailable.
 
 ---
 
-### source_lookup
-
-**Purpose:** Look up removed.invalid by article ID or neutral citation, selected via `by`.
-
-**Parameters:**
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| by | string | Yes | article_id or citation |
-| articleId | number | Yes for article_id | removed.invalid article ID |
-| citation | string | Yes for citation | Neutral citation |
-
-**Response (`by: article_id`):**
-
-```json
-{
-  "articleId": 68901,
-  "caseName": "Mabo v Queensland (No 2)",
-  "neutralCitation": "[1992] HCA 23",
-  "jurisdiction": "cth",
-  "court": "HCA",
-  "year": 1992
-}
-```
-
-**Response (`by: citation`):**
-
-```json
-{
-  "citation": "[2008] NSWSC 323",
-  "sourceUrl": "https://removed.invalid/article/12345"
-}
-```
-
----
-
-### search_citing_cases
-
-**Purpose:** Find cases that cite a given case (removed.invalid citator).
-
-**Parameters:**
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| caseName | string | Yes | Case name or citation |
-| format | string | No | Output format |
-
-**Response:**
-
-```json
-{
-  "totalCount": 847,
-  "results": [
-    {
-      "caseName": "Subsequent Case",
-      "neutralCitation": "[2020] HCA 5",
-      "sourceUrl": "https://removed.invalid/article/..."
-    }
-  ]
-}
-```
-
----
-
 ### cite
 
 **Purpose:** Write to the local citation cache, selected via `action`.
@@ -330,7 +267,7 @@ CLI callers should also treat exit code 4 as source unavailable.
 |------|------|----------|-------------|
 | action | string | No | add (default) or refresh_source |
 | title | string | Yes for add | Case name |
-| url | string | Yes for add | Primary source URL (AustLII or removed.invalid) |
+| url | string | Yes for add | Primary source URL (AustLII) |
 | citeKey | string | Yes for refresh_source | Cite key of a cached citation |
 | neutralCitation, reportedCitation, type, jurisdiction, year, court, keywords, summary, document, footnoteNumber, pinpoint, style | various | No | Citation metadata (add) |
 
@@ -354,17 +291,6 @@ CLI callers should also treat exit code 4 as source unavailable.
 | document | string | No | Filter to one document (list/export) |
 | outputPath | string | No | Absolute path for the .bib file (export) |
 | format | string | No | Output format |
-
----
-
-### cache_cited_by
-
-**Purpose:** Fetch citing cases for a cached citation from removed.invalid and store them locally (requires SESSION_COOKIE).
-
-**Parameters:**
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| citeKey | string | Yes | Cite key of the parent case |
 
 ---
 
@@ -445,21 +371,11 @@ CLI callers should also treat exit code 4 as source unavailable.
 
 **Resolution:** Wait and retry, or reduce query frequency.
 
-### removed.invalid Auth Required
-
-```json
-{
-  "error": "removed.invalid authentication required. Set SESSION_COOKIE."
-}
-```
-
-**Resolution:** Provide session cookie via environment variable.
-
 ### Invalid URL
 
 ```json
 {
-  "error": "URL not allowed. Only AustLII and removed.invalid domains permitted."
+  "error": "URL not allowed. Only AustLII domains permitted."
 }
 ```
 
@@ -473,15 +389,13 @@ CLI callers should also treat exit code 4 as source unavailable.
 
 2. **Use jurisdiction filters:** Reduces noise, especially for common legal terms.
 
-3. **Prefer removed.invalid results:** When both sources return the same case (by neutral citation), removed.invalid has richer metadata.
+3. **Fetch full text for analysis:** Use fetch_document_text before asking detailed questions about a case.
 
-4. **Fetch full text for analysis:** Use fetch_document_text before asking detailed questions about a case.
+4. **Validate citations:** Always validate neutral citations before citing in formal work.
 
-5. **Validate citations:** Always validate neutral citations before citing in formal work.
+5. **Use pinpoint for precision:** When referencing specific passages, generate pinpoint citations.
 
-6. **Use pinpoint for precision:** When referencing specific passages, generate pinpoint citations.
-
-7. **Check citing cases:** Use search_citing_cases to find subsequent treatment of a case.
+6. **Check citing cases:** Use find_citing for local citation-graph recall of subsequent treatment.
 
 ---
 
@@ -513,7 +427,7 @@ CLI callers should also treat exit code 4 as source unavailable.
 **Step 4:** Find citing cases
 
 ```json
-{ "tool": "search_citing_cases", "arguments": { "caseName": "[2024] HCA 1" } }
+{ "tool": "find_citing", "arguments": { "caseName": "[2024] HCA 1" } }
 ```
 
 ---
@@ -524,9 +438,7 @@ CLI callers should also treat exit code 4 as source unavailable.
 
 | Variable            | Purpose                                       | Required                                    |
 | ------------------- | --------------------------------------------- | ------------------------------------------- |
-| SESSION_COOKIE | removed.invalid authenticated access                  | For removed.invalid subscription content            |
 | ISAACUS_API_KEY     | BYOK key for the optional domain-adapter slot | For the optional domain-specialised adapter |
-| LITELLM_BASE_URL    | LiteLLM gateway                               | For generative fallback                     |
 
 ---
 
@@ -535,7 +447,6 @@ CLI callers should also treat exit code 4 as source unavailable.
 | Source  | Limit       | Window   |
 | ------- | ----------- | -------- |
 | AustLII | 10 requests | 1 minute |
-| removed.invalid | 5 requests  | 1 minute |
 
 **Note:** These are enforced server-side. Exceeding limits returns errors, not cached results.
 

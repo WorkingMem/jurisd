@@ -52,7 +52,7 @@ describe("jurisd tui CLI dispatch smoke", () => {
           text: JSON.stringify(
             {
               degraded: true,
-              sources: { austlii: "blocked", source: "not_configured" },
+              sources: { austlii: "blocked", exa: "not_configured" },
               warnings: [
                 {
                   code: "austlii_cloudflare_blocked",
@@ -97,7 +97,7 @@ describe("jurisd tui CLI dispatch smoke", () => {
     expect(output.value).toContain("dispatch: search.cases");
     expect(output.value).toContain("Search cases results: 0");
     expect(output.value).toContain("DEGRADED");
-    expect(output.value).toContain("Sources: austlii=blocked, source=not_configured");
+    expect(output.value).toContain("Sources: austlii=blocked, exa=not_configured");
     expect(output.value).toContain("dispatch: search.legislation");
     expect(output.value).toContain("Search legislation results: 1");
     expect(output.value).toContain("Privacy Act 1988 (Cth)");

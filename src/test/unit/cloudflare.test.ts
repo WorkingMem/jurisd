@@ -122,9 +122,8 @@ describe("cfBlockMessage", () => {
     expect(msg).toContain(url);
   });
 
-  it("names the configurable fallbacks (EXA_API_KEY / SESSION_COOKIE)", () => {
+  it("names the configurable fallback (EXA_API_KEY)", () => {
     const msg = cfBlockMessage("https://example.com");
     expect(msg).toContain("EXA_API_KEY");
-    expect(msg).toContain("SESSION_COOKIE");
   });
 });

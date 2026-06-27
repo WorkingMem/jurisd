@@ -105,7 +105,7 @@ export function formatCapabilityProbeSummary(caps: CapabilityProbe): string {
         : "  Legal-domain refinement: not configured, using baseline ranking.",
   );
   lines.push(
-    "  Live AustLII, Source, Exa, and citation search are checked when their search commands run.",
+    "  Live AustLII, Exa, and citation search are checked when their search commands run.",
   );
   return lines.join("\n");
 }

@@ -114,12 +114,12 @@ describe("TUI shell", () => {
               degraded: true,
               warnings: [
                 {
-                  code: "source_not_configured",
-                  source: "source",
-                  message: "Source search is not configured.",
+                  code: "exa_not_configured",
+                  source: "exa",
+                  message: "Exa search is not configured.",
                 },
               ],
-              sources: { austlii: "ok", source: "not_configured" },
+              sources: { austlii: "ok", exa: "not_configured" },
               results: [
                 {
                   title: "Mabo v Queensland (No 2)",
@@ -171,7 +171,7 @@ describe("TUI shell", () => {
     expect(output.value).toContain("dispatch: search.cases");
     expect(output.value).toContain("Search cases results: 1");
     expect(output.value).toContain("DEGRADED");
-    expect(output.value).toContain("Sources: austlii=ok, source=not_configured");
+    expect(output.value).toContain("Sources: austlii=ok, exa=not_configured");
     expect(output.value).toContain("Mabo v Queensland (No 2)");
     expect(output.value).toContain("dispatch: search.legislation");
     expect(output.value).toContain("Search legislation results: 1");

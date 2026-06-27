@@ -20,8 +20,6 @@ export declare class RateLimiter {
 }
 /** Rate limiter for AustLII: 10 requests per minute */
 export declare const austliiRateLimiter: RateLimiter;
-/** Rate limiter for removed.invalid: 5 requests per minute */
-export declare const upstreamRateLimiter: RateLimiter;
 /** Rate limiter for Tavily fallback discovery: 5 requests per minute */
 export declare const tavilyRateLimiter: RateLimiter;
 //# sourceMappingURL=rate-limiter.d.ts.map

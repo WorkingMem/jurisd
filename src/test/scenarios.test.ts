@@ -356,7 +356,7 @@ describeLive("Search relevance and sorting", () => {
   }, 30000);
 });
 
-describeLive("Reported citations and removed.invalid support", () => {
+describeLive("Reported citations", () => {
   /**
    * Test that reported citations are extracted when available
    */
@@ -408,23 +408,6 @@ describeLive("Reported citations and removed.invalid support", () => {
   }, 30000);
 
   /**
-   * Test that removed.invalid URLs can be fetched (if user provides them)
-   * Note: This test will skip if the URL isn't accessible
-   */
-  it("should handle removed.invalid URLs in fetch_document_text", async () => {
-    // This is a conceptual test - removed.invalid URLs require authentication
-    // so we just verify the code handles the URL pattern correctly
-
-    const sourceUrl = "https://removed.invalid/article/example";
-
-    // Verify our code recognizes removed.invalid URLs
-    expect(sourceUrl).toMatch(/source\.io/);
-
-    // The actual fetching would require valid removed.invalid access
-    // In practice, users would provide URLs they have access to
-  }, 5000);
-
-  /**
    * Test that source field is correctly set
    */
   it("should set correct source field for results", async () => {
@@ -436,11 +419,8 @@ describeLive("Reported citations and removed.invalid support", () => {
     expect(results.length).toBeGreaterThan(0);
 
     results.forEach((result) => {
-      // All current results should be from austlii
+      // All results come from AustLII.
       expect(result.source).toBe("austlii");
-
-      // Verify source is a valid type
-      expect(["austlii", "source"]).toContain(result.source);
     });
   }, 30000);
 });

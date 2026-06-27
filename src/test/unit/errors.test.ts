@@ -52,7 +52,6 @@ describe("Custom error classes", () => {
     it("has an actionable message naming the configurable fallbacks and the URL", () => {
       const err = new CloudflareBlockedError(url, true);
       expect(err.message).toContain("EXA_API_KEY");
-      expect(err.message).toContain("SESSION_COOKIE");
       expect(err.message).toContain("AUSTLII_CF_CLEARANCE");
       expect(err.message).toContain(url);
     });

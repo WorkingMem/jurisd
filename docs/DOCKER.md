@@ -115,7 +115,7 @@ docker run -i --rm \
 
 Each module is a subdirectory containing `manifest.json` plus the four parquet
 files (`documents`, `chunks`, `edges`, `unmatched_citations`). With nothing
-mounted, the live AustLII/removed.invalid tools and citation tools still work; only the
+mounted, the live AustLII tools and citation tools still work; only the
 local-recall tools report "no modules" (degrade-visibly).
 
 To point the loader somewhere other than `/data/modules`, override the env var:
@@ -140,7 +140,6 @@ for a containerised run:
 | `JURISD_MODULE_VERIFY_ON_LOAD` | `false`                 | sha256-verify each parquet against the manifest on load.                |
 | `JURISD_MODELS_DIR`            | `~/.jurisd/models`      | Embedder model cache (only used if transformers is added to the image). |
 | `JURISD_EMBED_OFFLINE`         | `false`                 | Hard-fail instead of fetching the embedder model over the network.      |
-| `SESSION_COOKIE`          | _(unset)_               | removed.invalid session cookie for authenticated search/fetch.                  |
 | `AUSTLII_TIMEOUT`              | `60000`                 | AustLII request timeout (ms); AustLII is slow.                          |
 | `AUSTLII_CF_CLEARANCE`         | _(unset)_               | Reuse an already-solved Cloudflare `cf_clearance` cookie.               |
 | `AUSLAW_USE_IMPIT`             | `true`                  | Use the impit TLS-impersonating client for AustLII.                     |
@@ -189,7 +188,7 @@ docker compose down
 ## Verifying the image
 
 `scripts/docker-handshake.mjs` drives the stdio `initialize` + `tools/list`
-exchange and asserts the tool count (15):
+exchange and asserts the tool count (12):
 
 ```bash
 node scripts/docker-handshake.mjs --engine docker --image jurisd:latest

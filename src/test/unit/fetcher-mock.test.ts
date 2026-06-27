@@ -29,15 +29,14 @@ vi.mock("../../services/cloudflare.js", () => ({
 
 vi.mock("../../utils/rate-limiter.js", () => ({
   austliiRateLimiter: { throttle: vi.fn().mockResolvedValue(undefined) },
-  upstreamRateLimiter: { throttle: vi.fn().mockResolvedValue(undefined) },
 }));
 
 vi.mock("file-type", () => ({
   fileTypeFromBuffer: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Stub config explicitly. The ambient SESSION_COOKIE (and any AUSTLII_*
-// env) on this machine would otherwise be captured by the config singleton.
+// Stub config explicitly so any ambient AUSTLII_* env on this machine is not
+// captured by the config singleton.
 const mockConfig = vi.hoisted(() => ({
   austlii: {
     userAgent: "test-austlii-ua/1.0",
@@ -48,12 +47,6 @@ const mockConfig = vi.hoisted(() => ({
     cfClearance: undefined as string | undefined,
     accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     acceptLanguage: "en-AU,en;q=0.9",
-  },
-  source: {
-    userAgent: "jurisd-test",
-    timeout: 5000,
-    sessionCookie: undefined as string | undefined,
-    baseUrl: "https://removed.invalid",
   },
   oalc: { enabled: true, source: "/tmp/fixture.jsonl" },
 }));
@@ -80,13 +73,6 @@ describe("fetchDocumentText AustLII routing (transport seam)", () => {
     mockConfig.austlii.classicRewrite = true;
     mockConfig.austlii.cfClearance = undefined;
     mockConfig.oalc.enabled = true;
-  });
-
-  it("throws a descriptive error for removed.invalid URLs with no session cookie", async () => {
-    mockConfig.source.sessionCookie = undefined;
-    await expect(fetchDocumentText("https://removed.invalid/article/67401")).rejects.toThrow(
-      /fetch_document_text.*source\.io/i,
-    );
   });
 
   it("applies the classic-doc rewrite before fetching", async () => {
@@ -149,8 +135,6 @@ describe("fetchDocumentText AustLII routing (transport seam)", () => {
     await fetchDocumentText(MABO_URL);
     const opts = getMock.mock.calls[0]?.[1] as { headers: Record<string, string> };
     expect(opts.headers["User-Agent"]).toBe("test-austlii-ua/1.0");
-    // Must NOT be the source UA (the precise v1 defect).
-    expect(opts.headers["User-Agent"]).not.toBe("jurisd-test");
     expect(opts.headers["Accept-Language"]).toBe("en-AU,en;q=0.9");
   });
 
@@ -176,12 +160,12 @@ describe("fetchDocumentText AustLII routing (transport seam)", () => {
       status: 200,
       headers: { "content-type": "text/html" },
       body: Buffer.from(AUSTLII_CLASSIC_JUDGMENT_HTML, "utf-8"),
-      finalUrl: "https://removed.invalid/article/67683",
+      finalUrl: "https://example.com/article/67683",
       via: "impit" as const,
     });
 
     await expect(fetchDocumentText(MABO_URL)).rejects.toThrow(
-      /redirected outside AustLII.*source\.io/,
+      /redirected outside AustLII.*example\.com/,
     );
   });
 

@@ -10,7 +10,7 @@ export declare function assertFetchableUrl(url: string): void;
  * Maximum redirects to follow on guarded fetches. `assertFetchableUrl` only
  * validates the first hop; without a bound + per-hop re-check, a 302 from an
  * allowlisted origin to an internal address (or a metadata endpoint) would be
- * followed silently. Keep this small — legitimate AustLII/source flows redirect
+ * followed silently. Keep this small — legitimate AustLII flows redirect
  * at most once or twice.
  */
 export declare const MAX_REDIRECTS = 3;

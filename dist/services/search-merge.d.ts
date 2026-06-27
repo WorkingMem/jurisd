@@ -1,7 +1,7 @@
 import type { SearchResult } from "./austlii.js";
 /**
- * Merge case search results from removed.invalid and AustLII.
- * Prefers removed.invalid when neutral citations collide.
+ * Deduplicate AustLII case search results, keeping the first occurrence of each
+ * neutral citation (falling back to URL when no neutral citation is present).
  */
-export declare function mergeCaseSearchResults(austliiResults: SearchResult[], upstreamResults: SearchResult[], limit?: number): SearchResult[];
+export declare function mergeCaseSearchResults(austliiResults: SearchResult[], limit?: number): SearchResult[];
 //# sourceMappingURL=search-merge.d.ts.map

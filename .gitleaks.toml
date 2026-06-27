@@ -17,7 +17,6 @@ paths = [
 ]
 # The committed sample/config values are templates, not live secrets.
 regexes = [
-  '''SESSION_COOKIE=\$\{?SESSION_COOKIE''',
   '''ISAACUS_API_KEY=\$\{?ISAACUS_API_KEY''',
   '''your-[a-z-]*-here''',
 ]

@@ -3,11 +3,7 @@
     "jurisd": {
       "type": "stdio",
       "command": "node",
-      "args": ["dist/index.js"],
-      "env": {
-        "SESSION_COOKIE": "${SESSION_COOKIE:-}",
-        "SOURCE_USER_AGENT": "${SOURCE_USER_AGENT:-}"
-      }
+      "args": ["dist/index.js"]
     }
   }
 }
