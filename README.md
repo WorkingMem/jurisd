@@ -43,26 +43,26 @@ npx -y jurisd
 over stdio in one step. Before the npm registry package is published, use
 `npx -y github:russellbrenner/jurisd`.
 
-### Install the CLI persistently from GitHub
+### Install the CLI persistently from NPM or directly from GitHub
 
-```bash
-npm install -g https://github.com/russellbrenner/jurisd/archive/refs/heads/main.tar.gz
-jurisd --help
-```
-
-Use the GitHub tarball form only for persistent installs before the npm registry
-package is published. After 0.5.0 is available on npm, prefer:
+#### npm published package 
 
 ```bash
 npm install -g jurisd
 jurisd --help
 ```
 
-Bare git installs such as `npm install -g github:russellbrenner/jurisd` depend
+#### npm install via git directly, including your own fork
+
+```bash
+npm install -g https://github.com/russellbrenner/jurisd/archive/refs/heads/main.tar.gz
+jurisd --help
+```
+**NB:** Bare git installs such as `npm install -g github:russellbrenner/jurisd` depend
 on npm's `install-links` setting and can leave a broken global bin on hosts where
 `install-links=false`.
 
-### Register with Claude Code
+### Register with Your Coding Agent
 
 ```bash
 claude mcp add jurisd -- npx -y github:russellbrenner/jurisd
